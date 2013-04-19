@@ -1,0 +1,18 @@
+<package>
+  <description brief="hubo_rviz">
+
+     hubo_rviz
+
+  </description>
+  <author>arc-wind</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hubo_rviz</url>
+  <depend package="roscpp"/>
+  <depend package="rospy"/>
+  <depend package="hubo_ros"/>
+  <depend package="rosbag"/>
+
+</package>
+
+

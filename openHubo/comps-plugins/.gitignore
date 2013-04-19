@@ -1,0 +1,11 @@
+*.a
+*.o
+*.so
+.svn
+build
+*.swp
+*.pyc
+cscope.out
+Makefile
+doc
+*~

@@ -1,0 +1,5 @@
+float64 x_acceleration
+float64 y_acceleration
+float64 z_acceleration
+float64 x_rotation
+float64 y_rotation

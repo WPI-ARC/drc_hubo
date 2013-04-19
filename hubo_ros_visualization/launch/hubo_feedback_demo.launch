@@ -1,0 +1,13 @@
+<launch>
+
+	<arg name="model" default="$(find hubo_ros_visualization)/descriptions/huboplus/huboplus.xml" />
+	<arg name="gui" default="False" />
+	<param name="robot_description" textfile="$(arg model)" />
+	<param name="use_gui" value="$(arg gui)"/>
+	
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+	
+	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find hubo_ros_visualization)/rviz_configs/hubo_model_display.vcg" />
+
+    <node name="play" pkg="rosbag" type="play" args="$(find hubo_ros_visualization)/bags/Hubo_Valve_Turning.bag"/>
+</launch>

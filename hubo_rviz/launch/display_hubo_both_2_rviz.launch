@@ -1,0 +1,24 @@
+<launch>
+
+	<arg name="model" default="$(find hubo_rviz)/descriptions/huboplus/huboplus.xml" />
+	<arg name="gui" default="False" />
+
+	<param name="use_gui" value="$(arg gui)"/>
+	
+    <group ns="robot_1">
+        <param name="tf_prefix" value="robot_1" />
+        <param name="robot_description" textfile="$(arg model)" />
+	    <node name="joint_state_publisher_feedback_both" pkg="hubo_rviz" type="joint_state_publisher_feedback_both.py" output="screen"></node>
+	    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+    </group>
+
+    <group ns="robot_2">
+        <param name="tf_prefix" value="robot_2" />
+        <param name="robot_description" textfile="$(arg model)" />
+	    <node name="joint_state_publisher_feedforward_both" pkg="hubo_rviz" type="joint_state_publisher_feedforward_both.py" output="screen"></node>
+	    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+    </group>
+	
+	<node name="rviz_FB" pkg="rviz" type="rviz" args="-d $(find hubo_rviz)/rviz_configs/hubo_model_FB.vcg" />
+    <node name="rviz_FF" pkg="rviz" type="rviz" args="-d $(find hubo_rviz)/rviz_configs/hubo_model_FF.vcg" />
+</launch>

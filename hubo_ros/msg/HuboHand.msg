@@ -1,0 +1,5 @@
+HuboJointState thumb
+HuboJointState index
+HuboJointState middle
+HuboJointState ring
+HuboJointState pinky

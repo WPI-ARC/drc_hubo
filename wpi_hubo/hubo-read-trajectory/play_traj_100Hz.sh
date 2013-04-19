@@ -1,0 +1,11 @@
+sudo ./hubo-read-trajectory -f 100 -n valve0.traj
+sudo ./hubo-read-trajectory -f 100 -n valve1.traj
+sudo ./hubo-read-trajectory -f 100 -n valve2.traj
+sudo ./hubo-read-trajectory -f 100 -n valve1.traj
+sudo ./hubo-read-trajectory -f 100 -n valve2.traj
+sudo ./hubo-read-trajectory -f 100 -n valve1.traj
+sudo ./hubo-read-trajectory -f 100 -n valve2.traj
+sudo ./hubo-read-trajectory -f 100 -n valve1.traj
+sudo ./hubo-read-trajectory -f 100 -n valve2.traj
+sudo ./hubo-read-trajectory -f 100 -n valve1.traj
+sudo ./hubo-read-trajectory -f 100 -n valve3.traj

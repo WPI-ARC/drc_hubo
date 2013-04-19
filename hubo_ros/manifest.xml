@@ -1,0 +1,16 @@
+<package>
+  <description brief="hubo_ros">
+
+     hubo_ros
+
+  </description>
+  <author>Calder Phillips-Grafflin and Daniel M. Lefaro</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ros_hubo_ach</url>
+  <depend package="std_msgs"/>
+  <depend package="roscpp"/>
+
+</package>
+
+

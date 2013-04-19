@@ -1,0 +1,15 @@
+To use the hubo_ros_visualization you also need the hubo_ros package.
+
+The package comes wil the ability to display currrent feedback from the hubo as well as play demo information obtained from the 12/17 - 12/18 hubo valve turning tests at CSAIL MIT
+
+To display current feedback from the hubo:
+1) In the terminal run the command $ roslaunch hubo_ros_visualizaton hubo_feedback.launch
+Note: To make the hubo move in rviz a HuboState.msg must be published on the "Hubo/HuboState" topic
+Note: The model in rviz will look incorrect until a message is properly received
+
+To run the demo of the hubo moving in rviz:
+1) Navigate to the hubo_ros_visualization folder
+2) Decrompress the bag data by running $ rosbag decompress bags/Hubo_Valve_Turning.bag
+3) In the terminal run the command $ roslaunch hubo_ros_visualization hubo_feedback_demo.launch
+
+
