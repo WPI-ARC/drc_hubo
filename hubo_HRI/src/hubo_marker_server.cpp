@@ -36,9 +36,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <geometry_msgs/Pose.h>
 #include <iostream>
 #include <fstream>
+#include <std_srvs/Empty.h>
+
+//Services for working with Hubo
+#include "hubo_srvs/LadderClimbingWalk.h"
 
 using namespace interactive_markers;
 using namespace visualization_msgs;
+
+ros::ServiceClient client_wave;
+ros::ServiceClient client_walk;
+ros::ServiceClient client_ladder;
+std_srvs::Empty srv_wave;
+std_srvs::Empty srv_walk;
+hubo_srvs::LadderClimbingWalk srv_ladder;
 
 void makeWaveIcon(geometry_msgs::Pose newPose);
 
@@ -64,12 +75,31 @@ void processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPt
             //WAVE
             case 1:
 
+                ROS_INFO("CALLING THE WAVE SERVICE");
+                
+                //Try and make the call down to the robot
+                if(client_wave.call(srv_wave)){ }
+                else { }
+
                 server->erase(marker_name);
                 makeWaveIcon(currentPose);
                 break;
 
             //WALK
             case 2:
+
+                if(client_walk.call(srv_walk)){ }
+                else { }
+
+                break;
+
+            //Ladder Climb
+            case 3:
+
+                srv_ladder.request.input = 10;
+
+                if(client_ladder.call(srv_ladder)){ }
+                else { }
 
                 break;
 
@@ -173,9 +203,14 @@ int main(int argc, char** argv)
     server = new interactive_markers::InteractiveMarkerServer("hubo_marker_server","",false);
     ros::Duration(.1).sleep();
 
+    client_wave = n.serviceClient<std_srvs::Empty>("/hubo_wave");
+    client_walk = n.serviceClient<std_srvs::Empty>("/hubo_walk");
+    client_ladder = n.serviceClient<hubo_srvs::LadderClimbingWalk>("ladder_climbing/walk");
+
     //Setup the menu options, this may change location
     menu_handler.insert( "Wave", &processFeedback );
     menu_handler.insert( "Walk", &processFeedback );
+    menu_handler.insert( "Ladder Climb", &processFeedback );
 
     geometry_msgs::Pose start;
     start.position.x = 0;

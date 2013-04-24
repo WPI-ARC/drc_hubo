@@ -24,14 +24,10 @@ include_directories(${LIBXML2_INCLUDE_DIR})
 message(STATUS "LIBXML2_INCLUDE_DIR : " ${LIBXML2_INCLUDE_DIR})
 message(STATUS "LIBXML2_LIBRARIES : " ${LIBXML2_LIBRARIES})
 
-find_package(Eigen3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
-message(STATUS "EIGEN3_INCLUDE_DIR : " ${EIGEN3_INCLUDE_DIR})
-
 #uncomment if you have defined messages
 #rosbuild_genmsg()
 #uncomment if you have defined services
-rosbuild_gensrv()
+#rosbuild_gensrv()
 
 #common commands for building c++ executables and libraries
 #rosbuild_add_library(${PROJECT_NAME} src/plan_executer.cpp)
