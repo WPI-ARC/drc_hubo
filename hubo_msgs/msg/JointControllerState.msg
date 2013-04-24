@@ -10,3 +10,7 @@ float64 p
 float64 i
 float64 d
 float64 i_clamp
+float64 current
+float64 temperature
+bool active
+bool zeroed

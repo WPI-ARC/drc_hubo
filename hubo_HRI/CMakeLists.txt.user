@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by Qt Creator 2.4.1, 2012-12-24T01:09:45. -->
+<!-- Written by Qt Creator 2.4.1, 2013-04-24T13:59:39. -->
 <qtcreator>
  <data>
   <variable>ProjectExplorer.Project.ActiveTarget</variable>
@@ -56,7 +56,7 @@
    <value type="int" key="ProjectExplorer.Target.ActiveDeployConfiguration">0</value>
    <value type="int" key="ProjectExplorer.Target.ActiveRunConfiguration">0</value>
    <valuemap type="QVariantMap" key="ProjectExplorer.Target.BuildConfiguration.0">
-    <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.BuildDirectory">/home/calderpg/Dropbox/DARPA_Research_Work/drc/qtcreator-build</value>
+    <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.BuildDirectory">/home/nick/Dropbox/ROS_Workspace/drc_hubo/hubo_HRI/build</value>
     <value type="QString" key="CMakeProjectManager.CMakeBuildConfiguration.ToolChain">ProjectExplorer.ToolChain.Gcc:/usr/bin/g++.x86-linux-generic-elf-64bit./usr/bin/gdb</value>
     <value type="QString" key="ProjectExplorer.BuildCOnfiguration.ToolChain">ProjectExplorer.ToolChain.Gcc:/usr/bin/g++.x86-linux-generic-elf-64bit./usr/bin/gdb</value>
     <valuemap type="QVariantMap" key="ProjectExplorer.BuildConfiguration.BuildStepList.0">
@@ -172,12 +172,12 @@
      <value type="int">14</value>
     </valuelist>
     <value type="int" key="CMakeProjectManager.BaseEnvironmentBase">2</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">hubo_ros_feedback</value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">HUBO_HRI_MARKERS</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments"></value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
     <valuelist type="QVariantList" key="CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges"/>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.UserWorkingDirectory"></value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">hubo_ros_feedback</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">HUBO_HRI_MARKERS (disabled)</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">CMakeProjectManager.CMakeRunConfiguration.</value>
     <value type="uint" key="RunConfiguration.QmlDebugServerPort">3768</value>
@@ -249,12 +249,12 @@
      <value type="int">14</value>
     </valuelist>
     <value type="int" key="CMakeProjectManager.BaseEnvironmentBase">2</value>
-    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">hubo_ros_feedforward_control</value>
+    <value type="QString" key="CMakeProjectManager.CMakeRunConfiguation.Title">hubo_marker_server</value>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.Arguments"></value>
     <value type="bool" key="CMakeProjectManager.CMakeRunConfiguration.UseTerminal">false</value>
     <valuelist type="QVariantList" key="CMakeProjectManager.CMakeRunConfiguration.UserEnvironmentChanges"/>
     <value type="QString" key="CMakeProjectManager.CMakeRunConfiguration.UserWorkingDirectory"></value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">hubo_ros_feedforward_control</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">hubo_marker_server</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">CMakeProjectManager.CMakeRunConfiguration.</value>
     <value type="uint" key="RunConfiguration.QmlDebugServerPort">3768</value>
@@ -271,7 +271,7 @@
  </data>
  <data>
   <variable>ProjectExplorer.Project.Updater.EnvironmentId</variable>
-  <value type="QString">{fe2033c9-4727-4e5f-9b31-7ecec0bfcd05}</value>
+  <value type="QString">{52f1deca-cad0-455b-8460-a172a515d8ab}</value>
  </data>
  <data>
   <variable>ProjectExplorer.Project.Updater.FileVersion</variable>
