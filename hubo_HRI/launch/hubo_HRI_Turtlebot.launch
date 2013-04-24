@@ -1,0 +1,8 @@
+<launch>
+
+  <include file="$(find turtlebot_gazebo)/launch/robot.launch" />
+
+  <node name="hubo_marker_server" pkg="hubo_HRI" type="hubo_marker_server" output="screen"/>
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find hubo_HRI)/rviz/hubo_HRI_Turtlebot.vcg" />
+
+</launch>
