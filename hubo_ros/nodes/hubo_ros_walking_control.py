@@ -18,15 +18,13 @@ import numpy
 
 from std_srvs.srv  import *
 
-
 def handle_hubo_walk(req):
     print "Hubo Walk Service request"
-    cmd = "./zmpdemo ../myhubo.kinbody.xml -w canned -z 0.05 -y 0.0885 -d 0.01 -s 0.5 -c 8 -p 2 -l 0.08 -X 0.038 -h 0.5 -A"
+    cmd = "/home/jmainpri/workspace/hubomz/build/zmpdemo /home/jmainpri/workspace/hubomz/myhubo.kinbody.xml -w canned -z 0.05 -y 0.0885 -d 0.01 -s 0.5 -c 8 -p 2 -l 0.08 -X 0.038 -h 0.5 -A"
     returnedString = commands.getoutput(cmd)
     print "Returned String"
     print returnedString
     return EmptyResponse()
-
 
 def main():
     # Initialize ROS node
