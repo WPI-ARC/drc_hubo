@@ -18,6 +18,8 @@ from str2num import *
 from TSR import *
 import os # for file operations
 
+launch_viewer = True
+
 def trans_to_str(T):
     myStr = ""
     for c in range(0,3):
@@ -32,6 +34,7 @@ def trans_to_str(T):
     return myStr
 
 def run():
+
     normalsmoothingitrs = 150;
     fastsmoothingitrs = 20;
 
@@ -40,7 +43,8 @@ def run():
     robotid = env.ReadRobotURI('/home/jmainpri/workspace/drc_hubo/openHubo/huboplus/rlhuboplus_mit.robot.xml')
     env.Add(robotid)
     env.SetViewer('qtcoin')
-
+    env.GetViewer().SetCamera([0.262, -0.733602, -0.623389, 0.0642694, 1.0, -0.5, 2.5])
+    
     probs_cbirrt = RaveCreateModule(env,'CBiRRT')
 
     manips = robotid.GetManipulators()
@@ -260,7 +264,7 @@ def run():
     except OSError, e:
         print e
 
-    env.Destroy()
+    #env.Destroy()
 
 if __name__ == "__main__":
     run()
