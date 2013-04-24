@@ -30,3 +30,4 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #target_link_libraries(example ${PROJECT_NAME})
 
 rosbuild_add_executable(hubo_marker_server src/hubo_marker_server.cpp)
+rosbuild_add_executable(hubo_planner src/hubo_planner.cpp)
