@@ -1,0 +1,17 @@
+<package>
+  <description brief="hubo_msgs">
+
+     hubo_msgs
+
+  </description>
+  <author>Calder Phillips-Grafflin</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hubo_msgs</url>
+  <depend package="std_msgs"/>
+  <depend package="trajectory_msgs"/>
+  <depend package="actionlib_msgs"/>
+
+</package>
+
+
