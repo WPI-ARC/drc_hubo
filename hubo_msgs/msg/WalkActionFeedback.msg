@@ -2,4 +2,4 @@
 
 Header header
 actionlib_msgs/GoalStatus status
-JointCommandActionFeedback feedback
+WalkFeedback feedback
