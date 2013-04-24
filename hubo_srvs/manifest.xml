@@ -1,0 +1,17 @@
+<package>
+  <description brief="hubo_srvs">
+
+     hubo_srvs
+
+  </description>
+  <author>Nicholas Alunni</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hubo_srvs</url>
+  <depend package="roscpp"/>
+  <depend package="std_msgs"/>
+  <depend package="trajectory_msgs"/>
+
+</package>
+
+
