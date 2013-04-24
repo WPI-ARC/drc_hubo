@@ -29,6 +29,7 @@ Copyright (c) 2012, Daniel M. Lofaro
 // ROS includes
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "rosgraph_msgs/Clock.h"
 
 // Hubo kinematic state includes
 #include "hubo_msgs/JointCommandState.h"
@@ -54,6 +55,9 @@ Copyright (c) 2012, Daniel M. Lofaro
 ach_channel_t chan_hubo_state;
 ach_channel_t chan_hubo_ref_filter;
 
+ros::Publisher g_hubo_state_pub;
+ros::Publisher g_hubo_clock_pub;
+
 // Debug mode switch
 int hubo_debug = 0;
 
@@ -61,10 +65,16 @@ int hubo_debug = 0;
 char *joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach1", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
 //Convert HUBO-ACH state to an ROS HuboState message
-bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_reference, hubo_msgs::JointCommandState joint_msg)
+bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_reference)
 {
     if (robot_state != NULL && robot_reference != NULL)
     {
+        //Publish clock info
+        rosgraph_msgs::Clock clock_state;
+        clock_state.clock = ros::Time(robot_state->time);
+        g_hubo_clock_pub.publish(clock_state);
+        //Make new message
+        hubo_msgs::JointCommandState joint_msg;
         //Read through the two Hubo-ACH structs into the joint_message
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
@@ -97,6 +107,7 @@ bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_ref
         }
         joint_msg.header.frame_id = std::string("/hubo_base_link");
         joint_msg.header.stamp = ros::Time::now();
+        g_hubo_state_pub.publish(joint_msg);
         return true;
     }
     else
@@ -128,7 +139,8 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "hubo_ros_feedback");
     ros::NodeHandle nh;
     //construct ROS publisher
-    ros::Publisher hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
+    ros::Publisher g_hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
+    g_hubo_clock_pub = nh.advertise<rosgraph_msgs::Clock>("clock", 1);
     ROS_INFO("ROS publisher loaded\n");
     //Loop
     while (ros::ok())
@@ -162,10 +174,9 @@ int main(int argc, char **argv)
         //Assemble new HuboState message
         hubo_msgs::JointCommandState hubo_state_msg;
 
-        if(ACHtoHuboState(&H_state, &H_ref_filter, hubo_state_msg))
+        if(ACHtoHuboState(&H_state, &H_ref_filter))
         {
-            //Publish HuboState
-            hubo_state_pub.publish(hubo_state_msg);
+            ;
         }
         else
         {
