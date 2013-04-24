@@ -1,6 +1,6 @@
 #include <vector>
 #include <iostream>
-#include <Eigen/Dense>
+//#include <Eigen/Dense>
 #include <libxml/parser.h>
 
 #include "ros/ros.h"
@@ -9,7 +9,7 @@
 #include "trajectory_msgs/JointTrajectory.h"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 //#include "beginner_tutorials/AddTwoInts.h"
-#include "hackdrc_wave_planner/HuboWaveTraj.h"
+#include "hubo_srvs/HuboWaveTraj.h"
 
 using namespace std;
 
@@ -93,8 +93,8 @@ bool convert_text_to_num(T& t,
 class openraveTrajectory
 {
 public:
-    std::vector<Eigen::VectorXd> positions;
-    std::vector<Eigen::VectorXd> velocities;
+    std::vector< std::vector<double> > positions;
+    std::vector< std::vector<double> > velocities;
     std::vector<double> deltatime;
 };
 
@@ -328,12 +328,16 @@ void printConfigurations( const std::vector<openraveTrajectory>& trajs)
     {
         for(int j=0;j<int(trajs[i].positions.size());j++)
         {
-            cout << trajs[i].positions[j].transpose() << endl;
+            for(int k=0;k<int(trajs[i].positions[k].size());k++)
+            {
+                cout << trajs[i].positions[j][k] << " ";
+            }
+            cout << endl;
         }
     }
 }
 
-void setTrajectoryMessage( const std::vector<openraveTrajectory>& trajs, hackdrc_wave_planner::HuboWaveTraj::Response& response )
+void setTrajectoryMessage( const std::vector<openraveTrajectory>& trajs, hubo_srvs::HuboWaveTraj::Response& response )
 {
     cout << "set stamp " << endl;
     
@@ -387,11 +391,9 @@ void setTrajectoryMessage( const std::vector<openraveTrajectory>& trajs, hackdrc
     }
 }
 
-bool parseHuboTrajectory( hackdrc_wave_planner::HuboWaveTraj::Request& request, hackdrc_wave_planner::HuboWaveTraj::Response& response )
+bool parseHuboTrajectory( hubo_srvs::HuboWaveTraj::Request& request, hubo_srvs::HuboWaveTraj::Response& response )
 {
     std::vector<openraveTrajectory> trajs;
-    
-    Eigen::VectorXd q(57);
 
     trajs.clear();
     trajs.resize(2);
@@ -402,15 +404,6 @@ bool parseHuboTrajectory( hackdrc_wave_planner::HuboWaveTraj::Request& request, 
     setTrajectoryMessage( trajs, response );
     return true;
 }
-
-//bool add(beginner_tutorials::AddTwoInts::Request  &req,
-//         beginner_tutorials::AddTwoInts::response.Response &res)
-//{
-//  res.sum = req.a + req.b;
-//  ROS_INFO("request: x=%ld, y=%ld", (long int)req.a, (long int)req.b);
-//  ROS_INFO("sending back response.Response: [%ld]", (long int)res.sum);
-//  return true;
-//}
 
 int main(int argc, char **argv)
 {
