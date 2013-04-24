@@ -92,13 +92,16 @@ bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_ref
             }
             else
             {
-                printf("*** WARNING - NULL joint state received! ***\n");
+                ROS_ERROR("*** WARNING - NULL joint state received! ***\n");
             }
         }
+        joint_msg.header.frame_id = std::string("/hubo_base_link");
+        joint_msg.header.stamp = ros::Time::now();
         return true;
     }
     else
     {
+        ROS_ERROR("*** WARNING - NULL hubo state received! ***\n");
         return false;
     }
 }
@@ -107,7 +110,7 @@ bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_ref
 //NEW MAIN LOOP
 int main(int argc, char **argv)
 {
-    printf("Initializing ACH-to-ROS bridge\n");
+    ROS_INFO("Initializing ACH-to-ROS bridge\n");
     //initialize HUBO-ACH feedback channel
     int r = ach_open(&chan_hubo_state, HUBO_CHAN_STATE_NAME , NULL);
     assert(ACH_OK == r);
@@ -118,15 +121,15 @@ int main(int argc, char **argv)
     struct hubo_state H_state;
     memset(&H_state, 0, sizeof(H_state));
     struct hubo_ref H_ref_filter;
-    memset( &H_ref_filter, 0, sizeof(H_ref_filter));
+    memset(&H_ref_filter, 0, sizeof(H_ref_filter));
     size_t fs;
-    printf("HUBO-ACH channels loaded\n");
+    ROS_INFO("HUBO-ACH channels loaded\n");
     //initialize ROS node
     ros::init(argc, argv, "hubo_ros_feedback");
     ros::NodeHandle nh;
     //construct ROS publisher
     ros::Publisher hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
-    printf("ROS publisher loaded\n");
+    ROS_INFO("ROS publisher loaded\n");
     //Loop
     while (ros::ok())
     {
@@ -136,7 +139,7 @@ int main(int argc, char **argv)
         {
             if(hubo_debug)
             {
-                printf("State ini r = %i\n",r);
+                ROS_DEBUG("State ini r = %i\n",r);
             }
         }
         else
@@ -149,7 +152,7 @@ int main(int argc, char **argv)
         {
             if(hubo_debug)
             {
-                printf("State ini r = %i\n",r);
+                ROS_DEBUG("State ini r = %i\n",r);
             }
         }
         else
@@ -166,7 +169,7 @@ int main(int argc, char **argv)
         }
         else
         {
-            printf("*** Invalid state recieved from HUBO! ***\n");
+            ROS_ERROR("*** Invalid state recieved from HUBO! ***\n");
         }
         ros::spinOnce();
     }
