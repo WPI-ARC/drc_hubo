@@ -39,7 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <std_srvs/Empty.h>
 
 //Services for working with Hubo
-#include "hubo_srvs/HuboWaveTraj.h"
 #include "hubo_srvs/LadderClimbingWalk.h"
 
 using namespace interactive_markers;
@@ -48,7 +47,7 @@ using namespace visualization_msgs;
 ros::ServiceClient client_wave;
 ros::ServiceClient client_walk;
 ros::ServiceClient client_ladder;
-hubo_srvs::HuboWaveTraj srv_wave;
+std_srvs::Empty srv_wave;
 std_srvs::Empty srv_walk;
 hubo_srvs::LadderClimbingWalk srv_ladder;
 
@@ -76,6 +75,8 @@ void processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPt
             //WAVE
             case 1:
 
+                ROS_INFO("CALLING THE WAVE SERVICE");
+                
                 //Try and make the call down to the robot
                 if(client_wave.call(srv_wave)){ }
                 else { }
@@ -202,8 +203,8 @@ int main(int argc, char** argv)
     server = new interactive_markers::InteractiveMarkerServer("hubo_marker_server","",false);
     ros::Duration(.1).sleep();
 
-    client_wave = n.serviceClient<hubo_srvs::HuboWaveTraj>("hubo_wave_control/hubo_wave");
-    client_walk = n.serviceClient<std_srvs::Empty>("hubo_walk_control/hubo_walk");
+    client_wave = n.serviceClient<std_srvs::Empty>("/hubo_wave");
+    client_walk = n.serviceClient<std_srvs::Empty>("/hubo_walk");
     client_ladder = n.serviceClient<hubo_srvs::LadderClimbingWalk>("ladder_climbing/walk");
 
     //Setup the menu options, this may change location
