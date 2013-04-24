@@ -1,0 +1,19 @@
+<package>
+  <description brief="hackdrc_wave_planner">
+
+     hackdrc_wave_planner
+
+  </description>
+  <author>Jim Mainprice</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hackdrc_wave_planner</url>
+  <depend package="rospy"/>
+  <depend package="roscpp"/>
+  <depend package="trajectory_msgs"/>
+  <depend package="std_srvs"/>
+  <depend package="std_msgs"/>
+
+</package>
+
+
