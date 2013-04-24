@@ -10,11 +10,10 @@ Copyright (c) 2012, Daniel M. Lofaro
 (3-clause BSD)
 */
 
-// ros includes
+// Basic includes
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "ros/ros.h"
 #include <math.h>
 #include <sstream>
 #include <errno.h>
@@ -26,26 +25,42 @@ Copyright (c) 2012, Daniel M. Lofaro
 #include <string.h>
 #include <stdbool.h>
 #include <inttypes.h>
-#include "std_msgs/String.h"
-#include "hubo_ros/HuboCommand.h"
-#include "hubo_ros/HuboHandCommand.h"
-#include "hubo_ros/HuboJointCommand.h"
-#include "hubo_ros/AchCommand.h"
-#include "ach.h"
-//WPI includes
-//#include "../../wpi_hubo/hubo-ach/include/hubo.h"
-#include "hubo.h"
-//#include "../../wpi_hubo/hubo-ach/include/hubo-ref-filter.h"
-//Hubo includes
-//#include "../../../hubo-ach/include/hubo.h"
-//#include "../../../hubo-ach/include/hubo-ref-filter.h"
 
-//Global variables
+// ROS includes
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+
+// Hubo kinematic state includes
+#include "hubo_msgs/JointCommandState.h"
+#include "hubo_msgs/JointControllerState.h"
+
+// HUBO-ACH includes
+#include "ach.h"
+#include "hubo.h"
+
+#define FT_LW 1
+#define FT_RW 2
+#define FT_LA 0
+#define FT_RA 3
+#define LEFT_IMU 0
+#define RIGHT_IMU 1
+#define BODY_IMU 2
+
+// Defines
+#define FT_SENSOR_COUNT 4
+#define IMU_SENSOR_COUNT 3
+
+// Global variables
 ach_channel_t chan_hubo_ref_filter;
 ach_channel_t chan_hubo_board_cmd;
+
+// Debug mode switch
 int hubo_debug = 0;
+
+// Index->Joint name mapping
 char *joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach1", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
+// From the name of the joint, find the corresponding joint index for the Hubo-ACH struct
 int IndexLookup(std::string joint_name)
 {
     //Find the Hubo joint name [from hubo.h!] and the relevant index
