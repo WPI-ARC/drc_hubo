@@ -6,8 +6,9 @@ from str2num import *
 from TSR import *
 import commands
 import sys
+import pickle
 
-class ReachabilitySphere:
+class ReachabilitySphere(object):
     def __init__(self):
         self.radius = 0.025
         self.neighbors = []
@@ -25,11 +26,12 @@ class ReachabilitySphere:
         self.configs = []
 
 
-class ReachabilityMap:
+class ReachabilityMap(object):
     def __init__(self, iksolver, robot, manip):
         self.handles = []
         self.map = []
         self.indices = {}
+        self.candidates = []
 
         # This is the coordinate system of the map, usually attached to the base of the manipulator.
         # T0 stands for the world coordinate frame
@@ -185,6 +187,19 @@ class ReachabilityMap:
         pass
 
     def update(self):
+        pass
+
+    def save(self):
+        tempMap = []
+        for idx, s in enumerate(self.map):
+            s.axisHandle=[]
+            s.shapeHandle=None
+            tempMap.append(s)
+        output = open('deneme.pkl', 'wb')
+        r = pickle.dump(tempMap, output)
+        output.close()
+
+    def load(self,fname):
         pass
 
     def manip_reset(self):
@@ -372,6 +387,12 @@ class SearchPattern:
                 if(r != None):
                     s.T = r
                     self.pattern.append(s)
+
+    def sign(self,num):
+        if(num >= 0):
+            return 1
+        elif(num < 0):
+            return -1
     
     def map(self,tCouple):
         debug = False
@@ -383,20 +404,20 @@ class SearchPattern:
         rely = Trel.tolist()[1][3]
         relz = Trel.tolist()[2][3]
 
-        mx = relx%ReachabilitySphere().diameter
+        mx = relx%(self.sign(relx)*ReachabilitySphere().diameter)
         dx = round(relx/ReachabilitySphere().diameter)
-        if(mx>ReachabilitySphere().radius):
-            dx+=1            
+        if(abs(mx)>ReachabilitySphere().radius):
+            dx+=sign(relx)         
             
-        my = rely%ReachabilitySphere().diameter
+        my = rely%(self.sign(rely)*ReachabilitySphere().diameter)
         dy = round(rely/ReachabilitySphere().diameter)
-        if(my>ReachabilitySphere().radius):
-            dy+=1
+        if(abs(my)>ReachabilitySphere().radius):
+            dy+=sign(rely)
 
-        mz = relz%ReachabilitySphere().diameter
+        mz = relz%(self.sign(relz)*ReachabilitySphere().diameter)
         dz = round(relz/ReachabilitySphere().diameter)
         if(mz>ReachabilitySphere().radius):
-            dz+=1
+            dz+=sign(relz)
 
         if(dx == 0 and dy == 0 and dz == 0):
             Tnew = None
@@ -431,7 +452,7 @@ class SearchPattern:
     
         for p in self.prePatternTransforms:
             self.handles.append(misc.DrawAxes(myEnv,p,ReachabilitySphere().axisLength))
-            
+        
     def hide(self,what):
         if(what == "trajectory"):
             # undraw all reachability spheres
@@ -582,9 +603,23 @@ def find_candidates(patterns, rmaps):
             for e in potentialPath:
                 print e
         # append all possible paths for this manipulator to the bigger list of candidates
+        rmaps[i].candidates.append(paths)
         candidates.append(paths)
+        
     #
     # candidates = satisfy(constraints, paths)
     #
     # sys.stdin.readline()
     return candidates
+
+
+def load(fname=''):
+    if(fname != ''):
+        pkl_file = open(fname, 'rb')
+        obj = pickle.load(pkl_file)
+        pprint.pprint(obj)
+        pkl_file.close()
+        return obj
+    else:
+        print "Error: specify a filename."
+        return None
