@@ -26,12 +26,27 @@ class ReachabilitySphere(object):
         self.configs = []
 
 
+class ReachabilityMapParams(object):
+    def __init__(self):
+        self.xmax=1.0
+        self.xmin=-1.0
+        self.ymax=1.0
+        self.ymin=-1.0
+        self.zmax=1.0
+        self.zmin=-1.0
+        self.free_joint_val = 0.0 
+        self.free_joint_index = None
+        self.r = 0
+        self.g = 0
+        self.b = 0
+
 class ReachabilityMap(object):
     def __init__(self, iksolver, robot, manip):
         self.handles = []
         self.map = []
         self.indices = {}
         self.candidates = []
+        self.name = "default"
 
         # This is the coordinate system of the map, usually attached to the base of the manipulator.
         # T0 stands for the world coordinate frame
@@ -140,19 +155,19 @@ class ReachabilityMap(object):
         # draw all, append to handles
         self.handles=[]
         for s in self.map:
-            self.handles.append(myEnv.plot3(points=dot(s.T,self.T0_base),
-                                            pointsize=s.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
-                                             #colors=array((0,0,0.15*reachability,0.5)), # This changes the color intensity
-                                             colors=array(self.r,self.g,self.b,0.166*(s.reachability)), # This changes the transparency
-                                             drawstyle=1
-                                             ))
+            for direction in range(s.reachability):
+                Tbase_s = s.T[direction]
+                T0_ee =  dot(self.T0_base, Tbase_s)
+                if(s.shapeHandle == None):
+                    s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
+                                                pointsize=s.radius*0.5, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                                colors=array((self.r,self.g,self.b,0.166*s.reachability)), # This changes the transparency
+                                                drawstyle=1
+                                                )
 
-            # self.handles.append(myEnv.plot3(points=array((bt[0][3]+x,bt[1][3]+y,bt[2][3]+z)),
-            #                                  pointsize=0.025, # In case dx, dy and dz are all equal, this should be half of that increment constant.
-            #                                  #colors=array((0,0,0.15*reachability,0.5)), # This changes the color intensity
-            #                                  colors=array((0,0,1,0.166*reachability)), # This changes the transparency
-            #                                  drawstyle=1
-            #                                  ))
+                    self.handles.append(s.shapeHandle)
+                    
+                s.axisHandle.append(misc.DrawAxes(myEnv,dot(self.T0_base,Tbase_s),0.01))
             
     def find_neighbors(self):
         # For all spheres in the map do:
@@ -190,17 +205,59 @@ class ReachabilityMap(object):
         pass
 
     def save(self):
+        # Save map
         tempMap = []
         for idx, s in enumerate(self.map):
             s.axisHandle=[]
             s.shapeHandle=None
             tempMap.append(s)
-        output = open('deneme.pkl', 'wb')
-        r = pickle.dump(tempMap, output)
+        output = open(self.name+'_map.pkl', 'wb')
+        pickle.dump(tempMap, output)
         output.close()
 
-    def load(self,fname):
-        pass
+        params = ReachabilityMapParams()
+        params.xmax = self.xmax
+        params.xmin = self.xmin
+        params.ymax = self.ymax
+        params.ymin = self.ymin
+        params.zmax = self.zmax
+        params.zmin = self.zmin
+
+        params.r = self.r
+        params.g = self.g
+        params.b = self.b
+
+        output = open(self.name+'_params.pkl', 'wb')
+        pickle.dump(params, output)
+        output.close()
+
+
+    def load(self, fname):
+        if(fname != ''):
+            pkl_file = open(fname+'_map.pkl', 'rb')
+            self.map = pickle.load(pkl_file)
+            pkl_file.close()
+            
+            pkl_file = open(fname+'_params.pkl', 'rb')
+            params = pickle.load(pkl_file)
+            pkl_file.close()
+            
+            # Note to self: change this params throughout the class with self.params
+            self.xmax = params.xmax
+            self.xmin = params.xmin
+            self.ymax = params.ymax
+            self.ymin = params.ymin
+            self.zmax = params.zmax
+            self.zmin = params.zmin
+            
+            self.r = params.r
+            self.g = params.g
+            self.b = params.b
+
+            return 1
+        else:
+            print "Error: specify a filename."
+            return None
 
     def manip_reset(self):
         q=[]
@@ -611,15 +668,3 @@ def find_candidates(patterns, rmaps):
     #
     # sys.stdin.readline()
     return candidates
-
-
-def load(fname=''):
-    if(fname != ''):
-        pkl_file = open(fname, 'rb')
-        obj = pickle.load(pkl_file)
-        pprint.pprint(obj)
-        pkl_file.close()
-        return obj
-    else:
-        print "Error: specify a filename."
-        return None
