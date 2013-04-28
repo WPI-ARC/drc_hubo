@@ -7,6 +7,7 @@ from TSR import *
 import commands
 import sys
 import pickle
+from random import *
 
 class ReachabilitySphere(object):
     def __init__(self):
@@ -598,9 +599,82 @@ def my_function(start,idx,myPattern,rm):
             if(found):
                 break
 
+        if(not found):
+            # if we tested all neighbors and couldn't find a match
+            # then these start and goal candidates are not
+            # connected. Return error.
+            return None
+
     return myList
 
-def find_candidates(patterns, rmaps):
+# def find_a_random_candidate_in(patterns,rmaps,numCandidates,lowBound,upBound):
+#     pass
+    
+def find_random_candidates(patterns,rmaps,numCandidates):
+    print "Finding ",str(numCandidates)," random candidates for each reachability map."
+    # Keep and return all path candidates
+    candidates = []
+    for i, rm in enumerate(rmaps):
+        Tstart_goal = patterns[i].pattern[-1].T # the last element
+        distStartGoal = pow(pow(Tstart_goal[0,3],2)+pow(Tstart_goal[1,3],2)+pow(Tstart_goal[2,3],2),0.5)
+        paths = []
+        iters = 0
+        while(len(paths) < numCandidates):
+            s1Idx = randint(0,len(rm.map))
+            #print "s1Idx: ",str(s1Idx)
+            print "Miss, ",str(iters)
+            s1 = rm.map[s1Idx]
+            for k, s2 in enumerate(rm.map):
+                myT = dot(linalg.inv(s1.T[0]),s2.T[0])
+                distS1S2 = pow(pow(myT[0,3],2)+pow(myT[1,3],2)+pow(myT[2,3],2),0.5)
+                if(distS1S2 == distStartGoal):
+                    for l, Tbase_s1 in enumerate(s1.T):
+                        path = []
+                        for m, Tbase_s2 in enumerate(s2.T):
+                            Ts1_s2 = dot(linalg.inv(Tbase_s1),Tbase_s2)
+                            # print "Current transform: "
+                            # print Ts1_s2
+
+                            if(allclose(Ts1_s2,Tstart_goal)):
+                                print "in reachability map ",str(i),":"
+                                print "spheres ",str(s1Idx)," and ",str(k)
+                                print "(transforms ",str(l)," and ",str(m)," )"
+                                print "is a match to search pattern's Tstart_goal"
+                                s1.shapeHandle = None
+                                s2.shapeHandle = None
+
+                                # Now go trought the pattern's spheres:
+                                path.append(PathElement(s1Idx,l))
+                                steps = my_function(s1,l,patterns[i].pattern,rm) 
+                                if(steps != None):
+                                    # if start and goal candidates are connected
+                                    # we don't want this list to be nested. Extend instead of appending.
+                                    path.extend(steps)
+                                    path.append(PathElement(k,m))
+                                    print "path: "
+                                    for e in path:
+                                        print e.sIdx
+                                    break
+                                else:
+                                    # if start and goal candidates are not connected
+                                    path = []
+                        # Append this path to the array of candidates
+                        if (path != []):
+                            paths.append(path)
+                            print "Hit!, ",str(iters)
+                            print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
+            iters += 1
+        # Display the list of candidate paths
+        print "candidate paths: "
+        for potentialPath in paths:
+            for e in potentialPath:
+                print e
+        # append all possible paths for this manipulator to the bigger list of candidates
+        rmaps[i].candidates.append(paths)
+        candidates.append(paths)
+    return candidates
+
+def find_all_candidates(patterns, rmaps):
     # Keep and return all path candidates
     candidates = []
     print "you called Reachability.solve with 2 arguments:"
@@ -621,38 +695,57 @@ def find_candidates(patterns, rmaps):
     # Go through the reachability maps
     for i, rm in enumerate(rmaps):
         # For this reachability map, keep the possible paths in the following list
+        # print "Search pattern's transform:"
+        # print Tstart_goal
+        # Trasform of the goal point in start point's coordinate frame
+        Tstart_goal = patterns[i].pattern[-1].T # the last element
+        distStartGoal = pow(pow(Tstart_goal[0,3],2)+pow(Tstart_goal[1,3],2)+pow(Tstart_goal[2,3],2),0.5)
+
         paths = []
         # For each sphere in the map do
         for j, s1 in enumerate(rm.map):
-            path = []
+            if((j%100)==0):
+                print "Tstart: ",str(j),"/",str(len(rm.map))
             for k, s2 in enumerate(rm.map):
-                for l, Tbase_s1 in enumerate(s1.T):
-                    for m, Tbase_s2 in enumerate(s2.T):
-                        Ts1_s2 = dot(linalg.inv(Tbase_s1),Tbase_s2)
-                        # print "Current transform: "
-                        # print Ts1_s2
-                        Tstart_goal = patterns[i].pattern[-1].T # the last element
-                        # print "Search pattern's transform:"
-                        # print Tstart_goal
-                        if(allclose(Ts1_s2,Tstart_goal)):
-                            print "in reachability map ",str(i),":"
-                            print "spheres ",str(j)," and ",str(k)
-                            print "(transforms ",str(l)," and ",str(m)," )"
-                            print "is a match to search pattern's Tstart_goal"
-                            s1.shapeHandle = None
-                            s2.shapeHandle = None
-                            
-                            # Now go trought the pattern's spheres:
-                            path.append(PathElement(j,l))
-                            path.extend(my_function(s1,l,patterns[i].pattern,rm)) # we don't want this list to be nested. Extend instead of appending.
-                            path.append(PathElement(k,m))
-                            print "path: "
-                            for e in path:
-                                print e.sIdx
-                            break
-            # Append this path to the array of candidates
-            if (path != []):
-                paths.append(path)
+                # Find s2 in s1's coord frame just to 
+                # calculate the distance between them
+                # at this point we don't care about the T's orientation
+                myT = dot(linalg.inv(s1.T[0]),s2.T[0])
+                distS1S2 = pow(pow(myT[0,3],2)+pow(myT[1,3],2)+pow(myT[2,3],2),0.5)
+                if(distS1S2 == distStartGoal):
+                    for l, Tbase_s1 in enumerate(s1.T):
+                        path = []
+                        for m, Tbase_s2 in enumerate(s2.T):
+                            Ts1_s2 = dot(linalg.inv(Tbase_s1),Tbase_s2)
+                            # print "Current transform: "
+                            # print Ts1_s2
+
+                            if(allclose(Ts1_s2,Tstart_goal)):
+                                print "in reachability map ",str(i),":"
+                                print "spheres ",str(j)," and ",str(k)
+                                print "(transforms ",str(l)," and ",str(m)," )"
+                                print "is a match to search pattern's Tstart_goal"
+                                s1.shapeHandle = None
+                                s2.shapeHandle = None
+
+                                # Now go trought the pattern's spheres:
+                                path.append(PathElement(j,l))
+                                steps = my_function(s1,l,patterns[i].pattern,rm) 
+                                if(steps != None):
+                                    # if start and goal candidates are connected
+                                    # we don't want this list to be nested. Extend instead of appending.
+                                    path.extend(steps)
+                                    path.append(PathElement(k,m))
+                                    print "path: "
+                                    for e in path:
+                                        print e.sIdx
+                                    break
+                                else:
+                                    # if start and goal candidates are not connected
+                                    path = []
+                        # Append this path to the array of candidates
+                        if (path != []):
+                            paths.append(path)
 
         # Display the list of candidate paths
         print "candidate paths: "
@@ -668,3 +761,27 @@ def find_candidates(patterns, rmaps):
     #
     # sys.stdin.readline()
     return candidates
+
+
+# Note to self: for find_candidates, there is no point
+# in searching for s2 spheres that are far away.
+# If the Euclidean distance between s1 and s2 is greater
+# than the Euclidean distance search pattern's Tstart - Tgoal
+# don't bother evaluating that s2 as a Tgoal candidate.
+#
+# This distance doesn't depend on the transform of the sphere.
+# We just need the relative XYZ translation.
+#
+# let x,y,z be the translation of s2 in s1's coordinate frame
+#
+# We can find the euclidean distance with the following equation:
+#
+# distInMap = pow(pow(x,2)+pow(y,2)+pow(z,2),0.5)
+# 
+# We already know the distance between Tstart_goal
+#
+# distSearchPattern = pow(pow(x,2)+pow(y,2)+pow(z,2),0.5)
+#
+# if(disInMap <= distSearch):
+#    s2 might have a Tgoal candidate in it.
+

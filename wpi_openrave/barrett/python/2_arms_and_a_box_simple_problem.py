@@ -132,83 +132,34 @@ h.append(misc.DrawAxes(env,T0_box,0.3))
 # Robot 1
 myRmaps = []
 rm = ReachabilityMap("./barrettwam_ik_solver",robots[0],robots[0].GetManipulators()[0])
-rm.xmax = 0.6
-rm.xmin = 0.5
-rm.ymax = -0.05
-rm.ymin = 0.05
-rm.zmax = 0.2
-rm.zmin = 0.0
+print "Loading reachability map for Robot0..."
+rm.load("barrettwam_arm")
+rm.name = "barrettwam_arm_0"
+#rm.show(env) # slows down the process a lot
 
-rm.r = 0
-rm.g = 0
-rm.b = 1
-
-rm.free_joint_val = 0.0
-rm.free_joint_index = 2
-
-rm.generate(env)
-sys.stdin.readline()
-
-rm.list()
-# sys.stdin.readline()
-
-rm.hide()
-#sys.stdin.readline()
-
-print "Save the reachability map"
-sys.stdin.readline()
-rm.save()
-
-print "result"
-print r
-
-# Clean the object, just in case
-del rm
-
-# Now test loading the object back in
-print "Loading the reachability map."
-newMap = load('deneme.pkl')
-sys.stdin.readline()
-
-print "rmap loaded."
-rm.show(env)
-
-
-
-# Save the reachability map
+# Append the reachability map, and keep it in a list
 myRmaps.append(rm)
+
+print "Robot0 Reachability Map loaded. Press Enter to continue with Robot1..."
+sys.stdin.readline()
 
 # Do the same for Robot 2
-rm = ReachabilityMap("./barrettwam_ik_solver",robots[1],robots[1].GetManipulators()[0])
-rm.xmax = 0.1
-rm.xmin = 0.0
-rm.ymax = -0.2
-rm.ymin = -0.3
-rm.zmax = 0.2
-rm.zmin = 0.0
+rm2 = ReachabilityMap("./barrettwam_ik_solver",robots[1],robots[1].GetManipulators()[0])
+print "Loading reachability map for Robot1..."
+rm2.load("barrettwam_arm")
+rm2.name = "barrettwam_arm_1"
+rm2.r = 1
+rm2.g = 0
+rm2.b = 0
+#print "Reachability map loaded for Robot1. Press Enter to show the map."
+#sys.stdin.readline()
+#rm2.show(env)
+myRmaps.append(rm2)
 
-rm.r = 1
-rm.g = 0
-rm.b = 0
-
-rm.free_joint_val = 0.0
-rm.free_joint_index = 2
-
-rm.generate(env)
+print "Press Enter to find path candidates..."
 sys.stdin.readline()
 
-rm.list()    
-# sys.stdin.readline()
-
-rm.hide()
-# sys.stdin.readline()
-
-myRmaps.append(rm)
-
-# 4. Search for the pattern in the reachability model and get the results
-candidates = find_candidates(myPatterns, myRmaps)
-
-# 5. Where do we want the end effectors to start from in world coordinates?
+# 4. Where do we want the end effectors to start from in world coordinates?
 T0_starts = []
 
 Tbox_start0 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,boxZ*0.5])))
@@ -224,10 +175,59 @@ h.append(misc.DrawAxes(env,T0_start1,0.4))
 T0_starts.append(array(T0_start0))
 T0_starts.append(array(T0_start1))
 
-# 5. Iterate through the results, move the robot base
-print "Moving manipulators"
+# 5. Search for the pattern in the reachability model and get the results
+success = False
 
-for myCandidatePathIndex in range(len(min(candidates[0],candidates[1]))):
+# Define robot base constraint(s)
+# a) Bounds <type 'list'>
+#    xyz in meters, rpy in radians
+#    [1.0, 1.0, 1.0, 0.0, 0.0, 0.0] would mean, we allow robot bases
+#    to be 1 meter apart in each direction but we want them to have the 
+#    same rotation
+baseConstraint = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+
+# b) Exact transform <type 'numpy.ndarray'>
+# baseConstraint = dot(something, some_other_thing)
+
+# Try to find a valid candidate that satisfies
+# all the constraints we have (base location, collision, and configuration-jump)
+while(not success):
+    # find a random candidate in both maps
+    candidates = find_random_candidates(myPatterns,myRmaps,1)
+
+    # Move each robot
+    for myManipulatorIndex in range(len(robots)):
+        startSphereIndex = candidates[myManipulatorIndex][0][0].sIdx
+        startTransformIndex = candidates[myManipulatorIndex][0][0].tIdx
+        Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
+        T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
+        robots[myManipulatorIndex].SetTransform(T0_newManipPose)
+
+    # Get their relative Transformation matrix
+    T0_base = []
+    for myManipulatorIndex in range(len(robots)):
+        T0_base.append(robots[myManipulatorIndex].GetManipulators()[0].GetBase().GetTransform())    
+    Trobot0_robot1 = dot(linalg.inv(T0_base[0]),T0_base[1])
+
+    # i) Does the candidate satisfy the robot base transform constraint?
+    ok = True
+    if(type(baseConstraint) == type([])):
+        # then we have bounds
+        for i in range(3):
+            # Check if all constraints are met
+            if(Trobot0_robot1[i,3] > baseConstraint[i]):
+                ok = False
+
+    elif(type(baseConstraint) == type(array(()))):
+        # then we have an exact transformation
+        pass   
+    # ii) Is the solution candidate collision-free?
+    # iii) And finally, is there a jump between two consecutive configurations? 
+    # We went through all our constraints. Is the candidate valid?
+    if(ok):
+        success = True
+
+for myCandidatePathIndex in range(min(len(candidates[0]),len(candidates[1]))):
     for myManipulatorIndex in range(len(robots)):
         startSphereIndex = candidates[myManipulatorIndex][myCandidatePathIndex][0].sIdx
         startTransformIndex = candidates[myManipulatorIndex][myCandidatePathIndex][0].tIdx
@@ -239,17 +239,17 @@ for myCandidatePathIndex in range(len(min(candidates[0],candidates[1]))):
         robots[myManipulatorIndex].SetTransform(T0_newManipPose)
         myRmaps[myManipulatorIndex].go_to(startSphereIndex,startTransformIndex)
 
-    "Press enter..."
+    print "Press enter to run the trajectory..."
     sys.stdin.readline()
-    time.sleep(1)
+    #time.sleep(1)
 
     for myPathElement in range(1,len(candidates[myManipulatorIndex][myCandidatePathIndex])):
         for myManipulatorIndex in range(len(robots)):
             currentSphereIndex = candidates[myManipulatorIndex][myCandidatePathIndex][myPathElement].sIdx
             currentTransformIndex = candidates[myManipulatorIndex][myCandidatePathIndex][myPathElement].tIdx
             myRmaps[myManipulatorIndex].go_to(currentSphereIndex,currentTransformIndex)
-        "Press enter..."
-        sys.stdin.readline()
+        #"Press enter..."
+        #sys.stdin.readline()
         time.sleep(1)
 
     "Press enter..."
@@ -257,20 +257,16 @@ for myCandidatePathIndex in range(len(min(candidates[0],candidates[1]))):
     time.sleep(1)
 
 
-constraints = []
+#constraints = []
 
 # Transform of the end-effector-1 in end-effector-0's coordinate frame throughout
 # the manipulation trajectory
 #
 # Tee0_ee1
-constraints.append(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
-
-
+#constraints.append(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
 
 # Trobot0_robot1
 # constraints.append(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
-
-
 
 # 6. Add an object in the environment to a random location
 
