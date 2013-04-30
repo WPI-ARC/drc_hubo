@@ -676,7 +676,7 @@ def my_function(start,idx,myPattern,rm):
 #     pass
     
 def find_random_candidates(patterns,rmaps,numCandidates):
-    print "Finding ",str(numCandidates)," random candidates for each reachability map."
+    #print "Finding ",str(numCandidates)," random candidates for each reachability map."
     # Keep and return all path candidates
     candidates = []
     for i, rm in enumerate(rmaps):
@@ -693,72 +693,30 @@ def find_random_candidates(patterns,rmaps,numCandidates):
             
             # For each transform in s1 do:
             for l, Tbase_s1 in enumerate(s1.T):
-                # Now go trought the pattern's spheres:
-                path.append(PathElement(s1Idx,l))
-
-                steps = my_function2(s1,l,patterns[i].pattern,rm)
+                # Get the spheres if a solution exists
+                steps = my_function2(s1,l,patterns[i].pattern,rm) 
+                # See if a solution exists
                 if(steps != None):
-                    # if start and goal candidates are connected
-                    # we don't want this list to be nested. Extend instead of appending.
+                     # Append the first sphere in the candidate path
+                    path.append(PathElement(s1Idx,l))
+                    # if start and goal candidates are connected a solution
+                    # exists. The variable steps is a list. We don't want path to be nested, that's why we extend instead of appending.
                     path.extend(steps)
-                    print "path: "
-                    for e in path:
-                        print e.sIdx
-                        break
-
+                    #print "path: "
+                    #for e in path:
+                    #    print e.sIdx
                     paths.append(path)
-                    print "Hit!, ",str(iters)
-                    print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
+                    #print "Hit!, ",str(iters)
+                    #print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
+                    break
                 # endif
             #endfor
             iters += 1
-            # DEBUG ###########################
-            # for k, s2 in enumerate(rm.map):
-            #     myT = dot(linalg.inv(s1.T[0]),s2.T[0])
-            #     distS1S2 = pow(pow(myT[0,3],2)+pow(myT[1,3],2)+pow(myT[2,3],2),0.5)
-            #     if(distS1S2 == distStartGoal):
-            #         for l, Tbase_s1 in enumerate(s1.T):
-            #             path = []
-            #             for m, Tbase_s2 in enumerate(s2.T):
-            #                 Ts1_s2 = dot(linalg.inv(Tbase_s1),Tbase_s2)
-            #                 # print "Current transform: "
-            #                 # print Ts1_s2
-
-            #                 if(allclose(Ts1_s2,Tstart_goal)):
-            #                     print "in reachability map ",str(i),":"
-            #                     print "spheres ",str(s1Idx)," and ",str(k)
-            #                     print "(transforms ",str(l)," and ",str(m)," )"
-            #                     print "is a match to search pattern's Tstart_goal"
-            #                     s1.shapeHandle = None
-            #                     s2.shapeHandle = None
-
-            #                     # Now go trought the pattern's spheres:
-            #                     path.append(PathElement(s1Idx,l))
-            #                     steps = my_function(s1,l,patterns[i].pattern,rm) 
-            #                     if(steps != None):
-            #                         # if start and goal candidates are connected
-            #                         # we don't want this list to be nested. Extend instead of appending.
-            #                         path.extend(steps)
-            #                         path.append(PathElement(k,m))
-            #                         print "path: "
-            #                         for e in path:
-            #                             print e.sIdx
-            #                         break
-            #                     else:
-            #                         # if start and goal candidates are not connected
-            #                         path = []
-            #             # Append this path to the array of candidates
-            #             if (path != []):
-            #                 paths.append(path)
-            #                 print "Hit!, ",str(iters)
-            #                 print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
-            # iters += 1
-        
         # Display the list of candidate paths
-        print "candidate paths: "
-        for potentialPath in paths:
-            for e in potentialPath:
-                print e
+        #print "candidate paths: "
+        #for potentialPath in paths:
+        #    for e in potentialPath:
+        #        print e
         # append all possible paths for this manipulator to the bigger list of candidates
         rmaps[i].candidates.append(paths)
         candidates.append(paths)

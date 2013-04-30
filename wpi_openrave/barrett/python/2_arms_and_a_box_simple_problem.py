@@ -175,8 +175,7 @@ h.append(misc.DrawAxes(env,T0_start1,0.4))
 T0_starts.append(array(T0_start0))
 T0_starts.append(array(T0_start1))
 
-# 5. Search for the pattern in the reachability model and get the results
-success = False
+
 
 # Define robot base constraint(s)
 # a) Bounds <type 'list'>
@@ -184,24 +183,46 @@ success = False
 #    [1.0, 1.0, 1.0, 0.0, 0.0, 0.0] would mean, we allow robot bases
 #    to be 1 meter apart in each direction but we want them to have the 
 #    same rotation
-baseConstraint = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+baseConstraint = [0.5, 0.5, 0.5, 0.0, 0.0, 0.0]
 
 # b) Exact transform <type 'numpy.ndarray'>
 # baseConstraint = dot(something, some_other_thing)
 
 # Try to find a valid candidate that satisfies
 # all the constraints we have (base location, collision, and configuration-jump)
+
+
+# 5. Search for the pattern in the reachability model and get the results
+success = False
+numRobots = len(robots)
+totalTime = array(())
+timeToFindAPath = 0.0
+findAPathStarts = time.time()
 while(not success):
+    myStatus = ""
+    baseConstOK = True
+    collisionConstOK = True
+
     # find a random candidate in both maps
+    findStarts = time.time()
     candidates = find_random_candidates(myPatterns,myRmaps,1)
+    # Get the length of the candidate path
+    # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
+    pathLength = len(candidates[0][0]) 
+    findEnds = time.time()
+    thisDiff = findEnds-findStarts
+    totalTime = append(totalTime,thisDiff)
+    print "Found  a random result in ",str(thisDiff)," secs."
 
     # Move each robot
-    for myManipulatorIndex in range(len(robots)):
-        startSphereIndex = candidates[myManipulatorIndex][0][0].sIdx
-        startTransformIndex = candidates[myManipulatorIndex][0][0].tIdx
-        Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
-        T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
-        robots[myManipulatorIndex].SetTransform(T0_newManipPose)
+    for myRobotIndex in range(numRobots):
+        # Find where to move the base
+        startSphereIndex = candidates[myRobotIndex][0][0].sIdx
+        startTransformIndex = candidates[myRobotIndex][0][0].tIdx
+        Tbase_start = myRmaps[myRobotIndex].map[startSphereIndex].T[startTransformIndex]
+        T0_newManipPose = dot(T0_starts[myRobotIndex],linalg.inv(Tbase_start))
+        # Finally move the robot base 
+        robots[myRobotIndex].SetTransform(T0_newManipPose)
 
     # Get their relative Transformation matrix
     T0_base = []
@@ -210,63 +231,53 @@ while(not success):
     Trobot0_robot1 = dot(linalg.inv(T0_base[0]),T0_base[1])
 
     # i) Does the candidate satisfy the robot base transform constraint?
-    ok = True
     if(type(baseConstraint) == type([])):
         # then we have bounds
         for i in range(3):
             # Check if all constraints are met
             if(Trobot0_robot1[i,3] > baseConstraint[i]):
-                ok = False
-
+                baseConstOK = False
     elif(type(baseConstraint) == type(array(()))):
         # then we have an exact transformation
         pass   
-    # ii) Is the solution candidate collision-free?
-    # iii) And finally, is there a jump between two consecutive configurations? 
+
+    # If the solution meets the base constraint:
+    if(baseConstOK):
+        # ii) Check if the solution collision-free throughout the path?
+        # For each path element, go step by step and check
+        for pElementIndex in range(pathLength):
+            # Move the robot to this path element
+            for myRobotIndex in range(numRobots):
+                currentSphereIndex = candidates[myRobotIndex][0][pElementIndex].sIdx
+                currentTransformIndex = candidates[myRobotIndex][0][pElementIndex].tIdx
+                myRmaps[myRobotIndex].go_to(currentSphereIndex,currentTransformIndex)
+                # Check collision with self and with the environment
+                if(env.CheckCollision(robots[myRobotIndex]) or robots[myRobotIndex].CheckSelfCollision()):
+                    collisionConstOK = False
+                    break
+            if(not collisionConstOK):
+                break
+            # If you didn't break yet, wait before the next path element for visualization
+            #time.sleep(0.05)
+    
+            # iii) And finally, is there a jump between two consecutive configurations? 
+            # Should we check this nicely or should we just use a delta constant?
+
     # We went through all our constraints. Is the candidate valid?
-    if(ok):
+    if(baseConstOK and collisionConstOK):
+        findAPathEnds = time.time()
+        print "Success! Constraint(s) met."
+        print "Total time spent to find the candidate(s): "
+        print str(totalTime.cumsum()[-1])," sec."
+        print "Total time spent to find a candidate and validate the path: "
+        print str(findAPathEnds-findAPathStarts)," sec."
         success = True
-
-for myCandidatePathIndex in range(min(len(candidates[0]),len(candidates[1]))):
-    for myManipulatorIndex in range(len(robots)):
-        startSphereIndex = candidates[myManipulatorIndex][myCandidatePathIndex][0].sIdx
-        startTransformIndex = candidates[myManipulatorIndex][myCandidatePathIndex][0].tIdx
-        Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
-        print startSphereIndex
-        print startTransformIndex
-        print Tbase_start
-        T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
-        robots[myManipulatorIndex].SetTransform(T0_newManipPose)
-        myRmaps[myManipulatorIndex].go_to(startSphereIndex,startTransformIndex)
-
-    print "Press enter to run the trajectory..."
-    sys.stdin.readline()
-    #time.sleep(1)
-
-    for myPathElement in range(1,len(candidates[myManipulatorIndex][myCandidatePathIndex])):
-        for myManipulatorIndex in range(len(robots)):
-            currentSphereIndex = candidates[myManipulatorIndex][myCandidatePathIndex][myPathElement].sIdx
-            currentTransformIndex = candidates[myManipulatorIndex][myCandidatePathIndex][myPathElement].tIdx
-            myRmaps[myManipulatorIndex].go_to(currentSphereIndex,currentTransformIndex)
-        #"Press enter..."
-        #sys.stdin.readline()
-        time.sleep(1)
-
-    "Press enter..."
-    sys.stdin.readline()
-    time.sleep(1)
-
-
-#constraints = []
-
-# Transform of the end-effector-1 in end-effector-0's coordinate frame throughout
-# the manipulation trajectory
-#
-# Tee0_ee1
-#constraints.append(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
-
-# Trobot0_robot1
-# constraints.append(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
+    else:
+        print "Constraint failure."
+        print "Collision OK?: "
+        print collisionConstOK
+        print "Base Constraint OK?:"
+        print baseConstOK
 
 # 6. Add an object in the environment to a random location
 
