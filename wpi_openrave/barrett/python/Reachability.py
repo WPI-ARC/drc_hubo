@@ -542,6 +542,71 @@ def satisfy():
     #                             if(dot(s.T,t.T)==c):
     pass
 
+def my_function2(start,idx,myPattern,rm):
+    myList = []
+    # For each sphere in the pattern,
+    # (except the first and the last)
+    #
+    # Set the current sphere of interest
+    # "sphere of interest" is the sphere of which 
+    # we're trying to find the neighbor
+    SoI = start
+    Tbase_SoI = start.T[idx]
+
+    for n in range(1,len(myPattern)):
+        # sys.stdin.readline()
+
+        # All spheres in the search pattern
+        # are saved in the pattern's coordinate
+        # frame, of which the first sphere.T
+        # is the origin.
+        #
+        # To go neighbor by neighbor, we need
+        # to find the relative transform between
+        # the pattern's consecutive spheres.
+        #
+        # Get the relative transform 
+        # between two consecutive spheres
+        # of the pattern:
+        Tp_p1 = myPattern[n-1].T
+        Tp_p2 = myPattern[n].T
+        Tp1_p2 = dot(linalg.inv(Tp_p1),Tp_p2)
+                                
+        # Go through the neighbors of SoI
+        for neighbor in SoI.neighbors:
+            found = False
+            # SoI.neighbors is a list of integers,
+            # the list keeps the indices of the 
+            # neighbors of SoI
+            
+            # See if any of SoI's neighbors
+            # has the same relative transform
+            # as Tp1_p2
+            for tIdx, Tbase_neighbor in enumerate(rm.map[neighbor].T):                                        
+                TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
+                if(allclose(TSoI_neighbor,Tp1_p2)):
+                    found = True
+                    rm.map[neighbor].shapeHandle = None
+
+                    # keep the index of the sphere in the reachability map
+                    myList.append(PathElement(neighbor,tIdx))
+
+                    # Assign the next sphere of interest
+                    SoI = rm.map[neighbor]
+                    Tbase_SoI = Tbase_neighbor
+                    break
+                
+            if(found):
+                break
+
+        if(not found):
+            # if we tested all neighbors and couldn't find a match
+            # then these start and goal candidates are not
+            # connected. Return error.
+            return None
+
+    return myList
+
 def my_function(start,idx,myPattern,rm):
     myList = []
     # For each sphere in the pattern,
@@ -620,50 +685,75 @@ def find_random_candidates(patterns,rmaps,numCandidates):
         paths = []
         iters = 0
         while(len(paths) < numCandidates):
+            path = []
             s1Idx = randint(0,len(rm.map))
             #print "s1Idx: ",str(s1Idx)
-            print "Miss, ",str(iters)
+            print "Iter#: ",str(iters)
             s1 = rm.map[s1Idx]
-            for k, s2 in enumerate(rm.map):
-                myT = dot(linalg.inv(s1.T[0]),s2.T[0])
-                distS1S2 = pow(pow(myT[0,3],2)+pow(myT[1,3],2)+pow(myT[2,3],2),0.5)
-                if(distS1S2 == distStartGoal):
-                    for l, Tbase_s1 in enumerate(s1.T):
-                        path = []
-                        for m, Tbase_s2 in enumerate(s2.T):
-                            Ts1_s2 = dot(linalg.inv(Tbase_s1),Tbase_s2)
-                            # print "Current transform: "
-                            # print Ts1_s2
+            
+            # For each transform in s1 do:
+            for l, Tbase_s1 in enumerate(s1.T):
+                # Now go trought the pattern's spheres:
+                path.append(PathElement(s1Idx,l))
 
-                            if(allclose(Ts1_s2,Tstart_goal)):
-                                print "in reachability map ",str(i),":"
-                                print "spheres ",str(s1Idx)," and ",str(k)
-                                print "(transforms ",str(l)," and ",str(m)," )"
-                                print "is a match to search pattern's Tstart_goal"
-                                s1.shapeHandle = None
-                                s2.shapeHandle = None
+                steps = my_function2(s1,l,patterns[i].pattern,rm)
+                if(steps != None):
+                    # if start and goal candidates are connected
+                    # we don't want this list to be nested. Extend instead of appending.
+                    path.extend(steps)
+                    print "path: "
+                    for e in path:
+                        print e.sIdx
+                        break
 
-                                # Now go trought the pattern's spheres:
-                                path.append(PathElement(s1Idx,l))
-                                steps = my_function(s1,l,patterns[i].pattern,rm) 
-                                if(steps != None):
-                                    # if start and goal candidates are connected
-                                    # we don't want this list to be nested. Extend instead of appending.
-                                    path.extend(steps)
-                                    path.append(PathElement(k,m))
-                                    print "path: "
-                                    for e in path:
-                                        print e.sIdx
-                                    break
-                                else:
-                                    # if start and goal candidates are not connected
-                                    path = []
-                        # Append this path to the array of candidates
-                        if (path != []):
-                            paths.append(path)
-                            print "Hit!, ",str(iters)
-                            print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
+                    paths.append(path)
+                    print "Hit!, ",str(iters)
+                    print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
+                # endif
+            #endfor
             iters += 1
+            # DEBUG ###########################
+            # for k, s2 in enumerate(rm.map):
+            #     myT = dot(linalg.inv(s1.T[0]),s2.T[0])
+            #     distS1S2 = pow(pow(myT[0,3],2)+pow(myT[1,3],2)+pow(myT[2,3],2),0.5)
+            #     if(distS1S2 == distStartGoal):
+            #         for l, Tbase_s1 in enumerate(s1.T):
+            #             path = []
+            #             for m, Tbase_s2 in enumerate(s2.T):
+            #                 Ts1_s2 = dot(linalg.inv(Tbase_s1),Tbase_s2)
+            #                 # print "Current transform: "
+            #                 # print Ts1_s2
+
+            #                 if(allclose(Ts1_s2,Tstart_goal)):
+            #                     print "in reachability map ",str(i),":"
+            #                     print "spheres ",str(s1Idx)," and ",str(k)
+            #                     print "(transforms ",str(l)," and ",str(m)," )"
+            #                     print "is a match to search pattern's Tstart_goal"
+            #                     s1.shapeHandle = None
+            #                     s2.shapeHandle = None
+
+            #                     # Now go trought the pattern's spheres:
+            #                     path.append(PathElement(s1Idx,l))
+            #                     steps = my_function(s1,l,patterns[i].pattern,rm) 
+            #                     if(steps != None):
+            #                         # if start and goal candidates are connected
+            #                         # we don't want this list to be nested. Extend instead of appending.
+            #                         path.extend(steps)
+            #                         path.append(PathElement(k,m))
+            #                         print "path: "
+            #                         for e in path:
+            #                             print e.sIdx
+            #                         break
+            #                     else:
+            #                         # if start and goal candidates are not connected
+            #                         path = []
+            #             # Append this path to the array of candidates
+            #             if (path != []):
+            #                 paths.append(path)
+            #                 print "Hit!, ",str(iters)
+            #                 print "Found ",str(len(paths))," of ", str(numCandidates)," so far..."
+            # iters += 1
+        
         # Display the list of candidate paths
         print "candidate paths: "
         for potentialPath in paths:
