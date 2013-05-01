@@ -686,9 +686,9 @@ def find_random_candidates(patterns,rmaps,numCandidates):
         iters = 0
         while(len(paths) < numCandidates):
             path = []
-            s1Idx = randint(0,len(rm.map))
+            s1Idx = randint(0,len(rm.map)-1)
             #print "s1Idx: ",str(s1Idx)
-            print "Iter#: ",str(iters)
+            # print "Iter#: ",str(iters)
             s1 = rm.map[s1Idx]
             
             # For each transform in s1 do:
