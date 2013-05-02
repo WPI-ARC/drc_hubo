@@ -5,7 +5,7 @@ import rospy
 import time
 import xml.dom.minidom
 from sensor_msgs.msg import JointState
-from hubo_ros_msgs.msg import *
+from hubo_msgs.msg import *
 from math import pi
 
 def get_param(name, value=None):
@@ -21,6 +21,7 @@ class JointStatePublisher:
 
     def __init__(self):
         description = get_param('robot_description')
+        print "Loading description file: " + description
         robot = xml.dom.minidom.parseString(description).getElementsByTagName('robot')[0]
         self.free_joints = {}
         self.latest_state = None
@@ -52,7 +53,7 @@ class JointStatePublisher:
                 self.free_joints[name] = joint
 
         #Setup the HuboState subscriber
-        self.hubo_sub = rospy.Subscriber("Hubo/HuboState", HuboState, self.hubo_cb)
+        self.hubo_sub = rospy.Subscriber("Hubo/HuboState", JointCommandState, self.hubo_cb)
         #Setup the joint state publisher
         self.hubo_pub = rospy.Publisher('joint_states', JointState)
 

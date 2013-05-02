@@ -12,6 +12,7 @@
   <depend package="rospy"/>
   <depend package="hubo_ros"/>
   <depend package="rosbag"/>
+  <depend package="hubo_msgs"/>
 
 </package>
 

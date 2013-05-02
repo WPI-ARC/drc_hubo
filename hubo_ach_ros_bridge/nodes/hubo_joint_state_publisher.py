@@ -1,15 +1,16 @@
 #!/usr/bin/python
 
-import roslib; roslib.load_manifest('hubo_rviz')
+import roslib; roslib.load_manifest('hubo_ach_ros_bridge')
 import rospy
 import xml.dom.minidom
 import subprocess
 from hubo_msgs.msg import *
+from sensor_msgs.msg import *
 from math import pi
 
 class JointStatePublisher:
 
-    def __init__(self, description_file, namespace):
+    def __init__(self, description_file):
         robot = xml.dom.minidom.parseString(description_file).getElementsByTagName('robot')[0]
         self.free_joints = {}
         self.latest_state = None
@@ -42,7 +43,7 @@ class JointStatePublisher:
         #Setup the HuboState subscriber
         self.hubo_sub = rospy.Subscriber("hubo/HuboState", JointCommandState, self.hubo_cb)
         #Setup the joint state publisher
-        self.hubo_pub = rospy.Publisher(namespace + "/joint_states", JointState)
+        self.hubo_pub = rospy.Publisher("/joint_states", JointState)
 
     def hubo_cb(self, msg):
         new_state = {}
@@ -54,8 +55,7 @@ class JointStatePublisher:
             rospy.logerr("*** Malformed HuboState! ***")
         self.last_time = rospy.get_time()
 
-    def loop(self):
-        hz = get_param("rate", 10) # 10hz
+    def loop(self, hz=10.0):
         r = rospy.Rate(hz) 
         
         # Publish Joint States
@@ -98,11 +98,11 @@ class JointStatePublisher:
             r.sleep()
 
 if __name__ == '__main__':
-    base_path = subprocess.check_output("rospack find hubo_ach_ros_bridge", shell=True)
+    base_path = subprocess.check_output("rospack find hubo_description", shell=True)
     base_path = base_path.rstrip("\n")
-    default_file = base_path + "/descriptions/huboplus/huboplus.xml"
+    default_file = open(base_path + "/huboplus/huboplus.xml").read()
     description_file = rospy.get_param("hubo_joint_state_publisher/model_file", default_file)
-    namespace = rospy.get_param("hubo_joint_state_publisher/namespace", "hubo")
     rospy.init_node('hubo_joint_state_publisher')
-    jsp = JointStatePublisher(description_file, namespace)
+    #rospy.loginfo("Loading description file: " + description_file)
+    jsp = JointStatePublisher(description_file)
     jsp.loop()
