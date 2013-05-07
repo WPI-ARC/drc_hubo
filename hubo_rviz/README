@@ -1,6 +1,0 @@
-1) To See what is happening on the hubo
-    -Run ./hubo_feedback_rviz.sh
-
-2) To Replay what happened on the hubo
-    -Run ./hubo_feedback_rviz.sh
-    -Run rosbag play bags/Hubo_Valve_Turning_No_Hands.bag
