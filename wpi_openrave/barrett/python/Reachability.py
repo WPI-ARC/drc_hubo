@@ -26,7 +26,6 @@ class ReachabilitySphere(object):
         self.axisLength = 0.1
         self.configs = []
 
-
 class ReachabilityMapParams(object):
     def __init__(self):
         self.xmax=1.0
@@ -203,6 +202,65 @@ class ReachabilityMap(object):
         pass
 
     def update(self):
+        pass
+
+    # A Method that crops the reachability map
+    # bounds are defined in base coordinates
+    def crop(self, bounds):
+        xmin = bounds[0]
+        xmax = bounds[1]
+        ymin = bounds[2]
+        ymax = bounds[3]
+        zmin = bounds[4]
+        zmax = bounds[5]
+        print "cropping..."
+        for idx, s in enumerate(self.map):
+            if((xmin > s.T[0][0,3] or s.T[0][0,3] > xmax) or
+               (ymin > s.T[0][1,3] or s.T[0][1,3] > ymax) or
+               (zmin > s.T[0][2,3] or s.T[0][2,3] > zmax)):
+                self.map.pop(idx)
+        print "crop done."
+    
+    
+    # Trobot_start: transform of the robot's base wrt
+    #               start transform of the manipulation
+    # returns the index of the reachability sphere that
+    # matches the Tbase_start
+    def select(self, Tbase_start):
+        for sIdx, s in enumerate(self.map):
+            for tIdx, t in enumerate(s.T):
+                # t is actually Tbase_ee
+                if(allclose(t,Tbase_start)):
+                    return [sIdx, tIdx]
+
+        # If we're here, it's because we couldn't find a result
+        return -1
+    
+    # Trims the reachability spheres that are farther than 
+    # a certain radius (if x=y=z, then the end result is a sphere)
+    def trim(self,x,y,z):
+        r2 = pow(x,2)+pow(y,2)+pow(z,2)
+        r = pow(r2,0.5)
+        print "trimming..."
+        for idx, s in enumerate(self.map):
+            rs2 = pow(s.T[0][0,3],2)+pow(s.T[0][1,3],2)+pow(s.T[0][2,3],2)
+            rs = pow(rs2,0.5)
+            if(rs > r):
+                self.map.pop(idx)
+        print "trimming done."
+    
+    # Do search over multiple maps considering the boundaries
+    # if m = len(maps), then
+    # len(transforms) should be m-1
+    # and len(patterns) should be m-1 as well
+    # patterns should be passed in as a merged couple of 
+    # pattern_j wrt pattern_i. The transformation between patterns
+    # is defined by the transformation between the manipulators' 
+    # end effectors.
+    def search(self, maps, transforms, patterns):
+        for m in range(1,len(maps)):
+            Ti_j = transforms[m-1]
+        # return candidates
         pass
 
     def save(self):
