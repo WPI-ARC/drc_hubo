@@ -587,7 +587,7 @@ def satisfy():
     #                             if(dot(s.T,t.T)==c):
     pass
 
-def my_function2(start,idx,myPattern,rm):
+def my_function2(start,idx,myPattern,rmap):
     myList = []
     # For each sphere in the pattern,
     # (except the first and the last)
@@ -627,17 +627,17 @@ def my_function2(start,idx,myPattern,rm):
             # See if any of SoI's neighbors
             # has the same relative transform
             # as Tp1_p2
-            for tIdx, Tbase_neighbor in enumerate(rm.map[neighbor].T):                                        
+            for tIdx, Tbase_neighbor in enumerate(rmap[neighbor].T):                                        
                 TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
                 if(allclose(TSoI_neighbor,Tp1_p2)):
                     found = True
-                    rm.map[neighbor].shapeHandle = None
+                    rmap[neighbor].shapeHandle = None
 
                     # keep the index of the sphere in the reachability map
                     myList.append(PathElement(neighbor,tIdx))
 
                     # Assign the next sphere of interest
-                    SoI = rm.map[neighbor]
+                    SoI = rmap[neighbor]
                     Tbase_SoI = Tbase_neighbor
                     break
                 
@@ -885,54 +885,114 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
     # mess with the originals
     rm = []
     rmT = []
+    p = []
+    pT = []
+    howMany = 20
     for idx, m in enumerate(reachabilityMaps):
         rm.append(deepcopy(m.map))
+        p.append(deepcopy(patterns[idx].pattern))
         if idx > 0:
             rmT.append(deepcopy(mapTs[idx-1]))
+            pT.append(deepcopy(patternTs[idx-1]))
 
     for m in range(1,len(rm)):
         # Transform of map_i+1 with reference to map_i
         Ti_j= rmT[m-1]
 
-        # Convert all reachability spheres of map_i+1 into map_i's base tranform
+        # Convert all reachability spheres of map_i+1
+        # into map_i's base tranform
         for sIdx, s in enumerate(rm[m]):
             for tIdx, Tj_s in enumerate(s.T):
                 Ti_s = dot(Ti_j,Tj_s)
                 s.T[tIdx] = Ti_s
 
-        # Now map_i+1's reachability spheres are all defined in map_i's base transform
+        # Now map_i+1's reachability spheres are
+        # all defined in map_i's base transform
 
         # Transform of pattern_i+1 with reference to pattern_i
-        pT = patternTs[m-1]       
+        pTi_j = patternTs[m-1]
+
+        # Convert all search pattern elements of pattern_i+1
+        # into pattern_i's base transform
+        for idx, s in enumerate(p[m]):
+            pTj_s = s.T
+            pTi_s = dot(pTi_j,pTj_s)
+            s.T = pTi_s
 
         # Get the euclidean distance between pattern's root's
-        pD2 = pow(pT[0,3],2)+pow(pT[1,3],2)+pow(pT[2,3],2)
+        pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
         pD = pow(pD2,0.5)
 
         # Find all pairs of reachability spheres that are 
         # exactly eD apart from each other
         pairs = []
         print "finding pairs..."
-        for s1Idx, s1 in enumerate(rm[m-1]):
-            for s2Idx, s2 in enumerate(rm[m]):
+        # NOTE, DO A SMARTER SEARCH HERE. 
+        # WE DON'T WANT A COMPLEXITY OF N^2
+        done = False
+        while(not done):
+            s1Init = randint(0,len(rm[m-1])-1)
+            allHigh = True
+            for n in rm[m-1][s1Init].neighbors:
+                if rm[m-1][n].reachability != 6:
+                    allHigh = False
+                    break
+            if(allHigh):
+                done = True
+        done = False
+        while(not done):
+            s2Init = randint(0,len(rm[m])-1)
+            allHigh = True
+            for n in rm[m][s2Init].neighbors:
+                if rm[m][n].reachability != 6:
+                    allHigh = False
+                    break
+            if(allHigh):
+                done = True
+            
+        for s1Idx, s1 in enumerate(rm[m-1][s1Init:-1]):
+            for s2Idx, s2 in enumerate(rm[m][s2Init:-1]):
                 sD = euclidean_distance(s1.T[0],s2.T[0])
                 # If the euclidean distance of the pattern transforms
                 # is equal to spheres' distance, then keep the pair
                 if(sD == pD):
-                    print "found a pair!"
                     pairs.append([s1Idx,s2Idx])            
-                    if len(pairs) == 10 :
+                    print "found a pair: ",str(len(pairs))
+                    if len(pairs) == howMany :
                         break
-            if len(pairs) == 10:
+            if len(pairs) == howMany:
                 break
         print "found ",str(len(pairs))," pairs."
         print pairs
-        #candidateFound = False
-        #print "finding candidates.."
-        #for idx, pair in enumerate(pairs):
-        #    my_function2(start,idx,myPattern,rm):            
-    # return candidates
-    #pass
+        
+        candidateFound = False
+        print "finding candidates.."
+        cands = []
+        for pair in pairs:
+            for idx, t in enumerate(rm[m-1][pair[0]].T):
+                c0 = my_function2(rm[m-1][pair[0]],idx,p[m-1],rm[m-1])
+                if(c0 != None):
+                    #print "c0 is not None."
+                    break
+
+            for idx, t in enumerate(rm[m][pair[1]].T):
+                c1 = my_function2(rm[m][pair[1]],idx,p[m],rm[m])
+                if(c1 != None):
+                    #print "c1 is not None."
+                    break
+
+            if(c0 != None and c1 != None):
+                print "start indices: ",str(pair[0]),", ",str(pair[1])
+                cands.append([c0, c1])
+                break
+
+        print "found ",str(len(cands))," candidates."
+        if(len(cands) == 1):
+            for c in cands[0]:
+                for pe in c:
+                    print pe.sIdx
+                    print pe.tIdx
+        
 
 def euclidean_distance(t1,t2):
     return pow(pow(t1[0,3]-t2[0,3],2)+pow(t1[1,3]-t2[1,3],2)+pow(t1[2,3]-t2[2,3],2),0.5)
