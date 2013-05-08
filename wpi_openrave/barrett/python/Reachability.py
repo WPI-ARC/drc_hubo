@@ -8,6 +8,7 @@ import commands
 import sys
 import pickle
 from random import *
+from copy import *
 
 class ReachabilitySphere(object):
     def __init__(self):
@@ -248,20 +249,6 @@ class ReachabilityMap(object):
             if(rs > r):
                 self.map.pop(idx)
         print "trimming done."
-    
-    # Do search over multiple maps considering the boundaries
-    # if m = len(maps), then
-    # len(transforms) should be m-1
-    # and len(patterns) should be m-1 as well
-    # patterns should be passed in as a merged couple of 
-    # pattern_j wrt pattern_i. The transformation between patterns
-    # is defined by the transformation between the manipulators' 
-    # end effectors.
-    def search(self, maps, transforms, patterns):
-        for m in range(1,len(maps)):
-            Ti_j = transforms[m-1]
-        # return candidates
-        pass
 
     def save(self):
         # Save map
@@ -891,3 +878,61 @@ def find_all_candidates(patterns, rmaps):
 # if(disInMap <= distSearch):
 #    s2 might have a Tgoal candidate in it.
 
+
+# Do search over multiple maps considering the boundaries
+def search(reachabilityMaps, mapTs, patterns, patternTs):
+    # Get a deep copy of the maps, we don't want to
+    # mess with the originals
+    rm = []
+    rmT = []
+    for idx, m in enumerate(reachabilityMaps):
+        rm.append(deepcopy(m.map))
+        if idx > 0:
+            rmT.append(deepcopy(mapTs[idx-1]))
+
+    for m in range(1,len(rm)):
+        # Transform of map_i+1 with reference to map_i
+        Ti_j= rmT[m-1]
+
+        # Convert all reachability spheres of map_i+1 into map_i's base tranform
+        for sIdx, s in enumerate(rm[m]):
+            for tIdx, Tj_s in enumerate(s.T):
+                Ti_s = dot(Ti_j,Tj_s)
+                s.T[tIdx] = Ti_s
+
+        # Now map_i+1's reachability spheres are all defined in map_i's base transform
+
+        # Transform of pattern_i+1 with reference to pattern_i
+        pT = patternTs[m-1]       
+
+        # Get the euclidean distance between pattern's root's
+        pD2 = pow(pT[0,3],2)+pow(pT[1,3],2)+pow(pT[2,3],2)
+        pD = pow(pD2,0.5)
+
+        # Find all pairs of reachability spheres that are 
+        # exactly eD apart from each other
+        pairs = []
+        print "finding pairs..."
+        for s1Idx, s1 in enumerate(rm[m-1]):
+            for s2Idx, s2 in enumerate(rm[m]):
+                sD = euclidean_distance(s1.T[0],s2.T[0])
+                # If the euclidean distance of the pattern transforms
+                # is equal to spheres' distance, then keep the pair
+                if(sD == pD):
+                    print "found a pair!"
+                    pairs.append([s1Idx,s2Idx])            
+                    if len(pairs) == 10 :
+                        break
+            if len(pairs) == 10:
+                break
+        print "found ",str(len(pairs))," pairs."
+        print pairs
+        #candidateFound = False
+        #print "finding candidates.."
+        #for idx, pair in enumerate(pairs):
+        #    my_function2(start,idx,myPattern,rm):            
+    # return candidates
+    #pass
+
+def euclidean_distance(t1,t2):
+    return pow(pow(t1[0,3]-t2[0,3],2)+pow(t1[1,3]-t2[1,3],2)+pow(t1[2,3]-t2[2,3],2),0.5)
