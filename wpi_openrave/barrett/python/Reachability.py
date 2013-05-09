@@ -880,14 +880,17 @@ def find_all_candidates(patterns, rmaps):
 
 
 # Do search over multiple maps considering the boundaries
-def search(reachabilityMaps, mapTs, patterns, patternTs):
+def search(reachabilityMaps, mapTs, patterns, patternTs): 
     # Get a deep copy of the maps, we don't want to
     # mess with the originals
     rm = []
     rmT = []
     p = []
     pT = []
-    howMany = 20
+    howMany = 200
+    candidates = []
+    paths0 = []
+    paths1 = []
     for idx, m in enumerate(reachabilityMaps):
         rm.append(deepcopy(m.map))
         p.append(deepcopy(patterns[idx].pattern))
@@ -929,27 +932,30 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
         print "finding pairs..."
         # NOTE, DO A SMARTER SEARCH HERE. 
         # WE DON'T WANT A COMPLEXITY OF N^2
-        done = False
-        while(not done):
-            s1Init = randint(0,len(rm[m-1])-1)
-            allHigh = True
-            for n in rm[m-1][s1Init].neighbors:
-                if rm[m-1][n].reachability != 6:
-                    allHigh = False
-                    break
-            if(allHigh):
-                done = True
-        done = False
-        while(not done):
-            s2Init = randint(0,len(rm[m])-1)
-            allHigh = True
-            for n in rm[m][s2Init].neighbors:
-                if rm[m][n].reachability != 6:
-                    allHigh = False
-                    break
-            if(allHigh):
-                done = True
-            
+        s1Init = int(ceil(random()*(len(rm[m-1])-1)))
+        s2Init = int(ceil(random()*(len(rm[m])-1)))
+        # done = False
+        # while(not done):
+        #     s1Init = int(ceil(random()*(len(rm[m-1])-1)))
+        #     #print s1Init
+        #     allHigh = True
+        #     for n in rm[m-1][s1Init].neighbors:
+        #         if rm[m-1][n].reachability != 6:
+        #             allHigh = False
+        #             break
+        #     if(allHigh):
+        #         done = True
+        # done = False
+        # while(not done):
+        #     s2Init = int(ceil(random()*(len(rm[m])-1)))
+        #     #print s2Init
+        #     allHigh = True
+        #     for n in rm[m][s2Init].neighbors:
+        #         if rm[m][n].reachability != 6:
+        #             allHigh = False
+        #             break
+        #     if(allHigh):
+        #         done = True
         for s1Idx, s1 in enumerate(rm[m-1][s1Init:-1]):
             for s2Idx, s2 in enumerate(rm[m][s2Init:-1]):
                 sD = euclidean_distance(s1.T[0],s2.T[0])
@@ -965,34 +971,44 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
         print "found ",str(len(pairs))," pairs."
         print pairs
         
-        candidateFound = False
         print "finding candidates.."
-        cands = []
         for pair in pairs:
             for idx, t in enumerate(rm[m-1][pair[0]].T):
-                c0 = my_function2(rm[m-1][pair[0]],idx,p[m-1],rm[m-1])
-                if(c0 != None):
-                    #print "c0 is not None."
+                steps0 = my_function2(rm[m-1][pair[0]],idx,p[m-1],rm[m-1])
+                if(steps0 != None):
+                    path0 = []
+                    path0.append(PathElement(pair[0],idx))
+                    path0.extend(steps0)
                     break
 
             for idx, t in enumerate(rm[m][pair[1]].T):
-                c1 = my_function2(rm[m][pair[1]],idx,p[m],rm[m])
-                if(c1 != None):
-                    #print "c1 is not None."
+                steps1 = my_function2(rm[m][pair[1]],idx,p[m],rm[m])
+                if(steps1 != None):
+                    path1 = []
+                    path1.append(PathElement(pair[1],idx))
+                    path1.extend(steps1)
                     break
 
-            if(c0 != None and c1 != None):
+            if(steps0 != None and steps1 != None):
                 print "start indices: ",str(pair[0]),", ",str(pair[1])
-                cands.append([c0, c1])
-                break
+                # path is in a list because we might 
+                # have more than one path candidates
+                paths0.append(path0) 
+                paths1.append(path1)
 
-        print "found ",str(len(cands))," candidates."
-        if(len(cands) == 1):
-            for c in cands[0]:
-                for pe in c:
-                    print pe.sIdx
-                    print pe.tIdx
-        
+        if(paths0 != [] and paths1 != []):
+            candidates.append(paths0)
+            candidates.append(paths1)
+
+    print "found ",str(len(candidates))," candidates."
+    if(candidates != []):
+        # for c in candidates[0]:
+        #     for pe in c:
+        #         print pe.sIdx
+        #         print pe.tIdx
+        return candidates
+    else:
+        return None
 
 def euclidean_distance(t1,t2):
     return pow(pow(t1[0,3]-t2[0,3],2)+pow(t1[1,3]-t2[1,3],2)+pow(t1[2,3]-t2[2,3],2),0.5)
