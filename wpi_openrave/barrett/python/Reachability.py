@@ -155,9 +155,13 @@ class ReachabilityMap(object):
     def show(self,myEnv):
         # draw all, append to handles
         self.handles=[]
-        for s in self.map:
+        print "In show - map length: ",str(len(self.map))
+        sys.stdin.readline()
+        for idx, s in enumerate(self.map):
             for direction in range(s.reachability):
                 Tbase_s = s.T[direction]
+                # if(Tbase_s[0,3] > 0):
+                #    print "warning!!!"
                 T0_ee =  dot(self.T0_base, Tbase_s)
                 if(s.shapeHandle == None):
                     s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
@@ -169,10 +173,20 @@ class ReachabilityMap(object):
                     self.handles.append(s.shapeHandle)
                     
                 s.axisHandle.append(misc.DrawAxes(myEnv,dot(self.T0_base,Tbase_s),0.01))
+                
             
+    def update_indices(self):
+        for idx, s in enumerate(self.map):
+            # Convert the Tbase_sphere translation
+            # into string and keep it in the dictionary
+            myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+            self.indices[myKey] = idx
+        
     def find_neighbors(self):
+        print "Finding neighbors..."
         # For all spheres in the map do:
         for index, sphere in enumerate(self.map):
+            sphere.neighbors = []
             # For each possible neighbor do:
             for Tsphere_neighbor in self.Tsphere_neighbors:
                 # Erase rotation (we don't care), keep transformation.
@@ -208,18 +222,47 @@ class ReachabilityMap(object):
     # A Method that crops the reachability map
     # bounds are defined in base coordinates
     def crop(self, bounds):
+        
         xmin = bounds[0]
         xmax = bounds[1]
         ymin = bounds[2]
         ymax = bounds[3]
         zmin = bounds[4]
         zmax = bounds[5]
-        print "cropping..."
+
+        print "cropping... bounds: ",str(bounds)
+        indexList = []
         for idx, s in enumerate(self.map):
-            if((xmin > s.T[0][0,3] or s.T[0][0,3] > xmax) or
-               (ymin > s.T[0][1,3] or s.T[0][1,3] > ymax) or
-               (zmin > s.T[0][2,3] or s.T[0][2,3] > zmax)):
-                self.map.pop(idx)
+            # print  "x: ",str(s.T[0][0,3])
+            # print  "y: ",str(s.T[0][1,3])
+            # print  "z: ",str(s.T[0][2,3])
+            # print str(idx)," in ",str(self.indices.values())," :"
+            # print idx in self.indices.values()
+
+            ###################################################
+            # if((xmin > s.T[0][0,3] or s.T[0][0,3] > xmax) or
+            #    (ymin > s.T[0][1,3] or s.T[0][1,3] > ymax) or
+            #    (zmin > s.T[0][2,3] or s.T[0][2,3] > zmax)):
+            #     print "cropped!"
+            #     # remove it from self.indices dict, so it doesn't mess up
+            #     # find_neighbors results
+            #     myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+            #     del self.indices[myKey]
+            #     # remove the sphere from the map
+            #     self.map.pop(idx)
+            ##################################################
+            if(s.T[0][0,3] > 0):
+                myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+                del self.indices[myKey]
+                indexList.append(idx)
+
+        #TODO: GO THROUGH THE indexList AND REMOVE SPHERES!
+        
+                
+        # Finished cropping the map now update the neighbors
+        self.find_neighbors()
+
+        # Report
         print "crop done."
     
     

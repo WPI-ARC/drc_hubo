@@ -134,10 +134,27 @@ myRmaps = []
 rm = ReachabilityMap("./barrettwam_ik_solver",robots[0],robots[0].GetManipulators()[0])
 print "Loading reachability map for Robot0..."
 rm.load("barrettwam_arm")
-rm.name = "barrettwam_arm_0"
-#rm.show(env) # slows down the process a lot
+print rm.map[0].T[0][0,3]
+print rm.map[0].T[0][1,3]
+print rm.map[0].T[0][2,3]
 
+del rm.map[0]
+
+print rm.map[0].T[0][0,3]
+print rm.map[0].T[0][1,3]
+print rm.map[0].T[0][2,3]
+
+sys.stdin.readline()
+
+rm.name = "barrettwam_arm_0"
+rm.update_indices() # we should actually save these indices in the pkl file
+rm.find_neighbors()
+print "map size before crop: ",str(len(rm.map))
+rm.crop([0,1.0,-1.0,0.2,0.0,1.0])
+print "map size after crop: ",str(len(rm.map))
+rm.show(env) # slows down the process a lot
 # Append the reachability map, and keep it in a list
+sys.stdin.readline()
 myRmaps.append(rm)
 
 print "Robot0 Reachability Map loaded.."
@@ -153,7 +170,10 @@ rm2.g = 0
 rm2.b = 0
 #print "Reachability map loaded for Robot1. Press Enter to show the map."
 #sys.stdin.readline()
-#rm2.show(env)
+rm2.update_indices()
+rm2.find_neighbors()
+rm2.crop([0,1.0,1.0,0.0,0.0,1.0])
+rm2.show(env)
 myRmaps.append(rm2)
 
 print "Finding path candidates..."
@@ -267,6 +287,9 @@ while(not success):
         #     elif(type(masterBaseConstraint) == type(array(()))):
         #         pass
 
+    print "Type of relBaseConstraint"
+    print type(relBaseConstraint)
+
     if(masterBaseConstOK):
     # Get their relative Transformation matrix
         T0_base = []
@@ -285,11 +308,12 @@ while(not success):
             if(not allclose(Trobot0_robot1[0:3,0:3],rodrigues(relBaseConstraint[3:6]))):
                 relBaseConstOK = False
 
-        elif(type(relBaseConstraint) == type(array(()))):
+        elif(type(relBaseConstraint) == type(array(()) or relBaseConstraint) == type(matrix(()))):
             # if input argument type is a numpy array then we have an exact transformation
             print "relBaseConstraint?"
             print allclose(Trobot0_robot1,relBaseConstraint)
-            pass   
+            if(not allclose(Trobot0_robot1,relBaseConstraint)):
+                relBaseConstOK = False
 
         # If the solution meets the base constraint:
         if(relBaseConstOK):
