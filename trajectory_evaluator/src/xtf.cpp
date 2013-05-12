@@ -488,7 +488,7 @@ bool Parser::ExportTraj(Trajectory trajectory, std::string filename, bool compac
 }
 
 template <typename T>
-std::string Parser::PrettyPrint(std::vector<T> vectoprint)
+std::string PrettyPrint(std::vector<T> vectoprint)
 {
     std::ostringstream strm;
     if (vectoprint.size() > 0)
@@ -503,7 +503,7 @@ std::string Parser::PrettyPrint(std::vector<T> vectoprint)
 }
 
 template <typename T>
-std::string Parser::PrettyPrint(T toprint)
+std::string PrettyPrint(T toprint)
 {
     std::ostringstream strm;
     strm << toprint;

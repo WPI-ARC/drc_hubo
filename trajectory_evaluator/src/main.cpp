@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include "trajectory_evaluator/dtw.h"
 #include "trajectory_evaluator/xtf.h"
+#include "trajectory_evaluator/evaluator.h"
 
 double euclidean_distance(std::vector<double> P1, std::vector<double> P2)
 {
@@ -102,8 +103,16 @@ int compare_performance(int traj_length, int iterations)
 int main()
 {
     std::cout << "Launching trajectory evaluator with " << omp_test() << " reported threads from OpenMP" << std::endl;
+    std::cout << "Running evaluator tests..." << std::endl;
+    EVAL::PoseEvaluator evaler("./");
+    XTF::Parser test_parser;
+    XTF::Trajectory test_traj = test_parser.ParseTraj("pose_recorded.xtf");
+    std::cout << "...loaded a test trajectory..." << std::endl;
+    std::vector<std::string> keys = evaler.EvaluateAgainstLibrary(test_traj, "desired", "position");
+    std::cout << "Evaluation match keys: " << PrettyPrint(keys) << std::endl;
+    std::cout << "...done evaluator testing" << std::endl;
     std::cout << "Running performance tests..." << std::endl;
-    compare_performance(100, 1000);
+    compare_performance(1000, 1000);
     std::cout << "...done performance testing" << std::endl;
     return 0;
 }

@@ -78,12 +78,6 @@ class Parser
 {
 protected:
 
-    template <typename T>
-    std::string PrettyPrint(std::vector<T> vectoprint);
-
-    template <typename T>
-    std::string PrettyPrint(T toprint);
-
     std::vector<double> ReadDoubles(std::string strtovec);
 
     inline std::string CleanNewlines(std::string dirty)
@@ -129,6 +123,12 @@ public:
 };
 
 }
+
+template <typename T>
+std::string PrettyPrint(std::vector<T> vectoprint);
+
+template <typename T>
+std::string PrettyPrint(T toprint);
 
 std::ostream& operator<<(std::ostream &strm, const XTF::State &state);
 

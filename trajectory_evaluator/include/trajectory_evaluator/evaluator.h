@@ -10,6 +10,8 @@
 #include <dirent.h>
 #include "trajectory_evaluator/dtw.h"
 #include "trajectory_evaluator/xtf.h"
+#include <Eigen/Geometry>
+#include <Eigen/LU>
 
 #ifndef EVALUATOR_H
 #define EVALUATOR_H
@@ -17,105 +19,9 @@
 namespace EVAL
 {
 
-std::vector<XTF::Trajectory> LoadTrajectoryLibrary(std::string library_path)
-{
-    std::vector<XTF::Trajectory> library;
-    std::vector<std::string> file_names;
-    XTF::Parser library_parser;
-    // Populate filenames with all relevant files (.xtf or .xml) in the provided directory
-    struct dirent* de = NULL;
-    DIR* d = NULL;
-    d = opendir(library_path.c_str());
-    if (d == NULL)
-    {
-        throw std::invalid_argument("Unable to open library directory");
-    }
-    while ((de = readdir(d)) != NULL)
-    {
-        std::string filename(de->d_name);
-        if (filename.find(".xml") != std::string::npos)
-        {
-            file_names.push_back(filename);
-        }
-        else if (filename.find(".xtf") != std::string::npos)
-        {
-            file_names.push_back(filename);
-        }
-    }
-    closedir(d);
-    // Try to read in each of the files into the library
-    for (unsigned int i = 0; i < file_names.size(); i++)
-    {
-        try
-        {
-            XTF::Trajectory new_traj = library_parser.ParseTraj(file_names[i]);
-            library.push_back(new_traj);
-        }
-        catch (...)
-        {
-            std::cout << "Could not load file: " << file_names[i] << " into the library.\nIs it an XTF trajectory file?" << std::endl;
-        }
-    }
-    return library;
-}
+std::vector<XTF::Trajectory> LoadTrajectoryLibrary(std::string library_path);
 
-std::vector< std::vector<double> > ExtractFromTrajectory(XTF::Trajectory traj, std::string field_range, std::string field)
-{
-    std::vector< std::vector<double> > raw_data;
-    for (unsigned int i = 0; i < traj.trajectory.size(); i++)
-    {
-        XTF::State current = traj.trajectory[i];
-        if (field_range.compare("desired") == 0)
-        {
-            if (field.compare("position") == 0)
-            {
-                if (current.position_desired.size() > 0)
-                {
-                    raw_data.push_back(current.position_desired);
-                }
-            }
-            else if (field.compare("velocity") == 0)
-            {
-                if (current.velocity_desired.size() > 0)
-                {
-                    raw_data.push_back(current.velocity_desired);
-                }
-            }
-            else if (field.compare("acceleration") == 0)
-            {
-                if (current.acceleration_desired.size() > 0)
-                {
-                    raw_data.push_back(current.acceleration_desired);
-                }
-            }
-        }
-        else if (field_range.compare("actual") == 0)
-        {
-            if (field.compare("position") == 0)
-            {
-                if (current.position_actual.size() > 0)
-                {
-                    raw_data.push_back(current.position_actual);
-                }
-            }
-            else if (field.compare("velocity") == 0)
-            {
-                if (current.velocity_actual.size() > 0)
-                {
-                    raw_data.push_back(current.velocity_actual);
-                }
-            }
-            else if (field.compare("acceleration") == 0)
-            {
-                if (current.acceleration_actual.size() > 0)
-                {
-                    raw_data.push_back(current.acceleration_actual);
-                }
-            }
-        }
-    }
-    return raw_data;
-}
+std::vector< std::vector<double> > ExtractFromTrajectory(XTF::Trajectory traj, std::string field_range, std::string field);
 
 class PoseEvaluator
 {
@@ -140,14 +46,31 @@ class PoseNormalizer
 {
 protected:
 
+    Eigen::Matrix4d reference;
+
 public:
 
-    PoseNormalizer();
+    /*
+      The pose normalizer operates on poses of the form (raw_pose) X (offset_pose) = (reference_pose),
+      which allows all raw_pose values to be converted to a normalized offset pose from the provided
+      reference pose. This is used for pose trajectory evaluation, where it normalizes end-effector
+      pose trajectories relative to the robot's kinematic chain so that they are relative to the pose
+      of the end effector task. This attempts to make trajectories normalized to the task even if they
+      take place at wildly varying locations with respect to the robot itself.
+
+      reference_pose is of the form [x, y, z, x_angle, y_angle, z_angle, w_angle]
+    */
+    PoseNormalizer(std::vector<double> reference_pose);
 
     ~PoseNormalizer()
     {
     }
 
+    /*
+      Returns the result of (offset_pose) = (raw_pose)^(-1) X (reference_pose)
+
+      raw_pose is of the form [x, y, z, x_angle, y_angle, z_angle, w_angle]
+    */
     inline std::vector<double> Normalize(std::vector<double> raw_pose);
 
 };

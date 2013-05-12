@@ -17,6 +17,10 @@ find_package(LibXML++ REQUIRED)
 include_directories(${LibXML++_INCLUDE_DIRS})
 set(LIBS ${LIBS} ${LibXML++_LIBRARIES})
 
+#Find and use the Eigen library
+find_package(Eigen REQUIRED)
+include_directories(${Eigen_INCLUDE_DIRS})
+
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory

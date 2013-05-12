@@ -98,7 +98,7 @@ double SimpleDTW::EvaluateCost(std::vector< std::vector<double> > sequence_1, st
         {
             double index_cost = DistanceFn(sequence_1[i - 1], sequence_2[j - 1]);
             double prev_cost;
-            if (dtw_matrix[i - 1][j] < dtw_matrix[i - 1][j - 1] && dtw_matrix[i - j][j] < dtw_matrix[i][j - 1])
+            if (dtw_matrix[i - 1][j] < dtw_matrix[i - 1][j - 1] && dtw_matrix[i - 1][j] < dtw_matrix[i][j - 1])
             {
                 prev_cost = dtw_matrix[i - 1][j];
             }
@@ -119,6 +119,11 @@ double SimpleDTW::EvaluateCost(std::vector< std::vector<double> > sequence_1, st
 
 SimpleDTW::~SimpleDTW()
 {
+}
+
+/* DO NOT USE - destructor will get called at the wrong time using RAII + RVO, and it WILL segfault
+SimpleDTW::~SimpleDTW()
+{
     //Clean up the dtw matrix
     if (dtw_matrix != NULL)
     {
@@ -132,3 +137,4 @@ SimpleDTW::~SimpleDTW()
         free(dtw_matrix);
     }
 }
+*/
