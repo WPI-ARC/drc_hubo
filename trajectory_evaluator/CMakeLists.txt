@@ -8,7 +8,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 #set(ROS_BUILD_TYPE RelWithDebInfo)
-
+set(ROS_COMPILE_FLAGS "-Ofast")
 rosbuild_init()
 
 #Find and use the LibXML++ library
@@ -30,6 +30,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_genmsg()
 #uncomment if you have defined services
 #rosbuild_gensrv()
+
+#Set GCC to use the highest level of optimization
+#set(CMAKE_CXX_FLAGS "-Ofast" ${CMAKE_CXX_FLAGS})
 
 #common commands for building c++ executables and libraries
 rosbuild_add_executable(xtf_test src/xtf_test.cpp src/xtf.cpp)
