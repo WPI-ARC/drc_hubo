@@ -12,12 +12,13 @@ from a robot or robot-like kinematic chain. These trajectories can be either
 joint-space or pose-space data, and the format offers the necessary fields
 to fully define either.
 
+Shown below is an overview of the file format structure. See ./bin for
+the example pose trajectory files used to test the XTF libraries.
 --------------------------------------------------------------------------
 
 <?xml version="1.0" encoding="utf-8" ?>
-<trajectory uid="">
-  <info generator="reference">
-    <robot name="PR2"></robot>
+<trajectory uid="trajectory1">
+  <info robot="PR2" generator="reference">
     <type traj_type="recorded" timing="timed" data_type="pose">
       <root_frame>
 
@@ -28,7 +29,7 @@ to fully define either.
     </type>
     <type traj_type="generated" timing="untimed" data_type="joint">
       <joint_names>
-        l_wrist_roll
+        
       </joint_names>
     </type>
     <tags>
