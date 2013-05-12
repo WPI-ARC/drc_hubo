@@ -8,6 +8,7 @@ import commands
 import sys
 import pickle
 from random import *
+from copy import *
 
 class ReachabilitySphere(object):
     def __init__(self):
@@ -25,7 +26,6 @@ class ReachabilitySphere(object):
         self.visible = True
         self.axisLength = 0.1
         self.configs = []
-
 
 class ReachabilityMapParams(object):
     def __init__(self):
@@ -155,9 +155,13 @@ class ReachabilityMap(object):
     def show(self,myEnv):
         # draw all, append to handles
         self.handles=[]
-        for s in self.map:
+        print "In show - map length: ",str(len(self.map))
+        sys.stdin.readline()
+        for idx, s in enumerate(self.map):
             for direction in range(s.reachability):
                 Tbase_s = s.T[direction]
+                # if(Tbase_s[0,3] > 0):
+                #    print "warning!!!"
                 T0_ee =  dot(self.T0_base, Tbase_s)
                 if(s.shapeHandle == None):
                     s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
@@ -169,10 +173,20 @@ class ReachabilityMap(object):
                     self.handles.append(s.shapeHandle)
                     
                 s.axisHandle.append(misc.DrawAxes(myEnv,dot(self.T0_base,Tbase_s),0.01))
+                
             
+    def update_indices(self):
+        for idx, s in enumerate(self.map):
+            # Convert the Tbase_sphere translation
+            # into string and keep it in the dictionary
+            myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+            self.indices[myKey] = idx
+        
     def find_neighbors(self):
+        print "Finding neighbors..."
         # For all spheres in the map do:
         for index, sphere in enumerate(self.map):
+            sphere.neighbors = []
             # For each possible neighbor do:
             for Tsphere_neighbor in self.Tsphere_neighbors:
                 # Erase rotation (we don't care), keep transformation.
@@ -204,6 +218,80 @@ class ReachabilityMap(object):
 
     def update(self):
         pass
+
+    # A Method that crops the reachability map
+    # bounds are defined in base coordinates
+    def crop(self, bounds):
+        
+        xmin = bounds[0]
+        xmax = bounds[1]
+        ymin = bounds[2]
+        ymax = bounds[3]
+        zmin = bounds[4]
+        zmax = bounds[5]
+
+        print "cropping... bounds: ",str(bounds)
+        indexList = []
+        for idx, s in enumerate(self.map):
+            # print  "x: ",str(s.T[0][0,3])
+            # print  "y: ",str(s.T[0][1,3])
+            # print  "z: ",str(s.T[0][2,3])
+            # print str(idx)," in ",str(self.indices.values())," :"
+            # print idx in self.indices.values()
+
+            ###################################################
+            # if((xmin > s.T[0][0,3] or s.T[0][0,3] > xmax) or
+            #    (ymin > s.T[0][1,3] or s.T[0][1,3] > ymax) or
+            #    (zmin > s.T[0][2,3] or s.T[0][2,3] > zmax)):
+            #     print "cropped!"
+            #     # remove it from self.indices dict, so it doesn't mess up
+            #     # find_neighbors results
+            #     myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+            #     del self.indices[myKey]
+            #     # remove the sphere from the map
+            #     self.map.pop(idx)
+            ##################################################
+            if(s.T[0][0,3] > 0):
+                myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+                del self.indices[myKey]
+                indexList.append(idx)
+
+        #TODO: GO THROUGH THE indexList AND REMOVE SPHERES!
+        
+                
+        # Finished cropping the map now update the neighbors
+        self.find_neighbors()
+
+        # Report
+        print "crop done."
+    
+    
+    # Trobot_start: transform of the robot's base wrt
+    #               start transform of the manipulation
+    # returns the index of the reachability sphere that
+    # matches the Tbase_start
+    def select(self, Tbase_start):
+        for sIdx, s in enumerate(self.map):
+            for tIdx, t in enumerate(s.T):
+                # t is actually Tbase_ee
+                if(allclose(t,Tbase_start)):
+                    return [sIdx, tIdx]
+
+        # If we're here, it's because we couldn't find a result
+        return -1
+    
+    # Trims the reachability spheres that are farther than 
+    # a certain radius (if x=y=z, then the end result is a sphere)
+    def trim(self,x,y,z):
+        r2 = pow(x,2)+pow(y,2)+pow(z,2)
+        r = pow(r2,0.5)
+        print "trimming..."
+        for idx, s in enumerate(self.map):
+            rs2 = pow(s.T[0][0,3],2)+pow(s.T[0][1,3],2)+pow(s.T[0][2,3],2)
+            rs = pow(rs2,0.5)
+            if(rs > r):
+                self.map.pop(idx)
+        print "trimming done."
 
     def save(self):
         # Save map
@@ -542,7 +630,7 @@ def satisfy():
     #                             if(dot(s.T,t.T)==c):
     pass
 
-def my_function2(start,idx,myPattern,rm):
+def my_function2(start,idx,myPattern,rmap):
     myList = []
     # For each sphere in the pattern,
     # (except the first and the last)
@@ -582,17 +670,17 @@ def my_function2(start,idx,myPattern,rm):
             # See if any of SoI's neighbors
             # has the same relative transform
             # as Tp1_p2
-            for tIdx, Tbase_neighbor in enumerate(rm.map[neighbor].T):                                        
+            for tIdx, Tbase_neighbor in enumerate(rmap[neighbor].T):                                        
                 TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
                 if(allclose(TSoI_neighbor,Tp1_p2)):
                     found = True
-                    rm.map[neighbor].shapeHandle = None
+                    rmap[neighbor].shapeHandle = None
 
                     # keep the index of the sphere in the reachability map
                     myList.append(PathElement(neighbor,tIdx))
 
                     # Assign the next sphere of interest
-                    SoI = rm.map[neighbor]
+                    SoI = rmap[neighbor]
                     Tbase_SoI = Tbase_neighbor
                     break
                 
@@ -833,3 +921,137 @@ def find_all_candidates(patterns, rmaps):
 # if(disInMap <= distSearch):
 #    s2 might have a Tgoal candidate in it.
 
+
+# Do search over multiple maps considering the boundaries
+def search(reachabilityMaps, mapTs, patterns, patternTs): 
+    # Get a deep copy of the maps, we don't want to
+    # mess with the originals
+    rm = []
+    rmT = []
+    p = []
+    pT = []
+    howMany = 200
+    candidates = []
+    paths0 = []
+    paths1 = []
+    for idx, m in enumerate(reachabilityMaps):
+        rm.append(deepcopy(m.map))
+        p.append(deepcopy(patterns[idx].pattern))
+        if idx > 0:
+            rmT.append(deepcopy(mapTs[idx-1]))
+            pT.append(deepcopy(patternTs[idx-1]))
+
+    for m in range(1,len(rm)):
+        # Transform of map_i+1 with reference to map_i
+        Ti_j= rmT[m-1]
+
+        # Convert all reachability spheres of map_i+1
+        # into map_i's base tranform
+        for sIdx, s in enumerate(rm[m]):
+            for tIdx, Tj_s in enumerate(s.T):
+                Ti_s = dot(Ti_j,Tj_s)
+                s.T[tIdx] = Ti_s
+
+        # Now map_i+1's reachability spheres are
+        # all defined in map_i's base transform
+
+        # Transform of pattern_i+1 with reference to pattern_i
+        pTi_j = patternTs[m-1]
+
+        # Convert all search pattern elements of pattern_i+1
+        # into pattern_i's base transform
+        for idx, s in enumerate(p[m]):
+            pTj_s = s.T
+            pTi_s = dot(pTi_j,pTj_s)
+            s.T = pTi_s
+
+        # Get the euclidean distance between pattern's root's
+        pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
+        pD = pow(pD2,0.5)
+
+        # Find all pairs of reachability spheres that are 
+        # exactly eD apart from each other
+        pairs = []
+        print "finding pairs..."
+        # NOTE, DO A SMARTER SEARCH HERE. 
+        # WE DON'T WANT A COMPLEXITY OF N^2
+        s1Init = int(ceil(random()*(len(rm[m-1])-1)))
+        s2Init = int(ceil(random()*(len(rm[m])-1)))
+        # done = False
+        # while(not done):
+        #     s1Init = int(ceil(random()*(len(rm[m-1])-1)))
+        #     #print s1Init
+        #     allHigh = True
+        #     for n in rm[m-1][s1Init].neighbors:
+        #         if rm[m-1][n].reachability != 6:
+        #             allHigh = False
+        #             break
+        #     if(allHigh):
+        #         done = True
+        # done = False
+        # while(not done):
+        #     s2Init = int(ceil(random()*(len(rm[m])-1)))
+        #     #print s2Init
+        #     allHigh = True
+        #     for n in rm[m][s2Init].neighbors:
+        #         if rm[m][n].reachability != 6:
+        #             allHigh = False
+        #             break
+        #     if(allHigh):
+        #         done = True
+        for s1Idx, s1 in enumerate(rm[m-1][s1Init:-1]):
+            for s2Idx, s2 in enumerate(rm[m][s2Init:-1]):
+                sD = euclidean_distance(s1.T[0],s2.T[0])
+                # If the euclidean distance of the pattern transforms
+                # is equal to spheres' distance, then keep the pair
+                if(sD == pD):
+                    pairs.append([s1Idx,s2Idx])            
+                    print "found a pair: ",str(len(pairs))
+                    if len(pairs) == howMany :
+                        break
+            if len(pairs) == howMany:
+                break
+        print "found ",str(len(pairs))," pairs."
+        print pairs
+        
+        print "finding candidates.."
+        for pair in pairs:
+            for idx, t in enumerate(rm[m-1][pair[0]].T):
+                steps0 = my_function2(rm[m-1][pair[0]],idx,p[m-1],rm[m-1])
+                if(steps0 != None):
+                    path0 = []
+                    path0.append(PathElement(pair[0],idx))
+                    path0.extend(steps0)
+                    break
+
+            for idx, t in enumerate(rm[m][pair[1]].T):
+                steps1 = my_function2(rm[m][pair[1]],idx,p[m],rm[m])
+                if(steps1 != None):
+                    path1 = []
+                    path1.append(PathElement(pair[1],idx))
+                    path1.extend(steps1)
+                    break
+
+            if(steps0 != None and steps1 != None):
+                print "start indices: ",str(pair[0]),", ",str(pair[1])
+                # path is in a list because we might 
+                # have more than one path candidates
+                paths0.append(path0) 
+                paths1.append(path1)
+
+        if(paths0 != [] and paths1 != []):
+            candidates.append(paths0)
+            candidates.append(paths1)
+
+    print "found ",str(len(candidates))," candidates."
+    if(candidates != []):
+        # for c in candidates[0]:
+        #     for pe in c:
+        #         print pe.sIdx
+        #         print pe.tIdx
+        return candidates
+    else:
+        return None
+
+def euclidean_distance(t1,t2):
+    return pow(pow(t1[0,3]-t2[0,3],2)+pow(t1[1,3]-t2[1,3],2)+pow(t1[2,3]-t2[2,3],2),0.5)

@@ -134,10 +134,27 @@ myRmaps = []
 rm = ReachabilityMap("./barrettwam_ik_solver",robots[0],robots[0].GetManipulators()[0])
 print "Loading reachability map for Robot0..."
 rm.load("barrettwam_arm")
-rm.name = "barrettwam_arm_0"
-#rm.show(env) # slows down the process a lot
+print rm.map[0].T[0][0,3]
+print rm.map[0].T[0][1,3]
+print rm.map[0].T[0][2,3]
 
+del rm.map[0]
+
+print rm.map[0].T[0][0,3]
+print rm.map[0].T[0][1,3]
+print rm.map[0].T[0][2,3]
+
+sys.stdin.readline()
+
+rm.name = "barrettwam_arm_0"
+rm.update_indices() # we should actually save these indices in the pkl file
+rm.find_neighbors()
+print "map size before crop: ",str(len(rm.map))
+rm.crop([0,1.0,-1.0,0.2,0.0,1.0])
+print "map size after crop: ",str(len(rm.map))
+rm.show(env) # slows down the process a lot
 # Append the reachability map, and keep it in a list
+sys.stdin.readline()
 myRmaps.append(rm)
 
 print "Robot0 Reachability Map loaded.."
@@ -153,7 +170,10 @@ rm2.g = 0
 rm2.b = 0
 #print "Reachability map loaded for Robot1. Press Enter to show the map."
 #sys.stdin.readline()
-#rm2.show(env)
+rm2.update_indices()
+rm2.find_neighbors()
+rm2.crop([0,1.0,1.0,0.0,0.0,1.0])
+rm2.show(env)
 myRmaps.append(rm2)
 
 print "Finding path candidates..."
@@ -175,8 +195,6 @@ h.append(misc.DrawAxes(env,T0_start1,0.4))
 T0_starts.append(array(T0_start0))
 T0_starts.append(array(T0_start1))
 
-
-
 # Define robot base constraint(s)
 # a) Bounds <type 'list'>
 #    xyz in meters, rpy in radians
@@ -187,12 +205,16 @@ T0_starts.append(array(T0_start1))
 # Relative Base Constraints between the two robots
 # First three elements are boundaries (abs) of XYZ (in meters) of robot1 w.r.t robot0 base coords.
 # Last three elements are boundaries for RPY of robot1 w.r.t robot0 base coords. RPY will be used to calculate the rotation matrix of robot1 in robot0 coords.
-relBaseConstraint = [0.5, 0.5, 0.5, 0.0, 0.0, 0.0]
+relBaseConstraint = [0.5, 0.5, 0.0, 0.5, 0.0, 0.0, 0.0] # This is type (a)
+
+#relBaseConstraint = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5]))) # This is type (b)
+
+relBaseConstraint = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.4,0.0])))
 
 # Base Constraints of the first (master) robot in the world coordinate frame
 #
 # Same as relative base constraints. First 3 elements are XYZ bounds and the last three elements determine the desired rotation matrix of the base of the master robot in world coords.
-masterBaseConstraint = [1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+masterBaseConstraint = [1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
 
 Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5])))
 
@@ -210,23 +232,29 @@ totalTime = array(())
 timeToFindAPath = 0.0
 findAPathStarts = time.time()
 iters = 0
+
+# Relative transform of initial grasp transforms
+Tstart0_start1 = dot(linalg.inv(T0_start0),T0_start1)
+
 while(not success):
     iters += 1
     myStatus = ""
     masterBaseConstOK = True
     relBaseConstOK = True
     collisionConstOK = True
-
+    candidates = None
     # find a random candidate in both maps
     findStarts = time.time()
-    candidates = find_random_candidates(myPatterns,myRmaps,1)
+    #candidates = find_random_candidates(myPatterns,myRmaps,1)
+    while(candidates == None):
+        candidates = search(myRmaps,[relBaseConstraint],myPatterns,[Tstart0_start1])
     # Get the length of the candidate path
     # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
     pathLength = len(candidates[0][0]) 
     findEnds = time.time()
     thisDiff = findEnds-findStarts
     totalTime = append(totalTime,thisDiff)
-    print "Found  a random result in ",str(thisDiff)," secs."
+    print "Found  a result in ",str(thisDiff)," secs."
 
     # Move each robot
     for myRobotIndex in range(numRobots):
@@ -237,22 +265,30 @@ while(not success):
         T0_newManipPose = dot(T0_starts[myRobotIndex],linalg.inv(Tbase_start))
         # Finally move the robot base 
         robots[myRobotIndex].SetTransform(T0_newManipPose)
+        
         if(myRobotIndex == 0):
-            if(type(masterBaseConstraint) == type([])):
-                if((abs(T0_newManipPose[0:3,3].transpose()) > masterBaseConstraint[0:3]).any()):
-                    masterBaseConstOK = False
-                    break
+            h.append(misc.DrawAxes(env,T0_newManipPose,0.4))
 
-                #if(not allclose(T0_newManipPose[0:3,0:3],rodrigues(masterBaseConstraint[3:6]))):
-                #    masterBaseConstOK = False
-                # HACK-AROUND
-                # For now just check if the robot base is on XY plane
-                if((not allclose(T0_newManipPose[0:3,2].transpose(),[0,0,1])) or (not allclose(T0_newManipPose[2,0:3],[0,0,1]))):
-                    masterBaseConstOK = False
-                    break
+        # Check master base constraint
+        # if(myRobotIndex == 0):
+        #     if(type(masterBaseConstraint) == type([])):
+        #         if((abs(T0_newManipPose[0:3,3].transpose()) > masterBaseConstraint[0:3]).any()):
+        #             masterBaseConstOK = False
+        #             break
 
-            elif(type(masterBaseConstraint) == type(array(()))):
-                pass
+        #         #if(not allclose(T0_newManipPose[0:3,0:3],rodrigues(masterBaseConstraint[3:6]))):
+        #         #    masterBaseConstOK = False
+        #         # HACK-AROUND
+        #         # For now just check if the robot base is on XY plane
+        #         if((not allclose(T0_newManipPose[0:3,2].transpose(),[0,0,1])) or (not allclose(T0_newManipPose[2,0:3],[0,0,1]))):
+        #             masterBaseConstOK = False
+        #             break
+
+        #     elif(type(masterBaseConstraint) == type(array(()))):
+        #         pass
+
+    print "Type of relBaseConstraint"
+    print type(relBaseConstraint)
 
     if(masterBaseConstOK):
     # Get their relative Transformation matrix
@@ -272,9 +308,12 @@ while(not success):
             if(not allclose(Trobot0_robot1[0:3,0:3],rodrigues(relBaseConstraint[3:6]))):
                 relBaseConstOK = False
 
-        elif(type(relBaseConstraint) == type(array(()))):
+        elif(type(relBaseConstraint) == type(array(()) or relBaseConstraint) == type(matrix(()))):
             # if input argument type is a numpy array then we have an exact transformation
-            pass   
+            print "relBaseConstraint?"
+            print allclose(Trobot0_robot1,relBaseConstraint)
+            if(not allclose(Trobot0_robot1,relBaseConstraint)):
+                relBaseConstOK = False
 
         # If the solution meets the base constraint:
         if(relBaseConstOK):
@@ -312,8 +351,6 @@ while(not success):
             # Should we check this nicely or should we just use a delta constant?
             pass
                 
-                
-
     # We went through all our constraints. Is the candidate valid?
     if(masterBaseConstOK and relBaseConstOK and collisionConstOK):
         findAPathEnds = time.time()
@@ -339,10 +376,6 @@ while(not success):
         #print collisionConstOK
         #print "Base Constraint OK?:"
         #print relBaseConstOK
-        
-    
-    
-    
 
 # 6. Add an object in the environment to a random location
 
