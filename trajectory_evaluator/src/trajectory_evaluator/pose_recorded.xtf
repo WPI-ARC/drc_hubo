@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<trajectory uid="AA">
+  <info robot="REFBOT" generator="reference">
+    <type traj_type="recorded" timing="timed" data_type="pose">
+      <root_frame>root_link</root_frame>
+      <target_frame>target_link</target_frame>
+    </type>
+    <tags>pose, recorded, reference</tags>
+  </info>
+  <states length="1">
+    <state sequence="0" secs="0" nsecs="0">
+      <desired>
+        <position>0.591402, 0.30384, 0.19609, 0.853402, -0.45615, -0.246046, -0.0556167</position>
+        <velocity></velocity>
+        <acceleration></acceleration>
+      </desired>
+      <actual>
+        <position>0.591402, 0.30384, 0.19609, 0.853402, -0.45615, -0.246046, -0.0556167</position>
+        <velocity></velocity>
+        <acceleration></acceleration>
+      </actual>
+    </state>
+  </states>
+</trajectory>
