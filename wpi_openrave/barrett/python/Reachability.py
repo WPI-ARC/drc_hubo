@@ -27,6 +27,13 @@ class ReachabilitySphere(object):
         self.axisLength = 0.1
         self.configs = []
 
+    def show(self,myEnv):
+        self.shapeHandle = myEnv.plot3(points=self.T[0:3,3],
+                                    pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                    colors=self.color, # This changes the transparency
+                                    drawstyle=1)
+        self.axisHandle = misc.DrawAxes(myEnv,self.T,0.01)
+        
 class ReachabilityMapParams(object):
     def __init__(self):
         self.xmax=1.0
@@ -175,11 +182,14 @@ class ReachabilityMap(object):
                 
             
     def update_indices(self):
+        print "Updating reachability sphere indices..."
+        self.indices = {}
         for idx, s in enumerate(self.map):
             # Convert the Tbase_sphere translation
             # into string and keep it in the dictionary
             myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
             self.indices[myKey] = idx
+        print "Index update done."
         
     def find_neighbors(self):
         print "Finding neighbors..."
@@ -201,6 +211,7 @@ class ReachabilityMap(object):
                 if( key in self.indices ):
                     # Look-up the index of the neighbor and keep it
                     sphere.neighbors.append(self.indices[key])
+        print "Finding neighbors, done."
             
     def list(self):
         print "list of spheres in this reachability map"
@@ -213,7 +224,10 @@ class ReachabilityMap(object):
 
     def hide(self):
         # destroy handles
-        pass
+        self.handles=[]
+        for idx, s in enumerate(self.map):
+            s.shapeHandle = None
+            s.axisHandle = []
 
     def update(self):
         pass
@@ -242,10 +256,10 @@ class ReachabilityMap(object):
             if((xmin > s.T[0][0,3] or s.T[0][0,3] > xmax) or
                (ymin > s.T[0][1,3] or s.T[0][1,3] > ymax) or
                (zmin > s.T[0][2,3] or s.T[0][2,3] > zmax)):
-                # remove it from self.indices dict, so it doesn't mess up
-                # find_neighbors results
-                myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
-                del self.indices[myKey]
+                # # remove it from self.indices dict, so it doesn't mess up
+                # # find_neighbors results
+                # myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+                # del self.indices[myKey]
                 # remove the sphere from the map
                 toDelete.append(idx)
             ##################################################
@@ -258,8 +272,12 @@ class ReachabilityMap(object):
         for d, idx in enumerate(toDelete):
             adjustedIdx = idx-(d)
             del self.map[adjustedIdx]
-            
-        # Finished cropping the map now update the neighbors
+
+        # Finished removing unwanted spheres.
+        # Update sphere indices in the map
+        self.update_indices()
+        
+        # Update the neighbors' indices
         self.find_neighbors()
 
         # Report
@@ -661,6 +679,7 @@ def my_function2(start,idx,myPattern,rmap):
         Tp1_p2 = dot(linalg.inv(Tp_p1),Tp_p2)
                                 
         # Go through the neighbors of SoI
+        # print "sphere of interest has ",str(len(SoI.neighbors))," neighbors."
         for neighbor in SoI.neighbors:
             found = False
             # SoI.neighbors is a list of integers,
@@ -670,6 +689,7 @@ def my_function2(start,idx,myPattern,rmap):
             # See if any of SoI's neighbors
             # has the same relative transform
             # as Tp1_p2
+            # print "neighbor with index: ",neighbor," has ",len(rmap[neighbor].T)," transforms."
             for tIdx, Tbase_neighbor in enumerate(rmap[neighbor].T):                                        
                 TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
                 if(allclose(TSoI_neighbor,Tp1_p2)):
@@ -1011,9 +1031,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
                         break
             if len(pairs) == howMany:
                 break
-        print "found ",str(len(pairs))," pairs."
-        print pairs
-        
+                
         print "finding candidates.."
         for pair in pairs:
             for idx, t in enumerate(rm[m-1][pair[0]].T):
@@ -1043,7 +1061,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
             candidates.append(paths0)
             candidates.append(paths1)
 
-    print "found ",str(len(candidates))," candidates."
+    print "found ",str(len(candidates[0]))," candidates."
     if(candidates != []):
         # for c in candidates[0]:
         #     for pe in c:
