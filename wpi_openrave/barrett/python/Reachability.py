@@ -28,11 +28,12 @@ class ReachabilitySphere(object):
         self.configs = []
 
     def show(self,myEnv):
-        self.shapeHandle = myEnv.plot3(points=self.T[0:3,3],
+        # print self.T[0][0:3,3]
+        self.shapeHandle = myEnv.plot3(points=self.T[0][0:3,3],
                                     pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
                                     colors=self.color, # This changes the transparency
                                     drawstyle=1)
-        self.axisHandle = misc.DrawAxes(myEnv,self.T,0.01)
+        self.axisHandle = misc.DrawAxes(myEnv,self.T[0],0.01)
         
 class ReachabilityMapParams(object):
     def __init__(self):
@@ -657,6 +658,7 @@ def my_function2(start,idx,myPattern,rmap):
     # "sphere of interest" is the sphere of which 
     # we're trying to find the neighbor
     SoI = start
+    print str(idx)
     Tbase_SoI = start.T[idx]
 
     for n in range(1,len(myPattern)):
@@ -943,7 +945,7 @@ def find_all_candidates(patterns, rmaps):
 
 
 # Do search over multiple maps considering the boundaries
-def search(reachabilityMaps, mapTs, patterns, patternTs): 
+def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv): 
     # Get a deep copy of the maps, we don't want to
     # mess with the originals
     rm = []
@@ -969,8 +971,35 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
         # into map_i's base tranform
         for sIdx, s in enumerate(rm[m]):
             for tIdx, Tj_s in enumerate(s.T):
-                Ti_s = dot(Ti_j,Tj_s)
+                Ti_s = array(dot(Ti_j,Tj_s)) # dot() returns a matrix
                 s.T[tIdx] = Ti_s
+
+        # TO-DO
+        # Cut out the parts of the reachability maps that are unwanted.
+        # The definition of "unwanted" depends on:
+        #  i) the search pattern, and,
+        # ii) the reachability maps.
+        # TO-DO
+
+        # # Show all reachability spheres
+        # for sIdx, s in enumerate(rm[m-1]):
+        #     # robot on the left
+        #     print "robot0"
+        #     print type(s.T[0])
+        #     s.color = array((0,0,1,0.5))
+        #     s.show(myEnv)
+            
+        # sys.stdin.readline()
+
+        # for sIdx, s in enumerate(rm[m]):
+        #     # robot on the right
+        #     print "robot1"
+        #     print type(s.T[0])
+        #     s.color = array((1,0,0,0.5))
+        #     s.show(myEnv)
+            
+        # # Wait
+        # sys.stdin.readline()
 
         # Now map_i+1's reachability spheres are
         # all defined in map_i's base transform
@@ -1025,33 +1054,55 @@ def search(reachabilityMaps, mapTs, patterns, patternTs):
                 # If the euclidean distance of the pattern transforms
                 # is equal to spheres' distance, then keep the pair
                 if(sD == pD):
-                    pairs.append([s1Idx,s2Idx])            
-                    print "found a pair: ",str(len(pairs))
-                    if len(pairs) == howMany :
-                        break
+                    # Find which transforms of these spheres
+                    # satisfy the transform between search patterns
+                    transformsMatch = False
+                    for t1Idx, Ti_s1 in enumerate(s1.T):
+                        for t2Idx, Ti_s2 in enumerate(s2.T):
+                            # if there's a match keep the pair
+                            Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
+                            if(allclose(pTi_j,Ts1_s2)):
+                                transformsMatch = True
+                                pair1 = PathElement(s1Idx,t1Idx)
+                                pair2 = PathElement(s2Idx,t2Idx)
+                                pairs.append([pair1,pair2])
+                                print "found a pair: ",str(len(pairs))
+                                print str(s1Idx)," : ",str(t1Idx)
+                                print str(s2Idx)," : ",str(t2Idx)
+                                break
+                            else:
+                                # else, discard, even if the distance
+                                # is close enough
+                                pass
+                        if(transformsMatch):
+                            break
+                if len(pairs) == howMany :
+                    break
             if len(pairs) == howMany:
                 break
                 
         print "finding candidates.."
         for pair in pairs:
-            for idx, t in enumerate(rm[m-1][pair[0]].T):
-                steps0 = my_function2(rm[m-1][pair[0]],idx,p[m-1],rm[m-1])
-                if(steps0 != None):
-                    path0 = []
-                    path0.append(PathElement(pair[0],idx))
-                    path0.extend(steps0)
-                    break
+            print "Trying: "
+            print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
+            print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
+            steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1])
+            if(steps0 != None):
+                path0 = []
+                path0.append(PathElement(pair[0].sIdx,pair[0].tIdx))
+                path0.extend(steps0)
+                break
 
-            for idx, t in enumerate(rm[m][pair[1]].T):
-                steps1 = my_function2(rm[m][pair[1]],idx,p[m],rm[m])
-                if(steps1 != None):
-                    path1 = []
-                    path1.append(PathElement(pair[1],idx))
-                    path1.extend(steps1)
-                    break
+            
+            steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m])
+            if(steps1 != None):
+                path1 = []
+                path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
+                path1.extend(steps1)
+                break
 
             if(steps0 != None and steps1 != None):
-                print "start indices: ",str(pair[0]),", ",str(pair[1])
+                print "start indices: ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
                 # path is in a list because we might 
                 # have more than one path candidates
                 paths0.append(path0) 

@@ -237,7 +237,7 @@ while(not success):
     findStarts = time.time()
     #candidates = find_random_candidates(myPatterns,myRmaps,1)
     while(candidates == None):
-        candidates = search(myRmaps,[relBaseConstraint],myPatterns,[Tstart0_start1])
+        candidates = search(myRmaps,[relBaseConstraint],myPatterns,[Tstart0_start1],env)
     findEnds = time.time()
     thisDiff = findEnds-findStarts
     totalTime = append(totalTime,thisDiff)
