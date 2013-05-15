@@ -172,12 +172,12 @@ print "Finding path candidates..."
 # 4. Where do we want the end effectors to start from in world coordinates?
 T0_starts = []
 
-Tbox_start0 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,boxZ*0.5])))
+Tbox_start0 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5])))
 Tbox_start0 = dot(Tbox_start0, MakeTransform(matrix(rodrigues([0,pi,0])),transpose(matrix([0.0,0.0,0.0]))))
 T0_start0 = dot(T0_box,Tbox_start0)
 h.append(misc.DrawAxes(env,T0_start0,0.4))
 
-Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5])))
+Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,boxZ*0.5])))
 Tbox_start1 = dot(Tbox_start1, MakeTransform(matrix(rodrigues([0,pi,0])),transpose(matrix([0.0,0.0,0.0]))))
 T0_start1 = dot(T0_box,Tbox_start1)
 h.append(misc.DrawAxes(env,T0_start1,0.4))
@@ -206,7 +206,7 @@ relBaseConstraint = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0
 # Same as relative base constraints. First 3 elements are XYZ bounds and the last three elements determine the desired rotation matrix of the base of the master robot in world coords.
 masterBaseConstraint = [1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
 
-Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5])))
+#Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5])))
 
 # b) Exact transform <type 'numpy.ndarray'>
 # relBaseConstraint = dot(something, some_other_thing)
@@ -339,7 +339,7 @@ while(not success):
                 #     sys.stdin.readline()
 
                     # If you didn't break yet, wait before the next path element for visualization
-                    #time.sleep(0.05)
+                    time.sleep(1.0)
 
             # iii) And finally, is there a jump between two consecutive configurations? 
             if(masterBaseConstOK and relBaseConstOK and collisionConstOK):
