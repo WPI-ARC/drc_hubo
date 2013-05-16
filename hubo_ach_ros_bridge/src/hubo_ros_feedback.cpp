@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "hubo_ros_feedback");
     ros::NodeHandle nh;
     //construct ROS publisher
-    ros::Publisher g_hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
+    g_hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
     g_hubo_clock_pub = nh.advertise<rosgraph_msgs::Clock>("clock", 1);
     ROS_INFO("ROS publisher loaded\n");
     //Loop
