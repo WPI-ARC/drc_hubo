@@ -87,15 +87,17 @@ int compare_performance(int traj_length, int iterations)
     printf("-----Test single-threaded version-----\n");
     printf("Testing vector variant\n");
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &bstv);
+    double scost = 0.0;
     for (int i = 0; i < iterations; i++)
     {
-        double scost1 = my_eval.EvaluateCost(test_vec_1, test_vec_2[i]);
+        scost = my_eval.EvaluateCost(test_vec_1, test_vec_2[i]);
     }
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &betv);
     //---------------------------------------------
     //-----Compute runtimes (single-threaded)--------;
     float bsecsv = (float)(betv.tv_sec - bstv.tv_sec);
     bsecsv = bsecsv + (float)(betv.tv_nsec - bstv.tv_nsec) / 1000000000.0;
+    printf("Final cost: %f\n", scost);
     printf("SINGLE (vector): %f\n", bsecsv);
     return 0;
 }
@@ -108,8 +110,8 @@ int main()
     XTF::Parser test_parser;
     XTF::Trajectory test_traj = test_parser.ParseTraj("pose_recorded.xtf");
     std::cout << "...loaded a test trajectory..." << std::endl;
-    std::vector<std::string> keys = evaler.EvaluateAgainstLibrary(test_traj, "desired", "position");
-    std::cout << "Evaluation match keys: " << PrettyPrint(keys) << std::endl;
+    EVAL::EvaluationResult match = evaler.EvaluateAgainstLibrary(test_traj, "desired", "position");
+    std::cout << "Evaluation match keys: " << match << std::endl;
     std::cout << "...done evaluator testing" << std::endl;
     std::cout << "Running performance tests..." << std::endl;
     compare_performance(1000, 1000);

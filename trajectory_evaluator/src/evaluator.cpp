@@ -147,13 +147,14 @@ PoseEvaluator::PoseEvaluator(std::string library_root)
     evaluator = new_eval;
 }
 
-std::vector<std::string> PoseEvaluator::EvaluateAgainstLibrary(XTF::Trajectory new_trajectory, std::string field_range, std::string field)
+EvaluationResult PoseEvaluator::EvaluateAgainstLibrary(XTF::Trajectory new_trajectory, std::string field_range, std::string field)
 {
     struct timespec start, end;
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     std::vector<double> costs;
     double min_cost = INFINITY;
     unsigned int min_index = -1;
+    // Extract raw numerical data from the trajectory
     std::vector< std::vector<double> > raw_trajectory = ExtractFromTrajectory(new_trajectory, field_range, field);
     for (unsigned int i = 0; i < library.size(); i++)
     {
@@ -170,21 +171,119 @@ std::vector<std::string> PoseEvaluator::EvaluateAgainstLibrary(XTF::Trajectory n
     {
         throw std::invalid_argument("Trajectory library is empty");
     }
-    std::vector<std::string> return_keys;
     // Assemble return values
-    // First element is the UID of the lowest-cost trajectory
+    std::vector<std::string> tags;
     std::string uid = library[min_index].uid;
-    return_keys.push_back(uid);
     // Remaining elements are the tags of the lowest-cost trajectory
     for (unsigned int i = 0; i < library[min_index].tags.size(); i++)
     {
-        return_keys.push_back(library[min_index].tags[i]);
+        tags.push_back(library[min_index].tags[i]);
     }
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
     float elapsed = (float)(end.tv_sec - start.tv_sec);
     elapsed = elapsed + (float)(end.tv_nsec - start.tv_nsec) / 1000000000.0;
     std::cout << "Evaluation against the library took " << elapsed << " seconds" << std::endl;
-    return return_keys;
+    EvaluationResult match(uid, min_cost, tags);
+    return match;
+}
+
+PairedPoseEvaluator::PairedPoseEvaluator(std::string library1, std::string library2)
+{
+    // Load the two libraries separately
+    std::vector<XTF::Trajectory> L1 = LoadTrajectoryLibrary(library1);
+    std::vector<XTF::Trajectory> L2 = LoadTrajectoryLibrary(library2);
+    // Now, pair them together
+    for (unsigned int i = 0; i < L1.size(); i++)
+    {
+        XTF::Trajectory curtraj = L1[i];
+        for (unsigned int j = 0; j < L2.size(); j++)
+        {
+            XTF::Trajectory matching = L2[j];
+            if (curtraj.uid.compare(matching.uid) == 0)
+            {
+                std::vector<XTF::Trajectory> pair;
+                pair.push_back(curtraj);
+                pair.push_back(matching);
+                library.push_back(pair);
+                break;
+            }
+        }
+    }
+    // Now, run through and determine the longest trajectory to set the size for DTW
+    unsigned int max_length_in_library = 0;
+    for (unsigned int i = 0; i < library.size(); i++)
+    {
+        unsigned int new_size = library[i][0].trajectory.size();
+        if (new_size > max_length_in_library)
+        {
+            max_length_in_library = new_size;
+        }
+    }
+    // Build the DTW evaluator
+    DTW::SimpleDTW new_eval(max_length_in_library, max_length_in_library, pose_distance);
+    evaluator = new_eval;
+}
+
+EvaluationResult PairedPoseEvaluator::EvaluateAgainstLibrary(XTF::Trajectory traj1, XTF::Trajectory traj2, std::string field_range, std::string field)
+{
+    struct timespec start, end;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+    std::vector<double> costs;
+    double min_cost = INFINITY;
+    unsigned int min_index = -1;
+    // Extract raw numerical data from the trajectories
+    std::vector< std::vector<double> > raw_trajectory1 = ExtractFromTrajectory(traj1, field_range, field);
+    std::vector< std::vector<double> > raw_trajectory2 = ExtractFromTrajectory(traj2, field_range, field);
+    // Evaluate against the library
+    for (unsigned int i = 0; i < library.size(); i++)
+    {
+        // Extract raw numerical data from the pair in the library
+        std::vector< std::vector<double> > raw_library1 = ExtractFromTrajectory(library[i][0], field_range, field);
+        std::vector< std::vector<double> > raw_library2 = ExtractFromTrajectory(library[i][1], field_range, field);
+        double returned_cost = evaluator.EvaluateCost(raw_trajectory1, raw_library1);
+        returned_cost += evaluator.EvaluateCost(raw_trajectory2, raw_library2);
+        costs.push_back(returned_cost);
+        if (returned_cost < min_cost)
+        {
+            min_cost = returned_cost;
+            min_index = i;
+        }
+    }
+    if (costs.size() == 0)
+    {
+        throw std::invalid_argument("Trajectory library is empty");
+    }
+    // Assemble return values
+    std::vector<std::string> tags;
+    std::string uid = library[min_index][0].uid;
+    // Remaining elements are the tags of the lowest-cost trajectory
+    for (unsigned int i = 0; i < library[min_index][0].tags.size(); i++)
+    {
+        tags.push_back(library[min_index][0].tags[i]);
+    }
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+    float elapsed = (float)(end.tv_sec - start.tv_sec);
+    elapsed = elapsed + (float)(end.tv_nsec - start.tv_nsec) / 1000000000.0;
+    std::cout << "Evaluation against the library took " << elapsed << " seconds" << std::endl;
+    EvaluationResult match(uid, min_cost, tags);
+    return match;
+}
+
+EvaluationResult::EvaluationResult(std::string uid, double cost, std::vector<std::string> tags)
+{
+    this->uid = uid;
+    this->cost = cost;
+    this->tags = tags;
+}
+
+std::ostream& operator<<(std::ostream &strm, const EvaluationResult &result)
+{
+    strm << "Evaluation Result:\nUID: " << result.uid << "\nCost: " << result.cost <<"\nTags:";
+    for (unsigned int i = 0; i < result.tags.size(); i++)
+    {
+        strm << " " << result.tags[i];
+    }
+    return strm;
 }
 
 PoseNormalizer::PoseNormalizer(std::vector<double> reference_pose)

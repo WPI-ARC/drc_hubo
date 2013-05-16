@@ -148,6 +148,19 @@ ROSBUILD_gensrv_lisp/fast:
 .PHONY : ROSBUILD_gensrv_lisp/fast
 
 #=============================================================================
+# Target rules for targets named ROSBUILD_gensrv_py
+
+# Build rule for target.
+ROSBUILD_gensrv_py: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 ROSBUILD_gensrv_py
+.PHONY : ROSBUILD_gensrv_py
+
+# fast build rule for target.
+ROSBUILD_gensrv_py/fast:
+	$(MAKE) -f CMakeFiles/ROSBUILD_gensrv_py.dir/build.make CMakeFiles/ROSBUILD_gensrv_py.dir/build
+.PHONY : ROSBUILD_gensrv_py/fast
+
+#=============================================================================
 # Target rules for targets named clean-test-results
 
 # Build rule for target.
@@ -224,6 +237,19 @@ rospack_gensrv: cmake_check_build_system
 rospack_gensrv/fast:
 	$(MAKE) -f CMakeFiles/rospack_gensrv.dir/build.make CMakeFiles/rospack_gensrv.dir/build
 .PHONY : rospack_gensrv/fast
+
+#=============================================================================
+# Target rules for targets named rospack_gensrv_all
+
+# Build rule for target.
+rospack_gensrv_all: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 rospack_gensrv_all
+.PHONY : rospack_gensrv_all
+
+# fast build rule for target.
+rospack_gensrv_all/fast:
+	$(MAKE) -f CMakeFiles/rospack_gensrv_all.dir/build.make CMakeFiles/rospack_gensrv_all.dir/build
+.PHONY : rospack_gensrv_all/fast
 
 #=============================================================================
 # Target rules for targets named test
@@ -304,6 +330,19 @@ trajectory_evaluator/fast:
 .PHONY : trajectory_evaluator/fast
 
 #=============================================================================
+# Target rules for targets named trajectory_evaluator_test
+
+# Build rule for target.
+trajectory_evaluator_test: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 trajectory_evaluator_test
+.PHONY : trajectory_evaluator_test
+
+# fast build rule for target.
+trajectory_evaluator_test/fast:
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/build
+.PHONY : trajectory_evaluator_test/fast
+
+#=============================================================================
 # Target rules for targets named xtf_test
 
 # Build rule for target.
@@ -319,63 +358,87 @@ xtf_test/fast:
 # target to build an object file
 src/dtw.o:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/dtw.o
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/dtw.o
 .PHONY : src/dtw.o
 
 # target to preprocess a source file
 src/dtw.i:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/dtw.i
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/dtw.i
 .PHONY : src/dtw.i
 
 # target to generate assembly for a file
 src/dtw.s:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/dtw.s
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/dtw.s
 .PHONY : src/dtw.s
 
 # target to build an object file
 src/evaluator.o:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/evaluator.o
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/evaluator.o
 .PHONY : src/evaluator.o
 
 # target to preprocess a source file
 src/evaluator.i:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/evaluator.i
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/evaluator.i
 .PHONY : src/evaluator.i
 
 # target to generate assembly for a file
 src/evaluator.s:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/evaluator.s
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/evaluator.s
 .PHONY : src/evaluator.s
 
 # target to build an object file
 src/main.o:
-	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/main.o
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/main.o
 .PHONY : src/main.o
 
 # target to preprocess a source file
 src/main.i:
-	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/main.i
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/main.i
 .PHONY : src/main.i
 
 # target to generate assembly for a file
 src/main.s:
-	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/main.s
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/main.s
 .PHONY : src/main.s
+
+# target to build an object file
+src/node.o:
+	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/node.o
+.PHONY : src/node.o
+
+# target to preprocess a source file
+src/node.i:
+	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/node.i
+.PHONY : src/node.i
+
+# target to generate assembly for a file
+src/node.s:
+	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/node.s
+.PHONY : src/node.s
 
 # target to build an object file
 src/xtf.o:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/xtf.o
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/xtf.o
 	$(MAKE) -f CMakeFiles/xtf_test.dir/build.make CMakeFiles/xtf_test.dir/src/xtf.o
 .PHONY : src/xtf.o
 
 # target to preprocess a source file
 src/xtf.i:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/xtf.i
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/xtf.i
 	$(MAKE) -f CMakeFiles/xtf_test.dir/build.make CMakeFiles/xtf_test.dir/src/xtf.i
 .PHONY : src/xtf.i
 
 # target to generate assembly for a file
 src/xtf.s:
 	$(MAKE) -f CMakeFiles/trajectory_evaluator.dir/build.make CMakeFiles/trajectory_evaluator.dir/src/xtf.s
+	$(MAKE) -f CMakeFiles/trajectory_evaluator_test.dir/build.make CMakeFiles/trajectory_evaluator_test.dir/src/xtf.s
 	$(MAKE) -f CMakeFiles/xtf_test.dir/build.make CMakeFiles/xtf_test.dir/src/xtf.s
 .PHONY : src/xtf.s
 
@@ -404,6 +467,7 @@ help:
 	@echo "... ROSBUILD_genmsg_lisp"
 	@echo "... ROSBUILD_gensrv_cpp"
 	@echo "... ROSBUILD_gensrv_lisp"
+	@echo "... ROSBUILD_gensrv_py"
 	@echo "... clean-test-results"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
@@ -412,12 +476,14 @@ help:
 	@echo "... rospack_genmsg"
 	@echo "... rospack_genmsg_libexe"
 	@echo "... rospack_gensrv"
+	@echo "... rospack_gensrv_all"
 	@echo "... test"
 	@echo "... test-future"
 	@echo "... test-results"
 	@echo "... test-results-run"
 	@echo "... tests"
 	@echo "... trajectory_evaluator"
+	@echo "... trajectory_evaluator_test"
 	@echo "... xtf_test"
 	@echo "... src/dtw.o"
 	@echo "... src/dtw.i"
@@ -428,6 +494,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/node.o"
+	@echo "... src/node.i"
+	@echo "... src/node.s"
 	@echo "... src/xtf.o"
 	@echo "... src/xtf.i"
 	@echo "... src/xtf.s"

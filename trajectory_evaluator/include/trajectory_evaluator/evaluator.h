@@ -23,6 +23,24 @@ std::vector<XTF::Trajectory> LoadTrajectoryLibrary(std::string library_path);
 
 std::vector< std::vector<double> > ExtractFromTrajectory(XTF::Trajectory traj, std::string field_range, std::string field);
 
+class EvaluationResult
+{
+protected:
+
+public:
+
+    std::string uid;
+    std::vector<std::string> tags;
+    double cost;
+
+    EvaluationResult(std::string uid, double cost, std::vector<std::string> tags);
+
+    ~EvaluationResult()
+    {
+    }
+
+};
+
 class PoseEvaluator
 {
 protected:
@@ -34,11 +52,38 @@ public:
 
     PoseEvaluator(std::string library_root);
 
+    PoseEvaluator()
+    {
+    }
+
     ~PoseEvaluator()
     {
     }
 
-    std::vector<std::string> EvaluateAgainstLibrary(XTF::Trajectory new_trajectory, std::string field_range, std::string field);
+    EvaluationResult EvaluateAgainstLibrary(XTF::Trajectory new_trajectory, std::string field_range, std::string field);
+
+};
+
+class PairedPoseEvaluator
+{
+protected:
+
+    DTW::SimpleDTW evaluator;
+    std::vector< std::vector<XTF::Trajectory> > library;
+
+public:
+
+    PairedPoseEvaluator(std::string library1, std::string library2);
+
+    PairedPoseEvaluator()
+    {
+    }
+
+    ~PairedPoseEvaluator()
+    {
+    }
+
+    EvaluationResult EvaluateAgainstLibrary(XTF::Trajectory traj1, XTF::Trajectory traj2, std::string field_range, std::string field);
 
 };
 
@@ -76,5 +121,7 @@ public:
 };
 
 }
+
+std::ostream& operator<<(std::ostream &strm, const EVAL::EvaluationResult &result);
 
 #endif // EVALUATOR_H

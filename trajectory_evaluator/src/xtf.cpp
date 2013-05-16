@@ -116,6 +116,38 @@ Trajectory::Trajectory(std::string uid, TRAJTYPES traj_type, TIMINGS timing, DAT
     }
 }
 
+Trajectory::Trajectory(std::string uid, TRAJTYPES traj_type, TIMINGS timing, DATATYPES data_type, std::string robot, std::string generator, std::string root_frame, std::string target_frame, std::vector<std::string> tags)
+{
+    this->robot = robot;
+    this->uid = uid;
+    this->generator = generator;
+    this->root_frame = root_frame;
+    this->target_frame = target_frame;
+    this->tags = tags;
+    this->data_type = data_type;
+    this->traj_type = traj_type;
+    this->timing = timing;
+}
+
+Trajectory::Trajectory(std::string uid, TRAJTYPES traj_type, TIMINGS timing, DATATYPES data_type, std::string robot, std::string generator, std::vector<std::string> joint_names, std::vector<std::string> tags)
+{
+    this->robot = robot;
+    this->uid = uid;
+    this->generator = generator;
+    this->joint_names = joint_names;
+    this->tags = tags;
+    this->data_type = data_type;
+    this->traj_type = traj_type;
+    this->timing = timing;
+    if (this->joint_names.size() > 0 && this->trajectory.size() > 0)
+    {
+        if (this->joint_names.size() != this->trajectory[0].data_length)
+        {
+            throw std::invalid_argument("Inconsistent joint names and joint data");
+        }
+    }
+}
+
 std::ostream& operator<<(std::ostream &strm, const Trajectory &traj)
 {
     if (traj.traj_type == traj.GENERATED)
