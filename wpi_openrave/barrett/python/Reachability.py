@@ -29,11 +29,17 @@ class ReachabilitySphere(object):
 
     def show(self,myEnv):
         # print self.T[0][0:3,3]
+        # print str(self.reachability)," : ",str(len(self.T))
         self.shapeHandle = myEnv.plot3(points=self.T[0][0:3,3],
-                                    pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
-                                    colors=self.color, # This changes the transparency
-                                    drawstyle=1)
-        self.axisHandle = misc.DrawAxes(myEnv,self.T[0],0.01)
+                                       pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                       colors=self.color, # This changes the transparency
+                                       drawstyle=1)
+        # for t in self.T:
+        #     self.axisHandle.append(misc.DrawAxes(myEnv,t,0.01))
+
+    def hide(self):
+        self.shapeHandle = None
+        self.axisHandle = []
         
 class ReachabilityMapParams(object):
     def __init__(self):
@@ -964,7 +970,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
     rmT = []
     p = []
     pT = []
-    howMany = 200
+    howMany = 2000
     candidates = []
     paths0 = []
     paths1 = []
@@ -979,12 +985,15 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         # Transform of map_i+1 with reference to map_i
         Ti_j= rmT[m-1]
 
+        newIndices = {}
         # Convert all reachability spheres of map_i+1
         # into map_i's base tranform
         for sIdx, s in enumerate(rm[m]):
             for tIdx, Tj_s in enumerate(s.T):
                 Ti_s = array(dot(Ti_j,Tj_s)) # dot() returns a matrix
                 s.T[tIdx] = Ti_s
+            myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+            newIndices[myKey] = sIdx
 
         # TO-DO
         # Cut out the parts of the reachability maps that are unwanted.
@@ -993,38 +1002,58 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         # ii) the reachability maps.
         # TO-DO
 
-        # # Show all reachability spheres
-        # for sIdx, s in enumerate(rm[m-1]):
-        #     # robot on the left
-        #     print "robot0"
-        #     print type(s.T[0])
-        #     s.color = array((0,0,1,0.5))
-        #     s.show(myEnv)
-            
-        # sys.stdin.readline()
+        # Show all reachability spheres
+        for sIdx, s in enumerate(rm[m-1]):
+            # robot on the left
+            # print "robot0"
+            # print type(s.T[0])
+            s.color = array((0,0,1,0.5))
+            s.show(myEnv)
 
-        # for sIdx, s in enumerate(rm[m]):
-        #     # robot on the right
-        #     print "robot1"
-        #     print type(s.T[0])
-        #     s.color = array((1,0,0,0.5))
-        #     s.show(myEnv)
+        for sIdx, s in enumerate(rm[m]):
+            # robot on the right
+            # print "robot1"
+            # print type(s.T[0])
+            s.color = array((1,0,0,0.5))
+            s.show(myEnv)
             
-        # # Wait
-        # sys.stdin.readline()
+        # Wait
+        sys.stdin.readline()
+
+        for sIdx, s in enumerate(rm[m-1]):
+            s.hide()
+
+        for sIdx, s in enumerate(rm[m]):
+            s.hide()
 
         # Now map_i+1's reachability spheres are
         # all defined in map_i's base transform
 
         # Transform of pattern_i+1 with reference to pattern_i
+        # relative transforms of the start points
         pTi_j = patternTs[m-1]
+        
+        # Find sisters of all map_i spheres' in map_i+1
+        sisters={}
+        for s1Idx, s1 in enumerate(rm[m-1]):
+            
+            currentSisters = []
+
+            for t1Idx, Ti_s1 in enumerate(s1.T):
+                Ts1_sister = dot(Ti_s1,pTi_j)
+                sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
+                if(sisterKey in newIndices):
+                    sisterIndex = newIndices[sisterKey]
+                    currentSisters.append(sisterIndex)
+            
+            sisters[str(s1Idx)]=currentSisters
 
         # Convert all search pattern elements of pattern_i+1
         # into pattern_i's base transform
-        for idx, s in enumerate(p[m]):
-            pTj_s = s.T
-            pTi_s = dot(pTi_j,pTj_s)
-            s.T = pTi_s
+        # for idx, s in enumerate(p[m]):
+        #     pTj_s = s.T
+        #     pTi_s = dot(pTi_j,pTj_s)
+        #     s.T = pTi_s
 
         # Get the euclidean distance between pattern's root's
         pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
@@ -1037,8 +1066,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         # NOTE, DO A SMARTER SEARCH HERE. 
         # WE DON'T WANT A COMPLEXITY OF N^2
         while(candidates == []):
-            s1Init = int(ceil(random()*(len(rm[m-1])-1)))
-            s2Init = int(ceil(random()*(len(rm[m])-1)))
+            s1Init = 0 # int(ceil(random()*(len(rm[m-1])-1)))
+            s2Init = 0 # int(ceil(random()*(len(rm[m])-1)))
             # done = False
             # while(not done):
             #     s1Init = int(ceil(random()*(len(rm[m-1])-1)))
@@ -1062,7 +1091,12 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
             #     if(allHigh):
             #         done = True
             for s1Idx, s1 in enumerate(rm[m-1][s1Init:]):
-                for s2Idx, s2 in enumerate(rm[m][s2Init:]):
+                s1.show(myEnv)
+                for s2Idx in sisters[str(s1Idx)]:
+                    s2 = rm[m][s2Idx]
+                #for s2Idx, s2 in enumerate(rm[m][s2Init:]):
+                    s2.show(myEnv)
+                    sys.stdin.readline()
                     sD = euclidean_distance(s1.T[0],s2.T[0])
                     # If the euclidean distance of the pattern transforms
                     # is equal to spheres' distance, then keep the pair
@@ -1075,13 +1109,22 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                 # if there's a match keep the pair
                                 Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
                                 if(allclose(pTi_j,Ts1_s2)):
-                                    transformsMatch = True
+                                    s1.show(myEnv)
+                                    s2.show(myEnv)
+                                    reachabilityMaps[0].go_to(s1Idx+s1Init,t1Idx)
+                                    reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
+                                    reachabilityMaps[1].go_to(s2Idx+s2Init,t2Idx)
+                                    reachabilityMaps[1].robot.SetTransform(array(Ti_j))
+                                    sys.stdin.readline()
+                                    s1.hide()
+                                    s2.hide()
+                                    transformsMatch = False
                                     adjusteds1Idx = s1Idx+s1Init
                                     adjusteds2Idx = s2Idx+s2Init
                                     pair1 = PathElement(adjusteds1Idx,t1Idx)
                                     pair2 = PathElement(adjusteds2Idx,t2Idx)
                                     pairs.append([pair1,pair2])
-                                    # print "found a pair: ",str(len(pairs))
+                                    print "found a pair: ",str(len(pairs))
                                     # print str(adjusteds1Idx)," : ",str(t1Idx)
                                     # print str(adjusteds2Idx)," : ",str(t2Idx)
                                     # print "sphere info - s1: "
@@ -1089,7 +1132,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                     # print s1.T
                                     # print "s2.T: "
                                     # print s2.T
-                                    break
+                                    # break --> See what happens if you un/comment this line
                                 else:
                                     # else, discard, even if the distance
                                     # is close enough
@@ -1098,6 +1141,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                 break
                     if len(pairs) == howMany :
                         break
+                    s2.hide()
+                s1.hide()
                 if len(pairs) == howMany:
                     break
 
@@ -1119,7 +1164,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                     path1.extend(steps1)
 
                 if(steps0 != None and steps1 != None):
-                    print "start indices: ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
+                    # print "start indices: ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
                     # path is in a list because we might 
                     # have more than one path candidates
                     paths0.append(path0) 

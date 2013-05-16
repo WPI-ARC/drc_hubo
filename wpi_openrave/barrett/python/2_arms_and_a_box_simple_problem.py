@@ -72,7 +72,7 @@ def play(relBaseConstraint,candidates,numRobots,c,myRmaps,robots,h,env):
             # For each path element, go step by step and check
             prevConfig = [[],[]]
             currentConfig = [[],[]]
-            print "----"
+            # print "----"
             for pElementIndex in range(pathLength):
                 # Move the robot to this path element
                 for myRobotIndex in range(numRobots):
@@ -83,8 +83,8 @@ def play(relBaseConstraint,candidates,numRobots,c,myRmaps,robots,h,env):
 
                     # DEBUG SECTION FOR SENSING CONFIGURATION JUMP
                     currentConfig[myRobotIndex] = robots[myRobotIndex].GetDOFValues(robots[myRobotIndex].GetManipulators()[0].GetArmIndices())
-                    print "For robot ",str(myRobotIndex)," ||qA-qB||:"
-                    #print "path element ",str(pElementIndex)
+                    # print "For robot ",str(myRobotIndex)," ||qA-qB||:"
+                    # print "path element ",str(pElementIndex)
                     if(prevConfig[myRobotIndex] != []):
                         # print "previous config: "
                         # print prevConfig[myRobotIndex]
@@ -97,8 +97,8 @@ def play(relBaseConstraint,candidates,numRobots,c,myRmaps,robots,h,env):
                             configDistSq += pow(qdiff[j],2)
                         # find ||qA-qB||
                         euclideanConfigDistance = pow(configDistSq,0.5)
-                        print "euclidean configuration distance: "
-                        print euclideanConfigDistance
+                        # print "euclidean configuration distance: "
+                        # print euclideanConfigDistance
 
                         if(euclideanConfigDistance > configurationJumpThreshold):
                             noConfigJump = False
@@ -115,11 +115,10 @@ def play(relBaseConstraint,candidates,numRobots,c,myRmaps,robots,h,env):
                         return False
 
                 # If you didn't break yet, wait before the next path element for visualization
-                time.sleep(1.0)
+                time.sleep(0.1)
         
             # If you made it here, 
             # it means no configuration jump, and no collision
-            h.pop() # delete the robot base axis we added last
             return True
 
     else:
@@ -234,7 +233,7 @@ rotz=[]
 rotz.append(pi/3);
 rotz.append(0.0);
 
-shift_robot0 = MakeTransform(matrix(rodrigues([0,0,rotz[0]])),transpose(matrix([0.5,0.0,0.0])))
+shift_robot0 = MakeTransform(matrix(rodrigues([0,0,rotz[0]])),transpose(matrix([-2.5,0.0,0.0])))
 shift_robot1 = MakeTransform(matrix(rodrigues([0,0,rotz[1]])),transpose(matrix([-1.5,0.0,0.0])))
 
 robots[0].SetTransform(array(shift_robot0))
@@ -269,10 +268,10 @@ print "Loading reachability map for Robot0..."
 rm.load("barrettwam_arm")
 rm.name = "barrettwam_arm_0"
 rm.update_indices() # we should actually save these indices in the pkl file
-#rm.find_neighbors()
-print "map size before crop: ",str(len(rm.map))
-rm.crop([0,1.0,-1.0,0.2,0.0,1.0])
-print "map size after crop: ",str(len(rm.map))
+rm.find_neighbors()
+# print "map size before crop: ",str(len(rm.map))
+# rm.crop([-1.0,1.0,-1.0,0.2,0.0,1.0])
+# print "map size after crop: ",str(len(rm.map))
 # rm.show(env) # slows down the process a lot
 # Append the reachability map, and keep it in a list
 # sys.stdin.readline()
@@ -292,8 +291,8 @@ rm2.g = 0
 rm2.b = 0
 print "Reachability map loaded for Robot1."
 rm2.update_indices()
-#rm2.find_neighbors()
-rm2.crop([0.0,1.0,0.0,1.0,0.0,1.0])
+rm2.find_neighbors()
+# rm2.crop([-1.0,1.0,0.0,1.0,0.0,1.0])
 # rm2.show(env)
 # sys.stdin.readline()
 # rm2.hide()
@@ -305,12 +304,12 @@ print "Finding path candidates..."
 # 4. Where do we want the end effectors to start from in world coordinates?
 T0_starts = []
 
-Tbox_start0 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5])))
+Tbox_start0 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ])))
 Tbox_start0 = dot(Tbox_start0, MakeTransform(matrix(rodrigues([0,pi,0])),transpose(matrix([0.0,0.0,0.0]))))
 T0_start0 = dot(T0_box,Tbox_start0)
 h.append(misc.DrawAxes(env,T0_start0,0.4))
 
-Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,boxZ*0.5])))
+Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,boxZ])))
 Tbox_start1 = dot(Tbox_start1, MakeTransform(matrix(rodrigues([0,pi,0])),transpose(matrix([0.0,0.0,0.0]))))
 T0_start1 = dot(T0_box,Tbox_start1)
 h.append(misc.DrawAxes(env,T0_start1,0.4))
@@ -332,7 +331,8 @@ relBaseConstraint = [0.5, 0.5, 0.0, 0.5, 0.0, 0.0, 0.0] # This is type (a)
 
 #relBaseConstraint = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-boxZ*0.5]))) # This is type (b)
 
-relBaseConstraint = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.4,0.0])))
+relBaseConstraint = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.6,0.0])))
+
 
 # Base Constraints of the first (master) robot in the world coordinate frame
 #
@@ -364,6 +364,10 @@ configurationJumpThreshold = 0.2
 
 success = False
 end = False
+
+print "Ready to search..."
+sys.stdin.readline()
+
 while((not success) and (not end)):
     iters += 1
     myStatus = ""  
@@ -384,14 +388,17 @@ while((not success) and (not end)):
     # candidates[0] is the list of candidate paths for the 0th robot
     howMany = len(candidates[0]) 
     for c in range(howMany):
+        print "trying ",str(c)," of ",str(howMany)," candidates."
         # Get the length of the candidate path
         # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
         pathLength = len(candidates[0][c]) 
 
         allGood = play(relBaseConstraint,candidates,numRobots,c,myRmaps,robots,h,env)        
+        h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
         if(allGood):
+            success = True
             findAPathEnds = time.time()
             print "Success! All constraints met."
             #print Trobot0_robot1
@@ -405,22 +412,19 @@ while((not success) and (not end)):
             while(ask):
                 print "Show another result [s]"
                 print "Replay [r]"
-                print "End code [Enter]"
+                print "End code [e]"
                 answer = sys.stdin.readline()
                 if(answer.strip('\n') == 's'):
                     findAPathStarts = time.time()
                     iters = 0
                     ask = False
-                    success = False
                     end = False
                 elif(answer.strip('\n') == 'r'):
                     play(relBaseConstraint,candidates,numRobots,c,myRmaps,robots,h,env)
                     ask = True
-                    success = True
                     end = False
-                else:
+                elif(answer.strip('\n') == 'e'):
                     ask = False
-                    success = True
                     end = True
                     break # break from the "for howmany" loop
         else:
@@ -429,9 +433,12 @@ while((not success) and (not end)):
             #print collisionConstOK
             #print "Base Constraint OK?:"
             #print relBaseConstOK
-
+    
         if(success and end):
             break
+    # End of the for loop
+    end = True
+    # if we found a successful path at this point, we will exit
 
 # 6. Add an object in the environment to a random location
 
