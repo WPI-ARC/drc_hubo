@@ -50,7 +50,8 @@ class JointStatePublisher:
         try:
             assert(len(msg.joint_names) == len(msg.state))
             for index in range(len(msg.joint_names)):
-                new_state[msg.joint_names[index]] == msg.state[index]
+                new_state[msg.joint_names[index]] = msg.state[index]
+            self.latest_state = new_state
         except:
             rospy.logerr("*** Malformed HuboState! ***")
         self.last_time = rospy.get_time()
