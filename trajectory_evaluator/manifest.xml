@@ -1,0 +1,18 @@
+<package>
+  <description brief="trajectory_evaluator">
+
+     trajectory_evaluator
+
+  </description>
+  <author>Calder Phillips-Grafflin</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/trajectory_evaluator</url>
+  <depend package="std_msgs"/>
+  <depend package="trajectory_msgs"/>
+  <depend package="rospy"/>
+  <depend package="roscpp"/>
+
+</package>
+
+

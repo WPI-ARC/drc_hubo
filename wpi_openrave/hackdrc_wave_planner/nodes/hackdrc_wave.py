@@ -15,7 +15,7 @@ import numpy
 roslib.load_manifest('hackdrc_wave_planner')
 
 from std_srvs.srv import *
-from hackdrc_wave_planner.srv import *
+from hubo_srvs.srv import *
 
 def handle_hubo_wave(req):
     hubo_cbirrt_wave.run()
@@ -31,7 +31,7 @@ def handle_hubo_wave(req):
 def main():
     # Initialize ROS node
     rospy.init_node('hubo_wave_control',anonymous=False)
-    myService = rospy.Service('hubo_wave', Empty, handle_hubo_wave )
+    myService = rospy.Service('/hubo_wave', Empty, handle_hubo_wave )
     print "Ready to send wave command..."
     rospy.spin()
 

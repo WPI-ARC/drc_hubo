@@ -1,1 +1,0 @@
-roslaunch hubo_rviz display_hubo_both_2_rviz.launch

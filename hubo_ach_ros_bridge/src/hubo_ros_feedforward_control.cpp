@@ -128,17 +128,17 @@ void hubo_cb(const hubo_msgs::JointCommand &msg)
 //NEW MAIN LOOP
 int main(int argc, char **argv)
 {
-    ROS_INFO("Initializing ROS-to-ACH bridge\n");
+    ROS_INFO("Initializing ROS-to-ACH bridge");
     //initialize ACH channel
     int r = ach_open(&chan_hubo_ref_filter, HUBO_CHAN_REF_NAME , NULL);
     assert(ACH_OK == r);
-    ROS_INFO("Hubo-ACH channel loaded\n");
+    ROS_INFO("Hubo-ACH channel loaded");
     //initialize ROS node
     ros::init(argc, argv, "hubo_ros_feedforward");
     ros::NodeHandle nh;
     //construct ROS RT Subscriber
     ros::Subscriber hubo_command_sub = nh.subscribe("Hubo/HuboCommand", 1, hubo_cb);
-    ROS_INFO("huboCommand subscriber up\n");
+    ROS_INFO("huboCommand subscriber up");
     //spin
     ros::spin();
     //Satisfy the compiler

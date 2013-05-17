@@ -1,0 +1,11 @@
+string trajectory_file1
+string trajectory_file2
+string field_range
+string field
+---
+string matching_uid1
+float64 match_cost1
+string[] matching_tags1
+string matching_uid2
+float64 match_cost2
+string[] matching_tags2

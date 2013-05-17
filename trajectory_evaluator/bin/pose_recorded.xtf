@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<trajectory uid="AA">
+  <info robot="REFBOT" generator="reference">
+    <type traj_type="recorded" timing="timed" data_type="pose">
+      <root_frame>
+        root_link
+      </root_frame>
+      <target_frame>
+        target_link
+      </target_frame>
+    </type>
+    <tags>
+      pose, recorded, reference
+    </tags>
+  </info>
+  <states length="2">
+    <state sequence="0" secs="0" nsecs="0">
+      <desired>
+        <position>
+          0.5914020150166615, 0.30383953649923073, 0.19609014911252043, 0.853402002246059, -0.45615046218399774, -0.24604584815001074, -0.055616715292120096
+        </position>
+        <velocity>
+        </velocity>
+        <acceleration>
+        </acceleration>
+      </desired>
+      <actual>
+        <position>
+          0.5914020150166615, 0.30383953649923073, 0.19609014911252043, 0.853402002246059, -0.45615046218399774, -0.24604584815001074, -0.055616715292120096
+        </position>
+        <velocity>
+        </velocity>
+        <acceleration>
+        </acceleration>
+      </actual>
+    </state>
+    <state sequence="1" secs="1" nsecs="0">
+      <desired>
+        <position>
+          0.5914020150166615, 0.30383953649923073, 0.19609014911252043, 0.853402002246059, -0.45615046218399774, -0.24604584815001074, -0.055616715292120096
+        </position>
+        <velocity>
+        </velocity>
+        <acceleration>
+        </acceleration>
+      </desired>
+      <actual>
+        <position>
+          0.5914020150166615, 0.30383953649923073, 0.19609014911252043, 0.853402002246059, -0.45615046218399774, -0.24604584815001074, -0.055616715292120096
+        </position>
+        <velocity>
+        </velocity>
+        <acceleration>
+        </acceleration>
+      </actual>
+    </state>
+  </states>
+</trajectory>
