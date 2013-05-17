@@ -121,7 +121,7 @@ bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_ref
 //NEW MAIN LOOP
 int main(int argc, char **argv)
 {
-    ROS_INFO("Initializing ACH-to-ROS bridge\n");
+    ROS_INFO("Initializing ACH-to-ROS bridge");
     //initialize HUBO-ACH feedback channel
     int r = ach_open(&chan_hubo_state, HUBO_CHAN_STATE_NAME , NULL);
     assert(ACH_OK == r);
@@ -134,14 +134,14 @@ int main(int argc, char **argv)
     struct hubo_ref H_ref_filter;
     memset(&H_ref_filter, 0, sizeof(H_ref_filter));
     size_t fs;
-    ROS_INFO("HUBO-ACH channels loaded\n");
+    ROS_INFO("HUBO-ACH channels loaded");
     //initialize ROS node
     ros::init(argc, argv, "hubo_ros_feedback");
     ros::NodeHandle nh;
     //construct ROS publisher
     g_hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
     g_hubo_clock_pub = nh.advertise<rosgraph_msgs::Clock>("clock", 1);
-    ROS_INFO("ROS publisher loaded\n");
+    ROS_INFO("ROS publishers loaded");
     //Loop
     while (ros::ok())
     {
@@ -151,7 +151,7 @@ int main(int argc, char **argv)
         {
             if(hubo_debug)
             {
-                ROS_DEBUG("State ini r = %i\n",r);
+                ROS_DEBUG("State ini r = %i",r);
             }
         }
         else
@@ -164,23 +164,20 @@ int main(int argc, char **argv)
         {
             if(hubo_debug)
             {
-                ROS_DEBUG("State ini r = %i\n",r);
+                ROS_DEBUG("State ini r = %i",r);
             }
         }
         else
         {
             assert(sizeof(H_ref_filter) == fs);
         }
-        //Assemble new HuboState message
-        hubo_msgs::JointCommandState hubo_state_msg;
-
         if(ACHtoHuboState(&H_state, &H_ref_filter))
         {
             ;
         }
         else
         {
-            ROS_ERROR("*** Invalid state recieved from HUBO! ***\n");
+            ROS_ERROR("*** Invalid state recieved from HUBO! ***");
         }
         ros::spinOnce();
     }
