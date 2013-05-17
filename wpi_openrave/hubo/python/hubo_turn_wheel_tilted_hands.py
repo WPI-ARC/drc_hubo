@@ -60,7 +60,16 @@ def run():
     print "Getting Loaded Problems"
     probs = env.GetLoadedProblems()
 
+    activedofs = [0]
+    for m in manips:
+        activedofs.extend(m.GetArmIndices())
+    activedofs.sort()
+    print activedofs
 
+    robotid.SetDOFValues([-0.95,-0.95,1,1],[19,20,41,56]) # elbows and thumbs
+    robotid.SetActiveDOFs(activedofs)
+    initconfig = robotid.GetDOFValues()
+    
     
     print "Press Enter to exit..."
     sys.stdin.readline()
