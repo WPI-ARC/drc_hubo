@@ -1,0 +1,22 @@
+<package>
+  <description brief="hubo_wpi_sim">
+
+     hubo_ros_gazebo_kinect
+
+  </description>
+  <author>Nicholas Alunni</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hubo_ros_gazebo_kinect</url>
+  <depend package="roscpp"/>
+  <depend package="rospy"/>
+  <depend package="gazebo"/>
+  <depend package="gazebo_msgs"/>
+  <depend package="geometry_msgs"/>
+  <depend package="std_msgs"/>
+  <depend package="generic_tf_broadcaster"/>
+
+
+</package>
+
+
