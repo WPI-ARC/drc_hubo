@@ -1,0 +1,65 @@
+import roslib; roslib.load_manifest('task_controller')
+import rospy
+
+def load_modules():
+    modules_possible = os.listdir("./")
+    modules_available = []
+    for module in modules_possible:
+        if (".py" in module and ".pyc" not in module and module != "__init__.py" and module != "hubo_controller.py"):
+            modules_available.append(module.strip(".py"))
+    for module in modules_available:
+        eval_str = "from " + module + " import *"
+        exec(eval_str, globals())
+    return modules_available
+
+class test:
+
+    def __init__(self):
+        pass
+
+    def execute_walk(self, walking_goal):
+        rospy.loginfo("Calling the walking system...")
+        try:
+            # Call the planning system
+            walking_response = None
+            if (walking_response.success_code == walking_response.SUCCESS):
+                rospy.loginfo("Walking operation complete")
+                return walking_response
+            elif (walking_response.success_code == walking_response.FAILURE):
+                rospy.logwarn("Unable to walk to the goal")
+                return None
+            elif (walking_response.success_code == walking_response.ERROR):
+                rospy.logerr("Walking controller failure")
+        except:
+            rospy.logerr("Failure in calling the walking system")
+            return None
+
+    def call_planner(self, wheel_pose):
+        rospy.loginfo("Calling the planning system...")
+        try:
+            # Call the planning system
+            planning_response = None
+            if (planning_response.success_code == planning_response.SUCCESS):
+                rospy.loginfo("Call to the planning system returned a solution")
+                return planning_response
+            elif (planning_response.success_code == planning_response.FAILURE):
+                rospy.logwarn("Call to the planning system did not return a solution")
+                return None
+        except:
+            rospy.logerr("Failure in calling the planning system")
+            return None
+
+    def execute_trajectory(self, trajectory):
+        rospy.loginfo("Calling the trajectory execution system...")
+        try:
+            # Call the planning system
+            execution_response = None
+            if (execution_response.success_code == execution_response.SUCCESS):
+                rospy.loginfo("Trajectory execution complete")
+                return execution_response
+            elif (execution_response.success_code == execution_response.FAILURE):
+                rospy.logwarn("Unable to execute trajectory")
+                return None
+        except:
+            rospy.logerr("Failure in calling the trajectory execution system")
+            return None

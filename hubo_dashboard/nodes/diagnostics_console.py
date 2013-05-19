@@ -28,7 +28,7 @@ class bcolors:
 class DiagnosticsConsole:
 
     def __init__(self):
-        self.levels = {"2":"INFO", "4":"WARNING", "8":"ERROR", "16":"FATAL ERROR"}
+        self.levels = {"1":"DEBUG", "2":"INFO", "4":"WARNING", "8":"ERROR", "16":"FATAL ERROR"}
         print bcolors.OKGREEN + bcolors.BOLD + "Lightweight Diagnostics Console v" + version + "\n==================================================" + bcolors.ENDC
         self.rsagg_sub = rospy.Subscriber("rosout_agg", Log, self.rosout_cb)
         while not rospy.is_shutdown():
@@ -37,7 +37,9 @@ class DiagnosticsConsole:
     def rosout_cb(self, msg):
         message_level = msg.level
         debug_msg = "| Level: [" + self.levels[str(message_level)] + "] from Node: [" + msg.name + "]\n| Message: " + msg.msg
-        if (message_level == 2):
+        if (message_level == 1):
+            print bcolors.QUESTION + debug_msg + "\n---" + bcolors.ENDC
+        elif (message_level == 2):
             print bcolors.OKBLUE + debug_msg + "\n---" + bcolors.ENDC
         elif (message_level == 4):
             print bcolors.HEADER + debug_msg + "\n---" + bcolors.ENDC

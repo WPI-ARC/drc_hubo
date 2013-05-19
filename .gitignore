@@ -14,6 +14,9 @@ openHubo/env.sh
 hubo_msgs/src/hubo_msgs/msg/
 hubo_sensor_msgs/src/hubo_sensor_msgs/msg/
 
+task_controller/src/task_controller/msg/
+task_controller/src/task_controller/srv/
+
 *~
 *.pyc
 .svn
