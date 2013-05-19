@@ -139,12 +139,12 @@ def run():
     # Open - Closed Values
     rhanddofs = range(27,42)
     rhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
-    rhandopenvals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
+    rhandopenvals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
 
     # Left Hand Joints
     lhanddofs = range(42,57)
     lhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
-    lhandopenvals =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
+    lhandopenvals =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
 
     # polyscale: changes the scale of the support polygon
     # polytrans: shifts the support polygon around
@@ -230,7 +230,6 @@ def run():
     # That's why We need to define the right hand's 
     # transform relative to the wheel (ask Dmitry Berenson
     # about this for more information).
-    print jointtm[0:3,3]
     temp1 = MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0])))
     temp2 = MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0])))
     # Rotate the wheel's transform to a suitable pose
@@ -238,7 +237,6 @@ def run():
     # T0_w0L stands for: 
     # left hand's transform on wheel in world coordinates
     T0_w0L = dot(dot(CTee,temp1),temp2)
-
     # This is what's happening: 
     #
     # Tw0L_0 = linalg.inv(T0_w0L)
@@ -246,32 +244,136 @@ def run():
     #
     # Left hand's transform in wheel's coordinates
     Tw0L_LH1 = dot(linalg.inv(T0_w0L),T0_LH1)
-
     # Transform of the left hand's end effector in wheel's coords.
     # Required by CBiRRT
     Tw0_eL = Tw0L_LH1
-
     # How much freedom do we want to give to the left hand
     Bw0L = matrix([0,0,0,0,0,0,0,pi,0,0,0,0])
 
-    # Now calculate Right Hand's transforms:
+    # Right Hand's transforms:
     T0_crankcrank = CTee
     T0_w0R = MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0])))
-
     # End effector transform in wheel coordinates
     Tw0_eR = dot(linalg.inv(T0_crankcrank),T0_RH1)
-    
     # How much freedom? (note: in frame of crank)
     Bw0R = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
+
+    # Head's transforms:
+    T0_w0H =  Tee[4]
+    Tw0_eH = eye(4);
+    Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
+    
     
     # Define Task Space Regions
     # Left Hand
     TSRString1 = SerializeTSR(0,'NULL',T0_w0L,Tw0_eL,Bw0L)
+    # Right Hand
     TSRstring2 = SerializeTSR(1,'crank crank',T0_w0R,Tw0_eR,Bw0R)
+    # Left Foot
     TSRstring3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+    # Head
+    TSRstring4 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
+    
     TSRChainStringFootOnly = SerializeTSRChain(0,0,1,1,TSRstring3,'NULL',[])
+
+    TSRChainStringFootandHead = TSRChainStringFootOnly+' '+SerializeTSRChain(0,0,1,1,TSRstring4,'NULL',[])
+
+    TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([crankjointind]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+TSRChainStringFootandHead
+    
+    # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
+    # How much do we want to rotate the wheel?
+    crank_rot = pi/6.5
+    
+    # Which joint do we want the CBiRRT to mimic the TSR for?
+    TSRChainMimicDOF = 1
+    
+    # Create the transform for the wheel that we would like to reach to
+    Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
+    
+    # What is this?
+    temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
+    
+    # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
+    T0_cranknew = dot(T0_w0L,Tcrank_rot)
+    
+    # Where will the left hand go after turning the wheel?
+    # This is what's happening:
+    #
+    # Tcranknew_LH2 = dot(Tw0L_0,T0_LH1) --> Left hand in wheel's coordinate
+    # T0_LH2 = dot(T0_cranknew,Tcranknew_LH2) --> Left hand rotated around wheel's origin
+    T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
+
+    # Uncomment to see T0_LH2
+    # handles.append(misc.DrawAxes(env,matrix(T0_LH2),1))
+    
+    # Where will the right hand go after turning the wheel?
+    T0_RH2 = dot(T0_crankcrank,dot(temp,dot(linalg.inv(T0_crankcrank),T0_RH1)))
+
+    # Uncomment to see T0_RH2
+    # handles.append(misc.DrawAxes(env,matrix(T0_RH2),1))
+
+    arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+    arg2 = trans_to_str(T0_LH2)
+    arg3 = trans_to_str(T0_RH2)
+    arg4 = trans_to_str(Tee[2])
+
+    print arg1
+    print arg2
+    print arg3
+    print arg4
+
+    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 3 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4)
+    
+    print "goal ik"
+    print goalik
+    
+    robotid.SetActiveDOFValues(str2num(goalik)) 
+    sys.stdin.readline()
+
+
+    crankid.SetDOFValues([0],[crankjointind])
+    
+    robotid.SetActiveDOFValues(initconfig)
+    sys.stdin.readline()
+    
+    try:
+        answer= probs[0].SendCommand('traj movetraj0.txt');
+        # debug
+        print "traj call answer: ",str(answer)
+    except openrave_exception, e:
+        print e
+    robotid.WaitForController(0)
+    
+    robotid.SetDOFValues(rhandclosevals,rhanddofs)
+    robotid.SetDOFValues(lhandclosevals,lhanddofs)
+
+    # Get a trajectory from goalik to grasp configuration
+    try:
+        answer = probs[0].SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringTurning)
+        print "RunCBiRRT answer: ",str(answer)
+    except openrave_exception, e:
+        print "Cannot send command RunCBiRRT: "
+        print e
+
+    try:
+        os.rename("cmovetraj.txt","movetraj1.txt")
+        print "Executing trajectory 1"
+        try:
+            answer= probs[0].SendCommand('traj movetraj1.txt');
+            # debug
+            print "traj call answer: ",str(answer)
+        except openrave_exception, e:
+            print e
+        robotid.WaitForController(0)
+    except OSError, e:
+        # No file cmovetraj
+        print e
+
     
 
+    robotid.SetDOFValues(rhandopenvals,rhanddofs)
+    robotid.SetDOFValues(lhandopenvals,lhanddofs)
+    
     print "Press Enter to exit..."
     sys.stdin.readline()
     env.Destroy()
