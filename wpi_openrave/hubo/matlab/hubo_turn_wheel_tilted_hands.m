@@ -176,7 +176,7 @@ Tw0_eH = eye(4);
 Bw0H = [0,0,-0.1,0.1,-0.1,0.01,0,0,0,0,0,0];
 TSRString4 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H);
 
-TSRChainStringGrasping = [SerializeTSRChain(0,1,0,1,TSRString1,'NULL',[]) ' ' SerializeTSRChain(0,1,0,1,TSRString2,'NULL',[]) ' '  SerializeTSRChain(0,1,1,1,TSRString3,'NULLL',[]) ' ' SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[])];
+TSRChainStringGrasping = [SerializeTSRChain(0,1,0,1,TSRString1,'NULL',[]) ' ' SerializeTSRChain(0,1,0,1,TSRString2,'NULL',[]) ' '  SerializeTSRChain(0,1,1,1,TSRString3,'NULL',[]) ' ' SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[])];
 
 
 orProblemSendCommand(['RunCBiRRT psample 0.2 supportlinks 2 ' footlinknames  ' smoothingitrs ' num2str(normalsmoothingitrs) ' ' TSRChainStringGrasping],probs.cbirrt);
