@@ -1,0 +1,4 @@
+Package to plan turning the wheel for huboplus
+
+ - Comps must be installed with OPENRAVE_PLUGINS added to you envirnoment
+ - PYTHONPATH must include "../wpi_openrave/hubo/python"
