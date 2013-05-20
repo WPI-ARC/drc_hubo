@@ -26,6 +26,7 @@ import PositionRobot
 import PlanTurning
 import ExecuteTurning
 import FinishTask
+import ManualMode
 import SafeMode
 import ErrorHandler
 
@@ -51,10 +52,12 @@ class HuboController:
             smach.StateMachine.add('ExecuteTurning', ExecuteTurning.EXECUTETURNING(), transitions={'Success':'FinishTask', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
             # Add finishing step
             smach.StateMachine.add('FinishTask', FinishTask.FINISHTASK(), transitions={'Success':'DONE', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            # Add manual mode
+            smach.StateMachine.add('ManualMode', ManualMode.MANUALMODE(), transitions={'Success':'ErrorHandler', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
             # Add safe mode
             smach.StateMachine.add('SafeMode', self.safemode, transitions={'Safed':'SAFE'})
             # Add Error handler
-            smach.StateMachine.add('ErrorHandler', ErrorHandler.ERRORHANDLER(), transitions={'ReFind':'FindValve', 'RePosition':'PositionRobot', 'RePlan':'PlanTurning', 'ReExecute':'ExecuteTurning', 'ReFinish':'FinishTask', 'Failed':'FAILED', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('ErrorHandler', ErrorHandler.ERRORHANDLER(), transitions={'ReFind':'FindValve', 'RePosition':'PositionRobot', 'RePlan':'PlanTurning', 'ReExecute':'ExecuteTurning', 'ReFinish':'FinishTask', 'GoManual':'ManualMode', 'Failed':'FAILED', 'Fatal':'SafeMode'})
         # Set up the introspection server
         self.sis = smach_ros.IntrospectionServer('valve_task_smach_server', self.sm, '/SM_ROOT')
         self.sis.start()

@@ -6,7 +6,7 @@ import smach_ros
 class ERRORHANDLER(smach.State):
 
     def __init__(self):
-        smach.State.__init__(self, outcomes=['ReFind','RePosition','RePlan','ReExecute','ReFinish','Failed','Fatal'])
+        smach.State.__init__(self, outcomes=['ReFind','RePosition','RePlan','ReExecute','ReFinish','GoManual','Failed','Fatal'])
 
     def execute(self, userdata):
         rospy.loginfo("ErrorHandler executing...")
