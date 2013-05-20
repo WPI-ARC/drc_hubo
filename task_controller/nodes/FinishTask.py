@@ -6,8 +6,12 @@ import smach_ros
 class FINISHTASK(smach.State):
 
     def __init__(self):
-        smach.State.__init__(self, outcomes=['Success', 'Failure', 'Fatal'])
+        smach.State.__init__(self, outcomes=['Success', 'Failure', 'Fatal'], input_keys=['input'], output_keys=['output'])
 
     def execute(self, userdata):
         rospy.loginfo("Trying to finish up the task...")
+        output = {}
+        output['error'] = "Finished"
+        output['data'] = None
+        userdata.output = output
         return 'Failure'

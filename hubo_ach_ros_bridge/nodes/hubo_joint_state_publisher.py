@@ -88,7 +88,7 @@ class JointStatePublisher:
                         msg.position.append(self.free_joints[joint_name]['zero'])
                 self.hubo_pub.publish(msg)
             else:
-                rospy.logwarn("No valid message received from the Hubo yet")
+                rospy.logerr("No valid message received from the Hubo yet")
                 msg = JointState()
                 msg.header.stamp = rospy.Time.now()
                 for joint_name in self.free_joints:

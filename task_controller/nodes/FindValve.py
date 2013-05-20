@@ -6,7 +6,7 @@ import smach_ros
 class FINDVALVE(smach.State):
 
     def __init__(self):
-        smach.State.__init__(self, outcomes=['Success', 'Failure', 'Fatal'])
+        smach.State.__init__(self, outcomes=['Success', 'Failure', 'Fatal'], input_keys=['input'], output_keys=['output'])
 
     def execute(self, userdata):
         rospy.loginfo("Trying to find the valve...")
@@ -18,4 +18,8 @@ class FINDVALVE(smach.State):
             print i
             i += 1
             rospy.sleep(5.0)
+        output = {}
+        output['error'] = "Finished"
+        output['data'] = None
+        userdata.output = output
         return 'Failure'

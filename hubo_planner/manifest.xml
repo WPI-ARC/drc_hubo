@@ -10,6 +10,9 @@
   <url>http://ros.org/wiki/hubo_planner</url>
   <depend package="std_msgs"/>
   <depend package="rospy"/>
+  <depend package="sensor_msgs"/>
+  <depend package="geometry_msgs"/>
+  <depend package="trajectory_msgs"/>
 
 </package>
 
