@@ -18,6 +18,7 @@ from TSR import *
 from math import *
 from copy import *
 import os # for file operations
+from RaveCBiRRT import *
 
 def trans_to_str(T):
     myStr = ""
@@ -66,21 +67,14 @@ def run():
     # Move the wheel infront of the robot
     crankid.SetTransform(array(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.09, 0.9])))))
     
-    probs_cbirrt = RaveCreateModule(env,'CBiRRT')
-    probs_crankmover = RaveCreateModule(env,'CBiRRT')
-
-
     manips = robotid.GetManipulators()
     crankmanip = crankid.GetManipulators()
     
     try:
-        env.AddModule(probs_cbirrt,'rlhuboplus') # this string should match to kinematic body
-        env.AddModule(probs_crankmover,'crank')
+        cbirrtHubo = RaveCBiRRT(env,'rlhuboplus')
+        cbirrtWheel = RaveCBiRRT(env,'crank')
     except openrave_exception, e:
         print e
-
-    print "Getting Loaded Problems"
-    probs = env.GetLoadedProblems()
 
     # Keep Active Joint Indices
     # Note that 0 is the driving wheel
@@ -129,7 +123,7 @@ def run():
 
     # We can also get the transformation matrix
     # with the following command as a string
-    jointtm_str = probs[0].SendCommand('GetJointTransform name crank jointind '+str(crankjointind))
+    jointtm_str = cbirrtHubo.solve('GetJointTransform name crank jointind '+str(crankjointind))
     # And then we can convert the string to a 1x12 array
     jointtm_str = jointtm_str.replace(" ",",")
     jointtm_num = eval('['+jointtm_str+']')
@@ -220,7 +214,7 @@ def run():
     # Get a trajectory from initial configuration to grasp configuration
     with robotid:
         try:
-            answer = probs[0].SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
+            answer = cbirrtHubo.solve('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
             print "RunCBiRRT answer: ",str(answer)
         except openrave_exception, e:
             print "Cannot send command RunCBiRRT: "
@@ -244,7 +238,7 @@ def run():
     # to play the trajectory
     #
     # try:
-    #     answer= probs[0].SendCommand('traj movetraj0.txt');
+    #     answer= cbirrtHubo.solve('traj movetraj0.txt');
     #     robotid.WaitForController(0)
     #     sys.stdin.readline()
     #     # debug
@@ -363,7 +357,7 @@ def run():
 
     crankid.SetDOFValues([crank_rot],[crankjointind])
 
-    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 3 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4)
+    goalik = cbirrtHubo.solve('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 3 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4)
     
     # print "goalIK"
     # print goalik
@@ -391,7 +385,7 @@ def run():
     sys.stdin.readline()
 
     try:
-        answer = probs[0].SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringTurning)
+        answer = cbirrtHubo.solve('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringTurning)
         print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
@@ -413,8 +407,8 @@ def run():
     # crankid.GetController().Reset(0)
         
     try:
-        answer= probs[0].SendCommand('traj movetraj1.txt');
-        answer= probs[1].SendCommand('traj movetraj1.txt');
+        answer= cbirrtHubo.solve('traj movetraj1.txt');
+        answer= cbirrtWheel.solve('traj movetraj1.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
@@ -433,7 +427,7 @@ def run():
     goaljoints = startik
 
     try:
-        answer = probs[0].SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFootandHead)
+        answer = cbirrtHubo.solve('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFootandHead)
         print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
@@ -446,7 +440,7 @@ def run():
         print e
 
     try:
-        answer= probs[0].SendCommand('traj movetraj2.txt');
+        answer= cbirrtHubo.solve('traj movetraj2.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
@@ -463,7 +457,7 @@ def run():
     goaljoints = initconfig
     print goaljoints
     try:
-        answer = probs[0].SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFootandHead)
+        answer = cbirrtHubo.solve('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFootandHead)
         print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
@@ -476,7 +470,7 @@ def run():
         print e
 
     try:
-        answer= probs[0].SendCommand('traj movetraj3.txt');
+        answer= cbirrtHubo.solve('traj movetraj3.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
@@ -490,7 +484,7 @@ def run():
     robotid.SetDOFValues(rhandopenvals,rhanddofs)
     robotid.SetDOFValues(lhandopenvals,lhanddofs)
     try:
-        answer= probs[0].SendCommand('traj movetraj0.txt');
+        answer= cbirrtHubo.solve('traj movetraj0.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
@@ -505,8 +499,8 @@ def run():
     time.sleep(1)
 
     try:
-        answer= probs[0].SendCommand('traj movetraj1.txt');
-        answer= probs[1].SendCommand('traj movetraj1.txt');
+        answer= cbirrtHubo.solve('traj movetraj1.txt');
+        answer= cbirrtWheel.solve('traj movetraj1.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
@@ -521,7 +515,7 @@ def run():
     time.sleep(1)
 
     try:
-        answer= probs[0].SendCommand('traj movetraj2.txt');
+        answer= cbirrtHubo.solve('traj movetraj2.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
@@ -532,7 +526,7 @@ def run():
     time.sleep(1)
 
     try:
-        answer= probs[0].SendCommand('traj movetraj3.txt');
+        answer= cbirrtHubo.solve('traj movetraj3.txt');
         robotid.WaitForController(0)
         # debug
         print "traj call answer: ",str(answer)
