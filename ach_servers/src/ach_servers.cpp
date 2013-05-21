@@ -15,34 +15,53 @@ void execute(const hubo_msgs::JointTrajectoryGoalConstPtr& goal, Server* as)
   trajectory_msgs::JointTrajectory trajectory = goal->trajectory;
   std::vector<trajectory_msgs::JointTrajectoryPoint> waypoints = trajectory.points;
 
+  std::vector< std::vector<trajectory_msgs::JointTrajectoryPoint> > chopped;
+
+  chopTrajectory(waypoints, chopped);
+
   hubo_traj_t ach_traj;
   memset( &ach_traj, 0, sizeof(ach_traj) );
-
-  /* TODO: Define how many waypoints you will be using
-    int num_waypoints = XXXX;
-  */
-
-  //feed the trajectory data into A structure
-  /* TODO: Fill in these fields with the appropriate values
-  for(int j=0; j < num_waypoints; j++)
-  {
-      for(int i=0; i < HUBO_JOINT_COUNT; i++)
-      {
-        ach_traj.joint[i].position[j] = XXXX; // position of joint i at waypoint j
-        ach_traj.joint[i].velocity[j] = XXXX; // velocity of joint i at waypoint j
-        ach_traj.joint[i].acceleration[j] = XXXX; // acceleration of joint i at waypoint j
-      }
-      ach_traj.time[j] = XXXX; // the time at which the trajectory passes through waypoint j
-  }
-  ach_traj.endTime = XXXX; // the length of time that this chunk of trajectory should take to run
-  ach_traj.trajID = XXXX; // some integer value to indentify this trajectory
-  */
-  ach_put( &chan_traj_cmd, &ach_traj, sizeof(ach_traj) );
 
   hubo_traj_output ach_state;
   memset( &ach_state, 0, sizeof(ach_state) );
   size_t fs;
   ach_get( &chan_traj_state, &ach_state, sizeof(ach_state), &fs, NULL, ACH_O_LAST );
+
+
+  /* // Iterate through the chopped trajectories
+    for( int c = 0; c < chopped.size(); c++ ) // Might be better to use an iterator instead of an int
+    {
+
+        //TODO: Define how many waypoints you will be using
+      int num_waypoints = XXXX; // = chopped[c].size()?
+
+      //feed the trajectory data into A structure
+      // TODO: Fill in these fields with the appropriate values
+      for(int j=0; j < num_waypoints; j++)
+      {
+          for(int i=0; i < HUBO_JOINT_COUNT; i++)
+          {
+            ach_traj.joint[i].position[j] = XXXX; // position of joint i at waypoint j
+            ach_traj.joint[i].velocity[j] = XXXX; // velocity of joint i at waypoint j
+            ach_traj.joint[i].acceleration[j] = XXXX; // acceleration of joint i at waypoint j
+          }
+          ach_traj.time[j] = XXXX; // the time at which the trajectory passes through waypoint j
+      }
+      ach_traj.endTime = XXXX; // the length of time that this chunk of trajectory should take to run
+      ach_traj.trajID = c; // integer value to indentify this trajectory
+
+      do {
+        struct timespec t; // Wait for at most 1 second
+        clock_gettime( ACH_DEFAULT_CLOCK, &t );
+        t.tv_sec += 1;
+        ach_get( &chan_traj_state, &ach_state, sizeof(ach_state), &fs, &t, ACH_O_WAIT | ACH_O_LAST );
+      } while( ach_state.trajID < c-1 && ach_state.status == TRAJ_RUNNING ); // Make sure we don't flood the ach channel with too many chunks
+
+      ach_put( &chan_traj_cmd, &ach_traj, sizeof(ach_traj) );
+
+    }
+  */
+
 
   // TODO: Parse the ach_state fields to provide a response for the service call (probably not important)
 
