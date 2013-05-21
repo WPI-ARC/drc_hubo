@@ -21,6 +21,7 @@ import subprocess
 import threading
 import ctypes
 
+import StartTask
 import FindValve
 import PositionRobot
 import PlanTurning
@@ -42,22 +43,24 @@ class HuboController:
         # Populate the state machine from the modules
         with self.sm:
             self.safemode = SafeMode.SAFEMODE()
-            # Add finishing step
-            smach.StateMachine.add('FindValve', FindValve.FINDVALVE(), transitions={'Success':'PositionRobot', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            # Add start state
+            smach.StateMachine.add('StartTask', StartTask.STARTTASK(), transitions={'Start':'FindValve'}, remapping={'input':'sm_input', 'output':'sm_data'})
+            # Add finding step
+            smach.StateMachine.add('FindValve', FindValve.FINDVALVE(), transitions={'Success':'PositionRobot', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_data'})
             # Add positioning step
-            smach.StateMachine.add('PositionRobot', PositionRobot.POSITIONROBOT(), transitions={'Success':'PlanTurning', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('PositionRobot', PositionRobot.POSITIONROBOT(), transitions={'Success':'PlanTurning', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_data'})
             # Add planning step
-            smach.StateMachine.add('PlanTurning', PlanTurning.PLANTURNING(), transitions={'Success':'ExecuteTurning', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('PlanTurning', PlanTurning.PLANTURNING(), transitions={'Success':'ExecuteTurning', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_data'})
             # Add execution step
-            smach.StateMachine.add('ExecuteTurning', ExecuteTurning.EXECUTETURNING(), transitions={'Success':'FinishTask', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('ExecuteTurning', ExecuteTurning.EXECUTETURNING(), transitions={'Success':'FinishTask', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_data'})
             # Add finishing step
-            smach.StateMachine.add('FinishTask', FinishTask.FINISHTASK(), transitions={'Success':'DONE', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('FinishTask', FinishTask.FINISHTASK(), transitions={'Success':'DONE', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_output'})
             # Add manual mode
-            smach.StateMachine.add('ManualMode', ManualMode.MANUALMODE(), transitions={'Success':'ErrorHandler', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('ManualMode', ManualMode.MANUALMODE(), transitions={'Success':'ErrorHandler', 'Failure':'ErrorHandler', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_data'})
             # Add safe mode
-            smach.StateMachine.add('SafeMode', self.safemode, transitions={'Safed':'SAFE'})
+            smach.StateMachine.add('SafeMode', self.safemode, transitions={'Safed':'SAFE'}, remapping={'input':'sm_data', 'output':'sm_output'})
             # Add Error handler
-            smach.StateMachine.add('ErrorHandler', ErrorHandler.ERRORHANDLER(), transitions={'ReFind':'FindValve', 'RePosition':'PositionRobot', 'RePlan':'PlanTurning', 'ReExecute':'ExecuteTurning', 'ReFinish':'FinishTask', 'GoManual':'ManualMode', 'Failed':'FAILED', 'Fatal':'SafeMode'})
+            smach.StateMachine.add('ErrorHandler', ErrorHandler.ERRORHANDLER(), transitions={'ReFind':'FindValve', 'RePosition':'PositionRobot', 'RePlan':'PlanTurning', 'ReExecute':'ExecuteTurning', 'ReFinish':'FinishTask', 'GoManual':'ManualMode', 'Failed':'FAILED', 'Fatal':'SafeMode'}, remapping={'input':'sm_data', 'output':'sm_output'})
         # Set up the introspection server
         self.sis = smach_ros.IntrospectionServer('valve_task_smach_server', self.sm, '/SM_ROOT')
         self.sis.start()
@@ -66,6 +69,7 @@ class HuboController:
         # Start the state machine
         self.running = True
         self.safed = False
+        self.sm.userdata.sm_input = ""
         final_outcome = self.sm.execute()
         self.running = False
         self.safemode.execute([])

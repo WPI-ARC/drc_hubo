@@ -1,0 +1,19 @@
+<package>
+  <description brief="hubo_planner">
+
+     hubo_planner
+
+  </description>
+  <author>Calder Phillips-Grafflin</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hubo_planner</url>
+  <depend package="std_msgs"/>
+  <depend package="rospy"/>
+  <depend package="sensor_msgs"/>
+  <depend package="geometry_msgs"/>
+  <depend package="trajectory_msgs"/>
+
+</package>
+
+

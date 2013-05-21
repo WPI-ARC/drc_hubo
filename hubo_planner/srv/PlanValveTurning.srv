@@ -1,0 +1,5 @@
+geometry_msgs/Pose valve_position
+---
+trajectory_msgs/JointTrajectory[] trajectories
+string[] labels
+string error_code
