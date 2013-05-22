@@ -40,12 +40,15 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
     collisionConstOK = True
     noConfigJump = True
 
+    print "numRobots: ",str(numRobots)
+    print "numManips: ",str(numManips)
+
     if(start(candidates,numRobots,numManips,c,myRmaps,robots,h,env)):
         # Get their relative Transformation matrix
         T0_base = []
         for myRobotIndex in range(numRobots):
             for myManipulatorIndex in range(numManips[myRobotIndex]):
-                T0_base.append(robots[myManipulatorIndex].GetManipulators()[myManipulatorIndex].GetBase().GetTransform())
+                T0_base.append(robots[myRobotIndex].GetManipulators()[myManipulatorIndex].GetBase().GetTransform())
         Trobot0_robot1 = dot(linalg.inv(T0_base[0]),T0_base[1])
 
         # i) Does the candidate satisfy the robot base transform constraint?
@@ -81,9 +84,9 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
             for pElementIndex in range(pathLength):
                 # Move the manipulator to this path element
                 for myRobotIndex in range(numRobots):
-                    for myManipulatorIndex in range(numManips[numRobot]):
-                        currentSphereIndex = candidates[myRobotIndex][c][pElementIndex].sIdx
-                        currentTransformIndex = candidates[myRobotIndex][c][pElementIndex].tIdx
+                    for myManipulatorIndex in range(numManips[myRobotIndex]):
+                        currentSphereIndex = candidates[myManipulatorIndex][c][pElementIndex].sIdx
+                        currentTransformIndex = candidates[myManipulatorIndex][c][pElementIndex].tIdx
                         myRmaps[myManipulatorIndex].go_to(currentSphereIndex,currentTransformIndex)
                         pathConfigs[myManipulatorIndex].append(robots[myRobotIndex].GetDOFValues(robots[myRobotIndex].GetManipulators()[myManipulatorIndex].GetArmIndices()))
 
@@ -121,8 +124,8 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
                             collisionConstOK = False
                             return False
 
-            # If you didn't break yet, wait before the next path element for visualization
-            time.sleep(0.1)
+                # If you didn't break yet, wait before the next path element for visualization
+                time.sleep(1.0)
         
             # If you made it here, 
             # it means no configuration jump, and no collision
@@ -173,40 +176,49 @@ env.SetViewer('qtcoin')
 T0_p = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))
 
 # 1. Create a trajectory for the tool center point to follow
-Tstart = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))))
-Tgoal = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0]))))
+# Left Hand
+Tstart0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))))
+Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
 
-traj = []
-traj.append(Tstart)
-traj.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.02,0.0])))))
-traj.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.07,0.0])))))
-traj.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.12,0.0])))))
-traj.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.16,0.0])))))
-traj.append(Tgoal)
+traj0 = []
+traj0.append(Tstart0)
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.02,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.07,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.12,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.16,0.0])))))
+traj0.append(Tgoal0)
 
-# Just to try
-# Move, then rotate around the axis with that shift being the radius
-#traj.append(dot(array(MakeTransform(matrix(rodrigues([0,0,pi/2])),transpose(matrix([0.0,0.0,0.0])))),array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.07+offset[0],0.0+offset[1],0.0]))))))
+# Right Hand
+Tstart1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))))
+Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0]))))
+
+traj1 = []
+traj1.append(Tstart1)
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.02,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.07,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.12,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.16,0.0])))))
+traj1.append(Tgoal1)
 
 h = []
 h.append(misc.DrawAxes(env,array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))),1.0))
 
 myPatterns = []
 # 2. Create a search pattern from the trajectory for the first manipulator
-myPattern = SearchPattern(traj)
+myPattern = SearchPattern(traj0)
 myPattern.T0_p = T0_p
-myPattern.setColor(array((0,1,1,0.5))) 
+myPattern.setColor(array((0,0,1,0.5))) 
 myPattern.show(env)
-# sys.stdin.readline()
+#sys.stdin.readline()
 
 myPatterns.append(myPattern)
 
 # 3. Create a search pattern from the trajectory for the second manipulator
-myPattern = SearchPattern(traj)
+myPattern = SearchPattern(traj1)
 myPattern.T0_p = T0_p
-myPattern.setColor(array((1,1,0,0.5))) 
+myPattern.setColor(array((1,0,0,0.5))) 
 myPattern.show(env)
-# sys.stdin.readline()
+#sys.stdin.readline()
 
 myPatterns.append(myPattern)
 
@@ -237,7 +249,7 @@ mybox.SetName('box')
 
 boxD1 = 0.025
 boxD2 = 0.025
-boxH = 0.3
+boxH = 0.2
 
 boxX = -0.5
 boxY = 0.0
@@ -285,13 +297,11 @@ print "Finding path candidates..."
 # 4. Where do we want the end effectors to start from in world coordinates?
 T0_starts = []
 
-Tbox_start0 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,-0.5*boxZ])))
-#Tbox_start0 = dot(Tbox_start0, MakeTransform(matrix(rodrigues([0,pi,0])),transpose(matrix([0.0,0.0,0.0]))))
+Tbox_start0 = MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,0.0,-0.5*boxZ])))
 T0_start0 = dot(T0_box,Tbox_start0)
 h.append(misc.DrawAxes(env,T0_start0,0.4))
 
-Tbox_start1 = MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,0.0,0.5*boxZ])))
-#Tbox_start1 = dot(Tbox_start1, MakeTransform(matrix(rodrigues([0,pi,0])),transpose(matrix([0.0,0.0,0.0]))))
+Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,0.5*boxZ])))
 T0_start1 = dot(T0_box,Tbox_start1)
 h.append(misc.DrawAxes(env,T0_start1,0.4))
 
@@ -353,7 +363,7 @@ success = False
 end = False
 
 print "Ready to search..."
-sys.stdin.readline()
+# sys.stdin.readline()
 
 while((not success) and (not end)):
     iters += 1
@@ -380,7 +390,7 @@ while((not success) and (not end)):
         # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
         pathLength = len(candidates[0][c]) 
 
-        allGood = play(relBaseConstraint,candidates,2,c,myRmaps,robots,h,env)        
+        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env)        
         h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
@@ -407,7 +417,7 @@ while((not success) and (not end)):
                     ask = False
                     end = False
                 elif(answer.strip('\n') == 'r'):
-                    play(relBaseConstraint,candidates,2,c,myRmaps,robots,h,env)
+                    play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env)
                     ask = True
                     end = False
                 elif(answer.strip('\n') == 'e'):

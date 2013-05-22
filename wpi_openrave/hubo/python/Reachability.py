@@ -1013,8 +1013,6 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
             myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
             newIndices[myKey] = sIdx
 
-        print newIndices
-
         # TO-DO
         # Cut out the parts of the reachability maps that are unwanted.
         # The definition of "unwanted" depends on:
@@ -1038,8 +1036,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
             s.show(myEnv)
             
         # Wait
-        print "Press Enter to continue..."
-        sys.stdin.readline()
+        # print "Press Enter to continue..."
+        # sys.stdin.readline()
 
         for sIdx, s in enumerate(rm[m-1]):
             s.hide()
@@ -1054,8 +1052,6 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         # relative transforms of the start points
         pTi_j = patternTs[m-1]
         
-        
-        
         # Find sisters of all map_i spheres' in map_i+1
         sisters={}
         for s1Idx, s1 in enumerate(rm[m-1]):
@@ -1068,6 +1064,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                 if(sisterKey in newIndices):
                     sisterIndex = newIndices[sisterKey]
                     currentSisters.append(sisterIndex)
+                    # print "Found a sister for ",str(s1Idx)
+                    # print sisterIndex
 
             #if(currentSisters != []): --> raises key error. To fix.
             sisters[str(s1Idx)]=currentSisters
@@ -1087,8 +1085,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         # exactly eD apart from each other
         pairs = []
         print "looking for pairs..."
-        print "Sisters:"
-        print len(sisters)
+        # print "Sisters:"
+        # print len(sisters)
         # NOTE, DO A SMARTER SEARCH HERE. 
         # WE DON'T WANT A COMPLEXITY OF N^2
         while(candidates == []):
@@ -1119,13 +1117,16 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
             for s1Idx, s1 in enumerate(rm[m-1][s1Init:]):
                 s1.show(myEnv)
                 for s2Idx in sisters[str(s1Idx)]:
+                    # print s1Idx
+                    # print s2Idx
                     s2 = rm[m][s2Idx]
                 #for s2Idx, s2 in enumerate(rm[m][s2Init:]):
                     s2.show(myEnv)
                     #sys.stdin.readline()
-                    sD = euclidean_distance(s1.T[0],s2.T[0])
+                    sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
                     # print sD
                     # print pD
+                    # print sD == pD
                     # If the euclidean distance of the pattern transforms
                     # is equal to spheres' distance, then keep the pair
                     if(sD == pD):
@@ -1152,7 +1153,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                     pair1 = PathElement(adjusteds1Idx,t1Idx)
                                     pair2 = PathElement(adjusteds2Idx,t2Idx)
                                     pairs.append([pair1,pair2])
-                                    # print "found a pair: ",str(len(pairs))
+                                    print "found a pair: ",str(len(pairs))
                                     # print str(adjusteds1Idx)," : ",str(t1Idx)
                                     # print str(adjusteds2Idx)," : ",str(t2Idx)
                                     # print "sphere info - s1: "
@@ -1176,9 +1177,9 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
 
             print "looking for candidates.."
             for pair in pairs:
-                print "Trying: "
-                print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
-                print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
+                # print "Trying: "
+                # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
+                # print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
                 steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1])
                 if(steps0 != None):
                     path0 = []
