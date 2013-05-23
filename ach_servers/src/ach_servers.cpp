@@ -1,13 +1,35 @@
+#include <hubo_msgs/JointCommandAction.h>
 #include <hubo_msgs/JointTrajectoryAction.h>
 #include <actionlib/server/simple_action_server.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
+#include <ach.h>
 #include <motion-trajectory.h>
 
-typedef actionlib::SimpleActionServer<hubo_msgs::JointTrajectoryAction> Server;
+typedef actionlib::SimpleActionServer<hubo_msgs::JointTrajectoryAction> TrajectoryServer;
+typedef actionlib::SimpleActionServer<hubo_msgs::JointCommandAction> CommandServer;
 
 
 ach_channel_t chan_traj_cmd;
 ach_channel_t chan_traj_state;
+
+/* chopping the trajectory into multiple segments */
+bool chopTrajectory(const std::vector<trajectory_msgs::JointTrajectoryPoint>& waypoints,
+            std::vector< std::vector<trajectory_msgs::JointTrajectoryPoint> > chopped)
+{
+  int numSegments = waypoints.size() / MAX_TRAJ_SIZE;
+  std::vector<trajectory_msgs::JointTrajectoryPoint> trajSeg;
+  trajSeg.clear();
+  for(size_t i = 0; i < waypoints.size(); ++i)
+  {
+      trajSeg.push_back(waypoints[i]);
+      if( (i > 0 && (i % MAX_TRAJ_SIZE) == 0) || (i == waypoints.size() - 1) )
+      {
+          chopped.push_back(trajSeg);
+          trajSeg.clear();
+      }
+  }
+  return true;
+}
 
 void execute(const hubo_msgs::JointTrajectoryGoalConstPtr& goal, Server* as)
 {
@@ -69,45 +91,30 @@ void execute(const hubo_msgs::JointTrajectoryGoalConstPtr& goal, Server* as)
   as->setSucceeded();
 }
 
-/* chopping the trajectory into multiple segments */
-bool chopTrajectory(const std::vector<trajectory_msgs::JointTrajectoryPoint>& waypoints,
-		    std::vector< std::vector<trajectory_msgs::JointTrajectoryPoint> > chopped)
-{
-  int numSegments = waypoints.size() / MAX_TRAJ_SIZE;
-  std::vector<trajectory_msgs::JointTrajectoryPoint> trajSeg;
-  trajSeg.clear();
-  for(size_t i = 0; i < waypoints.size(); ++i)
-  {
-      trajSeg.push_back(waypoints[i]);
-      if( (i > 0 && (i % MAX_TRAJ_SIZE) == 0) || (i == waypoints.size() - 1) )
-      {
-          chopped.push_back(trajSeg);
-          trajSeg.clear();
-      }
-  }
-  return true;
-}
-
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "ach_server_node");
-  ros::NodeHandle n;
-
-  char command[100];
-  sprintf(command, "ach -1 -C %s -m 10 -n 1000000 -o 666", HUBO_TRAJ_CHAN);
-  system(command);
-  sprintf(command, "ach -1 -C %s -o 666", HUBO_TRAJ_STATE_CHAN);
-  system(command);
-
-  ach_status_t r = ach_open( &chan_traj_cmd, HUBO_TRAJ_CHAN, NULL );
-  if( r != ACH_OK )
-      // TODO: DO SOMETHING TO HANDLE THE CHANNEL NOT OPENING
-      ;
-
-  r = ach_open( &chan_traj_state, HUBO_TRAJ_STATE_CHAN, NULL );
-  if( r != ACH_OK )
-      // TODO: DO SOMETHING TO HANDLE THE CHANNEL NOT OPENING
-      ;
+    ros::init(argc, argv, "hubo_trajectory_controller");
+    ros::NodeHandle nh;
+    // Set up the ACH channels to and from hubo-motion-rt
+    char command[100];
+    sprintf(command, "ach -1 -C %s -m 10 -n 1000000 -o 666", HUBO_TRAJ_CHAN);
+    system(command);
+    sprintf(command, "ach -1 -C %s -o 666", HUBO_TRAJ_STATE_CHAN);
+    system(command);
+    // Make sure the ACH channels are opened properly
+    ach_status_t r = ach_open(&chan_traj_cmd, HUBO_TRAJ_CHAN, NULL);
+    if (r != ACH_OK)
+    {
+        ROS_FATAL("Could not open ACH channel: HUBO_TRAJ_CHAN !");
+        ros::shutdown();
+    }
+    r = ach_open(&chan_traj_state, HUBO_TRAJ_STATE_CHAN, NULL);
+    if (r != ACH_OK)
+    {
+        ROS_FATAL("Could not open ACH channel: HUBO_TRAJ_STATE_CHAN !");
+        ros::shutdown();
+    }
+    // Once everything on the ACH side is loaded, load the two action servers
 
   Server server(n, "ach_server", boost::bind(&execute, _1, &server), false);
   printf("start to wait\n");

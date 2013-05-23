@@ -69,7 +69,10 @@ class HuboController:
         # Start the state machine
         self.running = True
         self.safed = False
-        self.sm.userdata.sm_input = ""
+        self.sm.userdata.sm_input = "Testing"
+        print "Starting..."
+        print self.sm.userdata.sm_input
+        print "...starting"
         final_outcome = self.sm.execute()
         self.running = False
         self.safemode.execute([])

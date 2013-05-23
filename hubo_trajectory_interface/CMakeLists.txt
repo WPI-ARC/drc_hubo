@@ -7,7 +7,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-#set(ROS_BUILD_TYPE RelWithDebInfo)
+set(ROS_BUILD_TYPE Coverage)
 
 rosbuild_init()
 
@@ -16,17 +16,18 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-#uncomment if you have defined messages
-#rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
-
-#common commands for building c++ executables and libraries
-#rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
-#target_link_libraries(${PROJECT_NAME} another_library)
+# Get Boost
 rosbuild_add_boost_directories()
-rosbuild_add_executable(server_start src/ach_servers.cpp)
-target_link_libraries(server_start ach)
-rosbuild_link_boost(server_start thread)
 
-#target_link_libraries(example ${PROJECT_NAME})
+# Build and link the action interface
+rosbuild_add_executable(hubo_trajectory_action src/hubo_trajectory_action.cpp)
+rosbuild_link_boost(hubo_trajectory_action thread)
+
+# Build and link the dummy backend for testing
+rosbuild_add_executable(hubo_trajectory_dummy_interface src/hubo_trajectory_dummy_interface.cpp)
+rosbuild_link_boost(hubo_trajectory_dummy_interface thread signals)
+
+## Build and link the hubo-motion-rt trajectory interface
+#rosbuild_add_executable(hubo_trajectory_interface src/hubo_trajectory_interface.cpp)
+#target_link_libraries(hubo_trajectory_interface ach)
+#rosbuild_link_boost(hubo_trajectory_interface thread signals)
