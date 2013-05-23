@@ -413,7 +413,7 @@ class ReachabilityMap(object):
                     # x, y, z are in manipulator's base coordinate frame
                     s = ReachabilitySphere()
                     s.reachability = 0
-                    for rm in self.rm3D:
+                    for rmIdx, rm in enumerate(self.rm3D):
                         there_exists_at_least_one_good_solution = False # for this rotation
                         # rodrigues returns a numpy ndarray, we should convert it to a list before extracting data.
                         r00 = rm[0,0] 
@@ -477,6 +477,8 @@ class ReachabilityMap(object):
                                 #print "setting to: "
                                 #print q
                                 self.robot.SetDOFValues(q,self.armJoints)
+                                # print "rmIdx: ",str(rmIdx)
+                                # sys.stdin.readline()
                                 # manipulator's end effector transform in world coord. frame
                                 T0_ee = self.manip.GetEndEffectorTransform() # End effector in world coordinate frame
                                 Tbase_ee = dot(linalg.inv(self.T0_base),T0_ee) # End effector in manipulator base coordinate frame
@@ -988,7 +990,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
     rmT = []
     p = []
     pT = []
-    howMany = 2000
+    howMany = 10000
     candidates = []
     paths0 = []
     paths1 = []
@@ -1144,7 +1146,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                     reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
                                     reachabilityMaps[1].go_to(s2Idx+s2Init,t2Idx)
                                     reachabilityMaps[1].robot.SetTransform(array(Ti_j))
-                                    #sys.stdin.readline()
+                                    # sys.stdin.readline()
                                     s1.hide()
                                     s2.hide()
                                     transformsMatch = False

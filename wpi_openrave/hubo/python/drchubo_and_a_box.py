@@ -34,7 +34,7 @@ from TSR import *
 # numRobots: (int) Starting from the 0th robot, how many of the robots do we care about?
 # numManips: (list) For each robot, starting from the 0th manipulator, how many of the manipulators do we care about?
 # h: (list) handles for objects that we draw on the screen
-def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env):
+def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,howLong):
     # constraints to check
     relBaseConstOK = True
     collisionConstOK = True
@@ -125,7 +125,7 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
                             return False
 
                 # If you didn't break yet, wait before the next path element for visualization
-                time.sleep(1.0)
+                time.sleep(howLong)
         
             # If you made it here, 
             # it means no configuration jump, and no collision
@@ -178,26 +178,26 @@ T0_p = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))
 # 1. Create a trajectory for the tool center point to follow
 # Left Hand
 Tstart0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))))
-Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
+Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0]))))
 
 traj0 = []
 traj0.append(Tstart0)
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.02,0.0])))))
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.07,0.0])))))
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.12,0.0])))))
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.16,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.02,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.07,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.12,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.16,0.0])))))
 traj0.append(Tgoal0)
 
 # Right Hand
 Tstart1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))))
-Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0]))))
+Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.2,0.0]))))
 
 traj1 = []
 traj1.append(Tstart1)
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.02,0.0])))))
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.07,0.0])))))
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.12,0.0])))))
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.16,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.02,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.07,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.12,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.16,0.0])))))
 traj1.append(Tgoal1)
 
 h = []
@@ -298,10 +298,12 @@ print "Finding path candidates..."
 T0_starts = []
 
 Tbox_start0 = MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,0.0,-0.5*boxZ])))
+Tbox_start0 = dot(Tbox_start0, MakeTransform(matrix(rodrigues([0,0,pi])),transpose(matrix([0.0,0.0,0.0]))))
 T0_start0 = dot(T0_box,Tbox_start0)
 h.append(misc.DrawAxes(env,T0_start0,0.4))
 
 Tbox_start1 = MakeTransform(matrix(rodrigues([-pi/2,0,0])),transpose(matrix([0.0,0.0,0.5*boxZ])))
+Tbox_start1 = dot(Tbox_start1, MakeTransform(matrix(rodrigues([0,0,pi])),transpose(matrix([0.0,0.0,0.0]))))
 T0_start1 = dot(T0_box,Tbox_start1)
 h.append(misc.DrawAxes(env,T0_start1,0.4))
 
@@ -357,7 +359,7 @@ Tstart0_start1 = dot(linalg.inv(T0_start0),T0_start1)
 
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
-configurationJumpThreshold = 0.2 
+configurationJumpThreshold = 0.5 
 
 success = False
 end = False
@@ -370,6 +372,7 @@ while((not success) and (not end)):
     myStatus = ""  
 
     candidates = None
+    
     # find a random candidate in both maps
     findStarts = time.time()
     #candidates = find_random_candidates(myPatterns,myRmaps,1)
@@ -383,18 +386,20 @@ while((not success) and (not end)):
         
     # find how many candidates search() function found.
     # candidates[0] is the list of candidate paths for the 0th robot
-    howMany = len(candidates[0]) 
+    howMany = len(candidates[0])
+    valids = []
     for c in range(howMany):
         print "trying ",str(c)," of ",str(howMany)," candidates."
         # Get the length of the candidate path
         # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
         pathLength = len(candidates[0][c]) 
 
-        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env)        
+        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0)
         h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
         if(allGood):
+            valids.append(c)
             success = True
             findAPathEnds = time.time()
             print "Success! All constraints met."
@@ -405,38 +410,62 @@ while((not success) and (not end)):
             print str(findAPathEnds-findAPathStarts)," sec."
             print "# of iterations: "
             print str(iters)
-            ask = True
-            while(ask):
-                print "Show another result [s]"
-                print "Replay [r]"
-                print "End code [e]"
-                answer = sys.stdin.readline()
-                if(answer.strip('\n') == 's'):
-                    findAPathStarts = time.time()
-                    iters = 0
-                    ask = False
-                    end = False
-                elif(answer.strip('\n') == 'r'):
-                    play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env)
-                    ask = True
-                    end = False
-                elif(answer.strip('\n') == 'e'):
-                    ask = False
-                    end = True
-                    break # break from the "for howmany" loop
         else:
             print "Constraint(s) not met ."
             #print "Collision OK?: "
             #print collisionConstOK
             #print "Base Constraint OK?:"
             #print relBaseConstOK
-    
-        if(success and end):
-            break
-    # End of the for loop
-    end = True
-    # if we found a successful path at this point, we will exit
 
+    # Went through all candidates      
+    print "Found ",str(len(valids))," valid solutions in ",str(howMany)," candidates."
+    
+    if (len(valids) > 0) :
+        # Have we found at least 1 valid path?
+        success = True
+
+        print "Press Enter to iterate through valid solutions."
+        sys.stdin.readline()
+        nxt = 0
+        ask = True
+        playAll = False
+        while(True):
+            print "Playing valid solution #: ",str(nxt)
+            play(relBaseConstraint,candidates,numRobots,numManips,valids[nxt],myRmaps,robots,h,env,0.1)
+            h.pop() # delete the robot base axis we added last
+            if(ask):
+                print "Next [n]"
+                print "Previous [p]"
+                print "Replay [r]"
+                print "Play All [a]"
+                print "Exit [e]"
+                answer = sys.stdin.readline()
+                answer = answer.strip('\n')
+                if( answer == 'n'):
+                    nxt += 1
+                if(nxt == len(valids)):
+                    nxt -= 1
+                elif(answer == 'p'):
+                    nxt -= 1
+                    if(nxt == -1):
+                        nxt += 1
+                elif(answer == 'r'):
+                    pass
+                elif(answer == 'a'):
+                    playAll = True
+                    ask = False
+                elif(answer.strip('\n') == 'e'):
+                    end = True # End the outer while success for loop
+                    break
+            else:
+                if(playAll and (nxt < len(valids)-1)):
+                    nxt += 1
+                else:
+                    playAll = False
+                    ask = True
+
+    # if we found a successful path at this point, we will exit
+    
 # 6. Add an object in the environment to a random location
 
 # 7. Use the object location and define where Tstart_left and Tstart_right is on the object
