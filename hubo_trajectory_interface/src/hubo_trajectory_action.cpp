@@ -74,6 +74,7 @@ private:
     std::map<std::string,double> trajectory_constraints_;
     double goal_time_constraint_;
     double stopped_velocity_tolerance_;
+    bool traj_ends_stopped;
     hubo_msgs::JointTrajectoryStateConstPtr last_interface_state_;
 
     inline static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
@@ -256,7 +257,9 @@ private:
                     inside_goal_constraints = false;
                 }
                 // It's important to be stopped if that's desired.
-                if (fabs(msg->desired.velocities[i]) < 1e-6)
+                // This can be set globally (i.e. all trajectories must stop)
+                // or left up to each trajectory given desired velocity info
+                if (traj_ends_stopped || fabs(msg->desired.velocities[i]) < 1e-6)
                 {
                     if (fabs(msg->actual.velocities[i]) > stopped_velocity_tolerance_)
                     {
@@ -289,7 +292,7 @@ private:
 
 public:
 
-    HuboJointTrajectoryServer(ros::NodeHandle &n) : node_(n),
+    HuboJointTrajectoryServer(ros::NodeHandle &n, bool must_end_stopped) : node_(n),
         action_server_(node_, "joint_trajectory_action",
                        boost::bind(&HuboJointTrajectoryServer::goalCB, this, _1),
                        boost::bind(&HuboJointTrajectoryServer::cancelCB, this, _1),
@@ -297,6 +300,7 @@ public:
         has_active_goal_(false)
     {
         ros::NodeHandle pn("~");
+        traj_ends_stopped = must_end_stopped;
         ///////////////////////////////////////////////////
         // Get joint names, constraints, and information
         // Gets all of the joint names
@@ -403,7 +407,7 @@ int main(int argc, char** argv)
     ros::NodeHandle node;
     // Register a signal handler to safely shutdown the node
     signal(SIGINT, shutdown);
-    g_htjs = new HuboJointTrajectoryServer(node);
+    g_htjs = new HuboJointTrajectoryServer(node, true);
     ros::spin();
     // Make the compiler happy
     return 0;
