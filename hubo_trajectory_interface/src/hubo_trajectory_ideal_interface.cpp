@@ -186,7 +186,10 @@ int IndexLookup(std::string joint_name)
  *
  * hubo_traj_output.joints[index].position_desired
  * hubo_traj_output.joints[index].velocity_desired
- * hubo_traj_output.joints[index].
+ * hubo_traj_output.joints[index].acceleration_desired
+ * hubo_traj_output.joints[index].position_actual
+ * hubo_traj_output.joints[index].velocity_actual
+ * hubo_traj_output.joints[index].acceleration_actual
  *************************************************************************************************************************/
 trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, hubo_traj_output* hubo_state)
 {
