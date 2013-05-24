@@ -14,8 +14,6 @@
   <depend package="gazebo_msgs"/>
   <depend package="geometry_msgs"/>
   <depend package="std_msgs"/>
-  <depend package="generic_tf_broadcaster"/>
-
 
 </package>
 
