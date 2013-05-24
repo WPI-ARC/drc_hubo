@@ -34,7 +34,7 @@
 #include <boost/thread.hpp>
 // Message and action includes for Hubo actions
 #include <trajectory_msgs/JointTrajectory.h>
-#include <hubo_msgs/JointTrajectoryState.h>
+#include <hubo_robot_msgs/JointTrajectoryState.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 // Includes for ACH and hubo-motion-rt
 #include <ach.h>
@@ -51,7 +51,7 @@ ach_channel_t chan_hubo_ref_filter;
 #define MAX_TRAJ_LENGTH 10
 
 // Index->Joint name mapping
-char *joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach1", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
+char* joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
 // Trajectory storage
 std::vector<std::string> g_joint_names;
@@ -63,7 +63,7 @@ ros::Publisher g_state_pub;
 ros::Subscriber g_traj_sub;
 
 // Thread for listening to the hubo state and republishing it
-boost::thread pub_thread;
+boost::thread* pub_thread;
 
 void shutdown(int signum)
 {
@@ -72,7 +72,7 @@ void shutdown(int signum)
         ROS_INFO("Starting safe shutdown...");
         g_trajectory_chunks.clear();
         ros::shutdown();
-        pub_thread.join();
+        pub_thread->join();
         ROS_INFO("All threads done, shutting down!");
     }
 }
@@ -185,32 +185,29 @@ int IndexLookup(std::string joint_name)
 trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, struct hubo_ref * cur_commands)
 {
     trajectory_msgs::JointTrajectoryPoint processed;
+    processed.positions.resize(HUBO_JOINT_COUNT);
+    processed.velocities.resize(HUBO_JOINT_COUNT);
+    processed.accelerations.resize(HUBO_JOINT_COUNT);
     if (g_joint_names.size() != raw.positions.size())
     {
         ROS_ERROR("Stored joint names and received joint commands do not match");
-        processed.positions.resize(HUBO_JOINT_COUNT);
-        processed.velocities.resize(HUBO_JOINT_COUNT);
-        processed.accelerations.resize(HUBO_JOINT_COUNT);
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[index] = cur_commands->ref[i];
-            processed.velocities[index] = 0.0;
-            processed.accelerations[index] = 0.0;
+            processed.positions[i] = cur_commands->ref[i];
+            processed.velocities[i] = 0.0;
+            processed.accelerations[i] = 0.0;
         }
         return processed;
     }
     else
     {
         // Remap the provided joint trajectory point to the Hubo's joint indices
-        processed.positions.resize(HUBO_JOINT_COUNT);
-        processed.velocities.resize(HUBO_JOINT_COUNT);
-        processed.accelerations.resize(HUBO_JOINT_COUNT);
         // First, fill in everything with data from the current Hubo state
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[index] = cur_commands->ref[i];
-            processed.velocities[index] = 0.0;
-            processed.accelerations[index] = 0.0;
+            processed.positions[i] = cur_commands->ref[i];
+            processed.velocities[i] = 0.0;
+            processed.accelerations[i] = 0.0;
         }
         // Now, overwrite with the commands in the current trajectory
         for (unsigned int i = 0; i < raw.positions.size(); i++)
@@ -332,10 +329,10 @@ void publishLoop()
             continue;
         }
         // Publish the latest hubo state back out
-        hubo_msgs::JointTrajectoryState cur_state;
+        hubo_robot_msgs::JointTrajectoryState cur_state;
         cur_state.header.stamp = ros::Time::now();
         // Set the names
-        cur_state.joint_names(g_joint_names);
+        cur_state.joint_names = g_joint_names;
         unsigned int num_joints = cur_state.joint_names.size();
         // Make the empty states
         trajectory_msgs::JointTrajectoryPoint cur_setpoint;
@@ -356,8 +353,7 @@ void publishLoop()
         {
             // Fill in the setpoint and actual data
             int hubo_index = IndexLookup(cur_state.joint_names[i]);
-            // Something along the lines of = hubo_state.joint[hubo_index].field?
-            cur_setpoint.positions[i] = H_ref_filter.joint[hubo_index];
+            cur_setpoint.positions[i] = H_ref_filter.ref[hubo_index];
             cur_setpoint.velocities[i] = NAN;
             cur_setpoint.accelerations[i] = NAN;
             cur_actual.positions[i] = H_state.joint[hubo_index].pos;
@@ -442,9 +438,9 @@ int main(int argc, char** argv)
     ROS_INFO("Opened ACH channels to hubo-motion-rt");
     // Set up state publisher
     std::string pub_path = nh.getNamespace() + "/state";
-    g_state_pub = nh.advertise<hubo_msgs::JointTrajectoryState>(pub_path, 1);
+    g_state_pub = nh.advertise<hubo_robot_msgs::JointTrajectoryState>(pub_path, 1);
     // Spin up the thread for getting data from hubo and publishing it
-    pub_thread(&publishLoop);
+    pub_thread = new boost::thread(&publishLoop);
     // Set up the trajectory subscriber
     std::string sub_path = nh.getNamespace() + "/command";
     g_traj_sub = nh.subscribe(sub_path, 1, trajectoryCB);

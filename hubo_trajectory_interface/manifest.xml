@@ -10,7 +10,7 @@
   <url>http://ros.org/wiki/hubo_trajectory_interface</url>
   <depend package="roscpp"/>
   <depend package="rospy"/>
-  <depend package="hubo_msgs"/>
+  <depend package="hubo_robot_msgs"/>
   <depend package="actionlib"/>
   <depend package="actionlib_msgs"/>
   <depend package="trajectory_msgs"/>

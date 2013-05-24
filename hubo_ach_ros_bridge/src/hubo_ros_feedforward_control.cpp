@@ -31,7 +31,7 @@ Copyright (c) 2012, Daniel M. Lofaro
 #include "std_msgs/String.h"
 
 // Hubo kinematic command includes
-#include "hubo_msgs/JointCommand.h"
+#include "hubo_robot_msgs/JointCommand.h"
 #include "trajectory_msgs/JointTrajectoryPoint.h"
 
 // HUBO-ACH includes
@@ -87,7 +87,7 @@ int IndexLookup(std::string joint_name)
 }
 
 // Callback to convert the ROS joint commands into Hubo-ACH commands
-void hubo_cb(const hubo_msgs::JointCommand &msg)
+void hubo_cb(const hubo_robot_msgs::JointCommand &msg)
 {
     //Make the necessary hubo struct for ACH
     struct hubo_ref H_ref_filter;

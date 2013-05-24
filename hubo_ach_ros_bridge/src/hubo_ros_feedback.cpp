@@ -32,8 +32,8 @@ Copyright (c) 2012, Daniel M. Lofaro
 #include "rosgraph_msgs/Clock.h"
 
 // Hubo kinematic state includes
-#include "hubo_msgs/JointCommandState.h"
-#include "hubo_msgs/JointControllerState.h"
+#include "hubo_robot_msgs/JointCommandState.h"
+#include "hubo_robot_msgs/JointControllerState.h"
 
 // HUBO-ACH includes
 #include "ach.h"
@@ -74,14 +74,14 @@ bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_ref
         clock_state.clock = ros::Time(robot_state->time);
         g_hubo_clock_pub.publish(clock_state);
         //Make new message
-        hubo_msgs::JointCommandState joint_msg;
+        hubo_robot_msgs::JointCommandState joint_msg;
         //Read through the two Hubo-ACH structs into the joint_message
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
             if (robot_state->joint != NULL)
             {
                 //Copy an individual joint
-                hubo_msgs::JointControllerState joint_state;
+                hubo_robot_msgs::JointControllerState joint_state;
                 joint_state.joint_name = std::string(joint_names[i]);
                 joint_state.set_point = robot_reference->ref[i];
                 joint_state.process_value = robot_state->joint[i].pos;
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "hubo_ros_feedback");
     ros::NodeHandle nh;
     //construct ROS publisher
-    g_hubo_state_pub = nh.advertise<hubo_msgs::JointCommandState>("hubo/HuboState", 1);
+    g_hubo_state_pub = nh.advertise<hubo_robot_msgs::JointCommandState>("hubo/HuboState", 1);
     g_hubo_clock_pub = nh.advertise<rosgraph_msgs::Clock>("clock", 1);
     ROS_INFO("ROS publishers loaded");
     //Loop
