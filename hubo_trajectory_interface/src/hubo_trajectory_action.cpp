@@ -49,8 +49,8 @@
 #include <actionlib/server/action_server.h>
 // Message and action includes for Hubo actions
 #include <trajectory_msgs/JointTrajectory.h>
-#include <hubo_msgs/JointTrajectoryAction.h>
-#include <hubo_msgs/JointTrajectoryState.h>
+#include <hubo_robot_msgs/JointTrajectoryAction.h>
+#include <hubo_robot_msgs/JointTrajectoryState.h>
 
 const double DEFAULT_GOAL_THRESHOLD = 0.1;
 
@@ -58,7 +58,7 @@ class HuboJointTrajectoryServer
 {
 private:
 
-    typedef actionlib::ActionServer<hubo_msgs::JointTrajectoryAction> HJTAS; // "Hubo Joint Trajectory Action Server"
+    typedef actionlib::ActionServer<hubo_robot_msgs::JointTrajectoryAction> HJTAS; // "Hubo Joint Trajectory Action Server"
     typedef HJTAS::GoalHandle HTGH; // "Hubo Trajectory Goal Handle"
 
     ros::NodeHandle node_;
@@ -75,7 +75,7 @@ private:
     double goal_time_constraint_;
     double stopped_velocity_tolerance_;
     bool traj_ends_stopped;
-    hubo_msgs::JointTrajectoryStateConstPtr last_interface_state_;
+    hubo_robot_msgs::JointTrajectoryStateConstPtr last_interface_state_;
 
     inline static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
     {
@@ -193,7 +193,7 @@ private:
         }
     }
 
-    void controllerStateCB(const hubo_msgs::JointTrajectoryStateConstPtr &msg)
+    void controllerStateCB(const hubo_robot_msgs::JointTrajectoryStateConstPtr &msg)
     {
         last_interface_state_ = msg;
         ros::Time now = ros::Time::now();

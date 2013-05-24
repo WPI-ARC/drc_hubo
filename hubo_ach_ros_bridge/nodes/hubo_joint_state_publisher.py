@@ -4,7 +4,7 @@ import roslib; roslib.load_manifest('hubo_ach_ros_bridge')
 import rospy
 import xml.dom.minidom
 import subprocess
-from hubo_msgs.msg import *
+from hubo_robot_msgs.msg import *
 from sensor_msgs.msg import *
 from math import pi
 

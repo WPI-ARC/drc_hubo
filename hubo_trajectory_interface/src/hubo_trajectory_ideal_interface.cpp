@@ -34,7 +34,7 @@
 #include <boost/thread.hpp>
 // Message and action includes for Hubo actions
 #include <trajectory_msgs/JointTrajectory.h>
-#include <hubo_msgs/JointTrajectoryState.h>
+#include <hubo_robot_msgs/JointTrajectoryState.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 // Includes for ACH and hubo-motion-rt
 #include <ach.h>
@@ -197,9 +197,9 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
         processed.accelerations.resize(HUBO_JOINT_COUNT);
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[index] = hubo_state->joint[i].position_desired;
-            processed.velocities[index] = hubo_state->joint[i].velocity_desired;
-            processed.accelerations[index] = hubo_state->joint[i].acceleration_desired;
+            processed.positions[i] = hubo_state->joint[i].position_desired;
+            processed.velocities[i] = hubo_state->joint[i].velocity_desired;
+            processed.accelerations[i] = hubo_state->joint[i].acceleration_desired;
         }
         return processed;
     }
@@ -212,9 +212,9 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
         // First, fill in everything with data from the current Hubo state
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[index] = hubo_state->joint[i].position_desired;
-            processed.velocities[index] = hubo_state->joint[i].velocity_desired;
-            processed.accelerations[index] = hubo_state->joint[i].acceleration_desired;
+            processed.positions[i] = hubo_state->joint[i].position_desired;
+            processed.velocities[i] = hubo_state->joint[i].velocity_desired;
+            processed.accelerations[i] = hubo_state->joint[i].acceleration_desired;
         }
         // Now, overwrite with the commands in the current trajectory
         for (unsigned int i = 0; i < raw.positions.size(); i++)
@@ -327,7 +327,7 @@ void publishLoop()
             continue;
         }
         // Publish the latest hubo state back out
-        hubo_msgs::JointTrajectoryState cur_state;
+        hubo_robot_msgs::JointTrajectoryState cur_state;
         cur_state.header.stamp = ros::Time::now();
         // Set the names
         cur_state.joint_names(g_joint_names);
@@ -423,7 +423,7 @@ int main(int argc, char** argv)
     ROS_INFO("Opened ACH channels to hubo-motion-rt");
     // Set up state publisher
     std::string pub_path = nh.getNamespace() + "/state";
-    g_state_pub = nh.advertise<hubo_msgs::JointTrajectoryState>(pub_path, 1);
+    g_state_pub = nh.advertise<hubo_robot_msgs::JointTrajectoryState>(pub_path, 1);
     // Spin up the thread for getting data from hubo and publishing it
     pub_thread(&publishLoop);
     // Set up the trajectory subscriber

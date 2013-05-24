@@ -2,7 +2,7 @@
 \mainpage
 \htmlinclude manifest.html
 
-\b hubo_msgs 
+\b hubo_robot_msgs 
 
 <!-- 
 Provide an overview of your package.
