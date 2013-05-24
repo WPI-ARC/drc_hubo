@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #define KINECT_POSE_SET_RATE 10
 
@@ -30,9 +31,15 @@ std::string kinect_frame, world_origin_frame;
 void set_kinect_pose (void){
 
     //Check if the transform has changed and if so get the new position
-    myListener->waitForTransform((std::string)pointcloud_frame, (std::string)target_frame, req.valve.header.stamp, ros::Duration(1));
+    myListener->waitForTransform(world_origin_frame, kinect_frame, ros::Time::now(), ros::Duration(1));
 
     //Use that transform to find the kinects position in the world frame
+    geometry_msgs::PoseStamped kinect_pose;
+    kinect_pose.header.frame_id = world_origin_frame;
+    kinect_pose.header.stamp = ros::Time::now();
+    kinect_pose.pose.orientation.w = 1;
+
+    myListener->transformPose(kinect_frame, kinect_pose, kinect_pose);
 
     //Publish that position to gazebo
 

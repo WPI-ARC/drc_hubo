@@ -1,0 +1,45 @@
+<launch>
+
+  <!-- #420YOLOSWAG -->
+
+  <!-- the ROS parameter /use_sim_time
+  triggers ROS time to use the simulation time in the 
+  /clock ROS topic published by gazebo rather than 
+  the system wall clock time -->
+  <param name="/use_sim_time" value="true" />
+
+  <!-- ********************* SPAWN THE TF BROADCASTER ********************** -->
+
+  <arg name="root_frame" default="/Body_HNP" />
+  <arg name="target_frame" default="/kinect_sim_link" />
+  <arg name="node_name" default="generic_floating_kinect_broadcaster" />
+  <arg name="tx" default="0.0" />
+  <arg name="ty" default="0.0" />
+  <arg name="tz" default="0.25" />
+  <arg name="rx" default="0.0" />
+  <arg name="ry" default="0.0" />
+  <arg name="rz" default="0.0" />
+  <arg name="rw" default="1.0" />
+
+  <node pkg="wpi_drc_sim" type="generic_floating_kinect_broadcaster.py" name="$(arg node_name)" output="screen">
+    <param name="target_frame" type="string" value="$(arg target_frame)" />
+    <param name="root_frame" type="string" value="$(arg root_frame)" />
+    <param name="name" type="string" value="$(arg node_name)" />
+    <param name="tx" type="double" value="$(arg tx)" />
+    <param name="ty" type="double" value="$(arg ty)" />
+    <param name="tz" type="double" value="$(arg tz)" />
+    <param name="rx" type="double" value="$(arg rx)" />
+    <param name="ry" type="double" value="$(arg ry)" />
+    <param name="rz" type="double" value="$(arg rz)" />
+    <param name="rw" type="double" value="$(arg rw)" />
+  </node>
+
+  
+  <!-- ********************* SPAWN OUR NODES ******************************* -->
+
+
+  <param name="/hubo_plus_kinect_sim_frame" type="string" value="$(arc target_frame" />
+  <!-- node pkg="hubo_ros_gazebo_kinect" type="hubo_plus_kinect_sim" name="hubo_plus_kinect_sim" output="screen" -->
+
+
+</launch>
