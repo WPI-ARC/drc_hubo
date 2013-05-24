@@ -369,7 +369,7 @@ void publishLoop()
         g_mtx.lock();
         cur_state.joint_names(g_joint_names);
         g_mtx.unlock();
-        unsigned int num_joints = cur_state.joint_names.size()''
+        unsigned int num_joints = cur_state.joint_names.size();
         // Make the empty states
         trajectory_msgs::JointTrajectoryPoint cur_setpoint;
         trajectory_msgs::JointTrajectoryPoint cur_actual;
