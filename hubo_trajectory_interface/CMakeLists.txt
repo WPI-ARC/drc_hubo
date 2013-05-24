@@ -28,7 +28,7 @@ rosbuild_add_executable(hubo_trajectory_ideal_interface src/hubo_trajectory_idea
 target_link_libraries(hubo_trajectory_ideal_interface ach)
 rosbuild_link_boost(hubo_trajectory_ideal_interface thread signals)
 
-## Build and link the hubo-motion-rt trajectory interface
+# Build and link the compromise version
 rosbuild_add_executable(hubo_trajectory_compromise_interface src/hubo_trajectory_interface.cpp)
 target_link_libraries(hubo_trajectory_compromise_interface ach)
 rosbuild_link_boost(hubo_trajectory_compromise_interface thread signals)
