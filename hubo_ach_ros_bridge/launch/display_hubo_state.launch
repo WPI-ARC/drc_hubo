@@ -1,5 +1,11 @@
 <launch>
 
+  <!-- the ROS parameter /use_sim_time
+  triggers ROS time to use the simulation time in the 
+  /clock ROS topic published by gazebo rather than 
+  the system wall clock time -->
+  <param name="/use_sim_time" value="true" />
+
 	<arg name="model" default="$(find hubo_description)/huboplus/huboplus.xml" />
 	
     <param name="robot_description" textfile="$(arg model)" />
