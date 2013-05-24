@@ -2,6 +2,8 @@
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <gazebo_msgs/ModelState.h>
+#include <gazebo_msgs/SetModelState.h>
 
 #define KINECT_POSE_SET_RATE 10
 
@@ -27,27 +29,44 @@ tf::TransformListener* myListener = NULL;
 //Frames that we will need for this work
 std::string kinect_frame, world_origin_frame;
 
+//Create a new client that will set the position of the object in gazebo
+ros::ServiceClient client;
+gazebo_msgs::SetModelState srv;
 
 void set_kinect_pose (void){
 
+    ros::Time time = ros::Time::now();
+
     //Check if the transform has changed and if so get the new position
-    myListener->waitForTransform(world_origin_frame, kinect_frame, ros::Time::now(), ros::Duration(1));
+    myListener->waitForTransform(world_origin_frame, kinect_frame, time, ros::Duration(1));
 
     //Use that transform to find the kinects position in the world frame
     geometry_msgs::PoseStamped kinect_pose;
-    kinect_pose.header.frame_id = world_origin_frame;
-    kinect_pose.header.stamp = ros::Time::now();
+    kinect_pose.header.frame_id = kinect_frame;
+    kinect_pose.header.stamp = time;
     kinect_pose.pose.orientation.w = 1;
 
-    myListener->transformPose(kinect_frame, kinect_pose, kinect_pose);
+    myListener->transformPose(world_origin_frame, kinect_pose, kinect_pose);
+
+    ROS_INFO("(%f, %f, %f), (%f, %f, %f, %f)", kinect_pose.pose.position.x,
+                                               kinect_pose.pose.position.y,
+                                               kinect_pose.pose.position.z,
+                                               kinect_pose.pose.orientation.x,
+                                               kinect_pose.pose.orientation.y,
+                                               kinect_pose.pose.orientation.z,
+                                               kinect_pose.pose.orientation.w);
 
     //Publish that position to gazebo
+    srv.request.model_state.model_name = "floating_kinect";
+    srv.request.model_state.pose = kinect_pose.pose;
+
+    client.call(srv);
 
 }
 
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "hubo_plus_sim_connect");
+  ros::init(argc, argv, "hubo_plus_kinect_sim");
 
   //Setup everything for the publishes
   ros::NodeHandle nh;
@@ -55,11 +74,11 @@ int main(int argc, char **argv) {
   //Create a TransformListener
   myListener = new(tf::TransformListener);
 
-  //Get the world frame that we are using as an origin
-  ros::param::get("hubo_plus_world_frame", world_origin_frame);
+  //Create the ros service
+  client = nh.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
 
-  //Get the position of the kinect from the TF tree
-  ros::param::get("/hubo_plus_kinect_sim_frame", kinect_frame);
+  world_origin_frame = "/Body_RAR";
+  kinect_frame = "/kinect_sim_link";
 
   //Find the transform between the world origin that we want and the kinect frame
   bool found = false;
