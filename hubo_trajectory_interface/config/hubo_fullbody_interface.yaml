@@ -85,3 +85,33 @@ hubo_fullbody_controller:
         goal: 0.02
       RAR_dummy:
         goal: 0.02
+
+  hubo_fullbody_controller_node:
+    joints:
+      - HPY
+      - HNR
+      - HNP
+      - LSP
+      - LSR
+      - LSY
+      - LEP
+      - LWY
+      - LWP
+      - RSP
+      - RSR
+      - RSY
+      - REP
+      - RWY
+      - RWP
+      - LHY
+      - LHR
+      - LHP
+      - LKP
+      - LAP
+      - LAR_dummy
+      - RHY
+      - RHR
+      - RHP
+      - RKP
+      - RAP
+      - RAR_dummy
