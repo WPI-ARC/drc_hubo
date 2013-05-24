@@ -2,7 +2,7 @@
  * Actionlib JointTrajectoryAction interface to the Hubo robot.
  *
  * This executable provides an externally-facing ActionServer interface for JointTrajectoryAction goals
- * which it connects internally to the hubo_trajectory_interface that passes trajectories to the
+ * which it connects internally to the hubo_trajectory_*_interface that passes trajectories to the
  * hubo-motion-rt system using ACH channels.
  *
  * Licensing:
@@ -77,6 +77,9 @@ private:
     bool traj_ends_stopped;
     hubo_robot_msgs::JointTrajectoryStateConstPtr last_interface_state_;
 
+    /*
+     * Determine if two vectors are equal. Used to check joint names stored in the node against joint names in a new trajectory
+    */
     inline static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::string> &b)
     {
         // First, check to make sure that the sets are the same size
@@ -104,6 +107,9 @@ private:
         return true;
     }
 
+    /*
+     * Watchdog timer callback to abort a goal if we aren't hearing back from the trajectory controller
+    */
     void watchdog(const ros::TimerEvent &e)
     {
         ros::Time now = ros::Time::now();
@@ -134,9 +140,12 @@ private:
         }
     }
 
+    /*
+     * Get a new goal, check it for safety, and send it to the trajectory controller
+    */
     void goalCB(HTGH gh)
     {
-        // Make sure the goal is in the future
+        // Make sure the goal is in the future (if it starts in the past, it could be older than a newer goal that got here first)
         ros::Time now = ros::Time::now();
         if (gh.getGoal()->trajectory.points.size() > 0 && now > (gh.getGoal()->trajectory.header.stamp + gh.getGoal()->trajectory.points[0].time_from_start))
         {
@@ -171,6 +180,9 @@ private:
         pub_interface_command_.publish(current_traj_);
     }
 
+    /*
+     * Cancels the current goal by sending an empty trajectory to the trajectory controller
+    */
     void cancelCB(HTGH gh)
     {
         if (!has_active_goal_)
@@ -193,6 +205,13 @@ private:
         }
     }
 
+    /*
+     * Gets the current state from the trajectory controller and determines if it
+     * is within acceptable bounds (i.e. if the position error is below the defined
+     * threshold or if the trajectory end time has been reached) and decides if the
+     * current goal has been reached or if it needs to be aborted (if the error is
+     * too high or if it has gone over time).
+    */
     void controllerStateCB(const hubo_robot_msgs::JointTrajectoryStateConstPtr &msg)
     {
         last_interface_state_ = msg;
@@ -340,10 +359,10 @@ public:
         // Get the tolerance constraint for "zero" velocity
         pn.param("constraints/stopped_velocity_tolerance", stopped_velocity_tolerance_, 0.01);
         ///////////////////////////////////////////////////
-        // Set up the publisher & subscriber link to the interface with hubo-motion-rt
+        // Set up the publisher & subscriber link to the trajectory controller interface
         pub_interface_command_ = node_.advertise<trajectory_msgs::JointTrajectory>("command", 1);
         sub_interface_state_ = node_.subscribe("state", 1, &HuboJointTrajectoryServer::controllerStateCB, this);
-        // Set up a watchdog timer to handle drops in the communication between this server and the hubo-motion-rt interface
+        // Set up a watchdog timer to handle drops in the communication between this server and the trajectory controller
         watchdog_timer_ = node_.createTimer(ros::Duration(1.0), &HuboJointTrajectoryServer::watchdog, this);
         ///////////////////////////////////////////////////
         // Wait for the interface to be ready before starting the joint trajectory action server
@@ -370,6 +389,9 @@ public:
       watchdog_timer_.stop();
     }
 
+    /*
+     * Attempts to safely shutdown the trajectory interface by aborting the current goal and telling the controller to stop
+    */
     void shutdown(int signum)
     {
         if (signum == SIGINT)
@@ -391,22 +413,30 @@ public:
 
 };
 
+// This needs to be global so the signal handler can use it
 HuboJointTrajectoryServer* g_htjs;
 
+/*
+ * Signal handler to catch SIGINT (the shutdown command) and attempt to safely shutdown the trajectory interface
+*/
 void shutdown(int signum)
 {
+    ROS_WARN("Attempting to shutdown node...");
     if (g_htjs != NULL)
     {
         g_htjs->shutdown(signum);
     }
+    ros::shutdown();
 }
 
 int main(int argc, char** argv)
 {
+    printf("Starting JointTrajectoryAction action server node...");
     ros::init(argc, argv, "hubo_joint_trajectory_action_node", ros::init_options::NoSigintHandler);
     ros::NodeHandle node;
     // Register a signal handler to safely shutdown the node
     signal(SIGINT, shutdown);
+    ROS_INFO("Attempting to start JointTrajectoryAction action server...");
     g_htjs = new HuboJointTrajectoryServer(node, true);
     ros::spin();
     // Make the compiler happy
