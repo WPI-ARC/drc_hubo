@@ -37,6 +37,13 @@
 #include <trajectory_msgs/JointTrajectory.h>
 #include <hubo_msgs/JointTrajectoryState.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
+// Includes for ACH and hubo-motion-rt
+#include <ach.h>
+#include <motion-trajectory.h>
+
+// ACH channels
+ach_channel_t chan_traj_cmd;
+ach_channel_t chan_traj_state;
 
 #define MAX_TRAJ_LENGTH 10
 
@@ -54,7 +61,8 @@ ros::Subscriber g_traj_sub;
 
 // Stuff for thread synchronization
 boost::signals2::mutex g_mtx;
-boost::thread interface_thread;
+boost::thread pub_thread;
+boost::thread sending_thread;
 
 void shutdown(int signum)
 {
@@ -64,8 +72,9 @@ void shutdown(int signum)
         boost::lock_guard<boost::signals2::mutex> guard(g_mtx);
         g_trajectory_chunks.clear();
         ros::shutdown();
-        interface_thread.join();
-        ROS_INFO("Shutting down!");
+        pub_thread.join();
+        sending_thread.join();
+        ROS_INFO("All threads done, shutting down!");
     }
 }
 
@@ -169,6 +178,15 @@ int IndexLookup(std::string joint_name)
  * 2) All trajectories must end at zero velocity
  *    [This means we can specifically assume that any velocity at the end of a
  *     trajectory is error velocity]
+ *
+ * In this version of the file, we demonstrate what we would do in case (a) where 1-6 are available
+ * directly from the hubo_traj_output reported from hubo_motion.
+ *
+ * This would require the addition of an array of joints to the state with fields 1-6 stored as below:
+ *
+ * hubo_traj_output.joints[index].position_desired
+ * hubo_traj_output.joints[index].velocity_desired
+ * hubo_traj_output.joints[index].
  *************************************************************************************************************************/
 trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, hubo_traj_output* hubo_state)
 {
@@ -225,7 +243,7 @@ std::vector<trajectory_msgs::JointTrajectoryPoint> processTrajectory(hubo_traj_o
     }
     else
     {
-        std::vector<trajectory_msgs::JointTrajectoryPoint> cur_set;
+        std::vector<trajectory_msgs::JointTrajectoryPoint> cur_set = g_trajectory_chunks[0];
         for (unsigned int i = 0; i < cur_set.size(); i++)
         {
             trajectory_msgs::JointTrajectoryPoint processed_point = processPoint(cur_set[i], hubo_state);
@@ -237,71 +255,9 @@ std::vector<trajectory_msgs::JointTrajectoryPoint> processTrajectory(hubo_traj_o
     }
 }
 
-void sendingLoop()
-{
-    // Loop until node shutdown
-    while (ros::ok())
-    {
-        // Get the latest state from the hubo (this is used to populate the uncommanded joints!)
-        hubo_traj_output hubo_state;
-        memset(&hubo_state, 0, sizeof(hubo_state));
-        size_t fs;
-        ach_get(&chan_traj_state, &hubo_state, sizeof(hubo_state), &fs, NULL, ACH_O_WAIT);
-        if (fs != sizeof(hubo_state))
-        {
-            ROS_ERROR("Hubo state size error!");
-            continue;
-        }
-        std::vector<trajectory_msgs::JointTrajectoryPoint> cleaned_trajectory = processTrajectory(&hubo_state);
-        // Send the latest trajectory chunk
-        sendTrajectory(cleaned_trajectory);
-        // Publish the latest hubo state back out
-        hubo_msgs::JointTrajectoryState cur_state;
-        cur_state.header.stamp = ros::Time::now();
-        // Set the names
-        boost::lock_guard<boost::signals2::mutex> guard(g_mtx);
-        cur_state.joint_names = g_joint_names;
-        unsigned int num_joints = g_joint_names.size();
-        // Make the empty states
-        trajectory_msgs::JointTrajectoryPoint cur_setpoint;
-        trajectory_msgs::JointTrajectoryPoint cur_actual;
-        trajectory_msgs::JointTrajectoryPoint cur_error;
-        // Resize the states
-        cur_setpoint.positions.resize(num_joints);
-        cur_setpoint.velocities.resize(num_joints);
-        cur_setpoint.accelerations.resize(num_joints);
-        cur_actual.positions.resize(num_joints);
-        cur_actual.velocities.resize(num_joints);
-        cur_actual.accelerations.resize(num_joints);
-        cur_error.positions.resize(num_joints);
-        cur_error.velocities.resize(num_joints);
-        cur_error.accelerations.resize(num_joints);
-        // Fill in the setpoint and actual & calc the error in the process
-        for (unsigned int i = 0; i < num_joints; i++)
-        {
-            // Fill in the setpoint and actual data
-            int hubo_index = IndexLookup(cur_state.joint_names[i]);
-            // Something along the lines of = hubo_state.joint[hubo_index].field?
-            cur_setpoint.positions[i] = hubo_state.joint[i].position_setpoint;
-            cur_setpoint.velocities[i] = hubo_state.joint[i].velocity_setpoint;
-            cur_setpoint.accelerations[i] = hubo_state.joint[i].acceleration_setpoint;
-            cur_actual.positions[i] = hubo_state.joint[i].position_actual;
-            cur_actual.velocities[i] = hubo_state.joint[i].velocity_actual;
-            cur_actual.accelerations[i] = hubo_state.joint[i].acceleration_actual;
-            // Calc the error
-            cur_error.positions[i] = cur_setpoint.positions[i] - cur_actual.positions[i];
-            cur_error.velocities[i] = cur_setpoint.velocities[i] - cur_actual.velocities[i];
-            cur_error.accelerations[i] = cur_setpoint.accelerations[i] - cur_actual.accelerations[i];
-        }
-        // Pack them together
-        cur_state.desired = cur_setpoint;
-        cur_state.actual = cur_actual;
-        cur_state.error = cur_error;
-        // Publish
-        g_state_pub.publish(cur_state);
-    }
-}
-
+/*
+ * Callback to chunk apart the trajectory into chunks that will fit over hubo-ach
+ */
 void trajectoryCB(const trajectory_msgs::JointTrajectory& traj)
 {
     // Callback to chunk and save incoming trajectories
@@ -355,6 +311,105 @@ void trajectoryCB(const trajectory_msgs::JointTrajectory& traj)
     g_joint_names = traj.joint_names;
 }
 
+/*
+ * This runs in a third thread in the background.
+ *
+ * It sends processed trajectories out over hubo-ach to hubo-motion
+ */
+void sendingLoop()
+{
+    // Set how fast we can loop to send trajectory chunks
+    double freq = 2.0; // Value in Hz
+    ros::Rate looprate(freq);
+    while (ros::ok())
+    {
+        // Get the latest state from the hubo (this is used to populate the uncommanded joints!)
+        hubo_traj_output hubo_state;
+        memset(&hubo_state, 0, sizeof(hubo_state));
+        size_t fs;
+        ach_get(&chan_traj_state, &hubo_state, sizeof(hubo_state), &fs, NULL, ACH_O_LAST);
+        if (fs != sizeof(hubo_state))
+        {
+            ROS_ERROR("Hubo state size error!");
+            continue;
+        }
+        // Reprocess the current trajectory chunk
+        std::vector<trajectory_msgs::JointTrajectoryPoint> cleaned_trajectory = processTrajectory(&hubo_state);
+        // Send the latest trajectory chunk
+        sendTrajectory(cleaned_trajectory);
+        // Wait long enough before sending the next one
+        looprate.sleep();
+    }
+}
+
+/*
+ * This runs in a second thread in the background.
+ *
+ * It makes the same asumptions relative to change (a) being made to hubo-motion's output
+ */
+void publishLoop()
+{
+    // Loop until node shutdown
+    while (ros::ok())
+    {
+        // Get the latest state from the hubo-motion
+        hubo_traj_output hubo_state;
+        memset(&hubo_state, 0, sizeof(hubo_state));
+        size_t fs;
+        ach_get(&chan_traj_state, &hubo_state, sizeof(hubo_state), &fs, NULL, ACH_O_WAIT);
+        if (fs != sizeof(hubo_state))
+        {
+            ROS_ERROR("Hubo state size error!");
+            continue;
+        }
+        // Publish the latest hubo state back out
+        hubo_msgs::JointTrajectoryState cur_state;
+        cur_state.header.stamp = ros::Time::now();
+        // Set the names
+        g_mtx.lock();
+        cur_state.joint_names(g_joint_names);
+        g_mtx.unlock();
+        unsigned int num_joints = cur_state.joint_names.size()''
+        // Make the empty states
+        trajectory_msgs::JointTrajectoryPoint cur_setpoint;
+        trajectory_msgs::JointTrajectoryPoint cur_actual;
+        trajectory_msgs::JointTrajectoryPoint cur_error;
+        // Resize the states
+        cur_setpoint.positions.resize(num_joints);
+        cur_setpoint.velocities.resize(num_joints);
+        cur_setpoint.accelerations.resize(num_joints);
+        cur_actual.positions.resize(num_joints);
+        cur_actual.velocities.resize(num_joints);
+        cur_actual.accelerations.resize(num_joints);
+        cur_error.positions.resize(num_joints);
+        cur_error.velocities.resize(num_joints);
+        cur_error.accelerations.resize(num_joints);
+        // Fill in the setpoint and actual & calc the error in the process
+        for (unsigned int i = 0; i < num_joints; i++)
+        {
+            // Fill in the setpoint and actual data
+            int hubo_index = IndexLookup(cur_state.joint_names[i]);
+            // Something along the lines of = hubo_state.joint[hubo_index].field?
+            cur_setpoint.positions[i] = hubo_state.joint[hubo_index].position_desired;
+            cur_setpoint.velocities[i] = hubo_state.joint[hubo_index].velocity_desired;
+            cur_setpoint.accelerations[i] = hubo_state.joint[hubo_index].acceleration_acceleration;
+            cur_actual.positions[i] = hubo_state.joint[hubo_index].position_actual;
+            cur_actual.velocities[i] = hubo_state.joint[hubo_index].velocity_actual;
+            cur_actual.accelerations[i] = hubo_state.joint[hubo_index].acceleration_actual;
+            // Calc the error
+            cur_error.positions[i] = cur_setpoint.positions[i] - cur_actual.positions[i];
+            cur_error.velocities[i] = cur_setpoint.velocities[i] - cur_actual.velocities[i];
+            cur_error.accelerations[i] = cur_setpoint.accelerations[i] - cur_actual.accelerations[i];
+        }
+        // Pack them together
+        cur_state.desired = cur_setpoint;
+        cur_state.actual = cur_actual;
+        cur_state.error = cur_error;
+        // Publish
+        g_state_pub.publish(cur_state);
+    }
+}
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "hubo_joint_trajectory_controller_interface_node", ros::init_options::NoSigintHandler);
@@ -384,8 +439,10 @@ int main(int argc, char** argv)
     // Set up state publisher
     std::string pub_path = nh.getNamespace() + "/state";
     g_state_pub = nh.advertise<hubo_msgs::JointTrajectoryState>(pub_path, 1);
-    // Spin up the thread for communicating with hubo
-    interface_thread(&sendingLoop);
+    // Spin up the thread for getting data from hubo and publishing it
+    pub_thread(&publishLoop);
+    // Spin up the thread for sending commands to hubo motion
+    sending_thread(&sendingLoop);
     // Set up the trajectory subscriber
     std::string sub_path = nh.getNamespace() + "/command";
     g_traj_sub = nh.subscribe(sub_path, 1, trajectoryCB);

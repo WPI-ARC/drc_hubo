@@ -1,5 +1,13 @@
-
 /*
+ * JointTrajectory interface to the Hubo robot.
+ *
+ * This executable provides an externally-facing ActionServer interface for JointTrajectoryAction goals
+ * which it connects internally to the hubo_trajectory_interface that passes trajectories to the
+ * hubo-motion-rt system using ACH channels.
+ *
+ * Licensing:
+ * -------------
+ *
  * Copyright (c) 2013, Calder Phillips-Grafflin (WPI) and M.X. Grey (Georgia Tech), Drexel DARPA Robotics Challenge team
  * All rights reserved.
  *
@@ -37,8 +45,16 @@
 #include <trajectory_msgs/JointTrajectory.h>
 #include <hubo_msgs/JointTrajectoryState.h>
 #include <trajectory_msgs/JointTrajectoryPoint.h>
+// Includes for ACH and hubo-motion-rt
+#include <ach.h>
+#include <hubo.h>
+#include <motion-trajectory.h>
 
 #define MAX_TRAJ_LENGTH 10
+
+// ACH channels
+ach_channel_t chan_traj_cmd;
+ach_channel_t chan_traj_state;
 
 // Index->Joint name mapping
 char *joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach1", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
@@ -77,7 +93,6 @@ void sendTrajectory(std::vector<trajectory_msgs::JointTrajectoryPoint> processed
     }
     else
     {
-        // Make a new hubo_traj_t, and fill it in with the command data we've processed
         hubo_traj_t ach_traj;
         memset(&ach_traj, 0, sizeof(ach_traj));
         unsigned int points = processed_traj.size();
@@ -101,8 +116,8 @@ void sendTrajectory(std::vector<trajectory_msgs::JointTrajectoryPoint> processed
 // From the name of the joint, find the corresponding joint index for the Hubo-ACH struct
 int IndexLookup(std::string joint_name)
 {
-    // Find the Hubo joint name [used in hubo.h, with some additions for joints that don't map directly]
-    // and the relevant index to map from the ROS trajectories message to the hubo-motion struct
+    //Find the Hubo joint name [from hubo.h!] and the relevant index
+    //to map from the ROS HuboCommand message to the hubo-ach struct
     bool match = false;
     int best_match = -1;
     //See if we've got a matching joint name, and if so, return the
@@ -126,50 +141,6 @@ int IndexLookup(std::string joint_name)
     }
 }
 
-/**************************************************************************************************************************
- * POTENTIALLY NEEDS MAJOR CHANGES TO HUBO-MOTION-RT
- *
- * This function re-orders a given JointTrajectoryPoint in the commanded trajectory to do two things:
- *
- * 1) Provide a command to every joint, including those that may not match the URDF
- *    This is done by ordering the data with the same indexing as that used directly
- *    by the Hubo. This effectively handles the conversion between trajectories in
- *    ROS that use joint names to identify active joints, and trajectories used with
- *    Hubo-Ach that use indexing to match values with joints.
- *
- * 2) Set all "unused" joints, i.e. those not being actively commanded, to their last
- *    setpoint as reported by the trajectory controller & hubo-ach. Once again, this
- *    provides support for trajectories with limited active joints.
- *
- * In order for this to be possible, ideally we would have 6 pieces of information per joint:
- *
- * 1) Current setpoint position
- * 2) Current setpoint velocity
- * 3) Current setpoint acceleration
- * 4) Current actual position
- * 5) Current actual velocity
- * 6) Current actual acceleration
- *
- * Of those, 4 and 5 are provided from the hubo-state channel, and 1 is provided from the
- * hubo-ref and/or hubo-ref-filter channels.
- *
- * There are two courses of action here - either, (a) fields 2,3, and 6 can be added to hubo-ach's
- * reporting of hubo state, or (b) the interface can be changed with several assumptions to not
- * require them.
- *
- * From our perspective, (a) is a better option, as it maintains functional equivalence with other
- * robots such as the PR2 and doen't require any major assumptions.
- *
- * However, (b) may be easier to implement, BUT, it requires two major assumptions:
- *
- * 1) All uncommanded joints (i.e. those not in the current trajectory)
- *    have zero desired velocity and zero desirec acceleration.
- *    [This lets us avoid the need for data on vel. and accel. setpoints]
- *
- * 2) All trajectories must end at zero velocity
- *    [This means we can specifically assume that any velocity at the end of a
- *     trajectory is error velocity]
- *************************************************************************************************************************/
 trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, hubo_traj_output* hubo_state)
 {
     trajectory_msgs::JointTrajectoryPoint processed;
@@ -179,12 +150,6 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
         processed.positions.resize(HUBO_JOINT_COUNT);
         processed.velocities.resize(HUBO_JOINT_COUNT);
         processed.accelerations.resize(HUBO_JOINT_COUNT);
-        for (int i = 0; i < HUBO_JOINT_COUNT; i++)
-        {
-            processed.positions[index] = hubo_state->joint[i].position_desired;
-            processed.velocities[index] = hubo_state->joint[i].velocity_desired;
-            processed.accelerations[index] = hubo_state->joint[i].acceleration_desired;
-        }
         return processed;
     }
     else
@@ -196,9 +161,9 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
         // First, fill in everything with data from the current Hubo state
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[index] = hubo_state->joint[i].position_desired;
-            processed.velocities[index] = hubo_state->joint[i].velocity_desired;
-            processed.accelerations[index] = hubo_state->joint[i].acceleration_desired;
+            processed.positions[index] = hubo_state->joint[i].position_actual;
+            processed.velocities[index] = hubo_state->joint[i].velocity_actual;
+            processed.accelerations[index] = hubo_state->joint[i].acceleration_actual;
         }
         // Now, overwrite with the commands in the current trajectory
         for (unsigned int i = 0; i < raw.positions.size(); i++)

@@ -23,11 +23,12 @@ rosbuild_add_boost_directories()
 rosbuild_add_executable(hubo_trajectory_action src/hubo_trajectory_action.cpp)
 rosbuild_link_boost(hubo_trajectory_action thread)
 
-# Build and link the dummy backend for testing
-rosbuild_add_executable(hubo_trajectory_dummy_interface src/hubo_trajectory_dummy_interface.cpp)
-rosbuild_link_boost(hubo_trajectory_dummy_interface thread signals)
+# Build and link the ideal version
+rosbuild_add_executable(hubo_trajectory_ideal_interface src/hubo_trajectory_ideal_interface.cpp)
+target_link_libraries(hubo_trajectory_ideal_interface ach)
+rosbuild_link_boost(hubo_trajectory_ideal_interface thread signals)
 
 ## Build and link the hubo-motion-rt trajectory interface
-#rosbuild_add_executable(hubo_trajectory_interface src/hubo_trajectory_interface.cpp)
-#target_link_libraries(hubo_trajectory_interface ach)
-#rosbuild_link_boost(hubo_trajectory_interface thread signals)
+rosbuild_add_executable(hubo_trajectory_compromise_interface src/hubo_trajectory_interface.cpp)
+target_link_libraries(hubo_trajectory_compromise_interface ach)
+rosbuild_link_boost(hubo_trajectory_compromise_interface thread signals)
