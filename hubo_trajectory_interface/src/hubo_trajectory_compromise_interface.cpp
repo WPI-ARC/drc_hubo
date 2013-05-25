@@ -56,7 +56,7 @@ ach_channel_t chan_hubo_ref_filter;
  * may need to dynamically change based on the timings on the incoming trajectory.
 */
 #define MAX_TRAJ_LENGTH 10 //Number of points in each trajectory chunk
-double SPIN_RATE = 0.5; //Rate in hertz at which to send trajectory chunks
+double SPIN_RATE = 5.0; //Rate in hertz at which to send trajectory chunks
 
 // Index->Joint name mapping (the index in this array matches the numerical index of the joint name in Hubo-Ach as defined in hubo.h
 char* joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
@@ -507,7 +507,10 @@ int main(int argc, char** argv)
         {
             // Reprocess the current trajectory chunk (this does nothing if we have nothing to send)
             std::vector<trajectory_msgs::JointTrajectoryPoint> cleaned_trajectory = processTrajectory(&H_ref_filter);
-            SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSecs());
+            if (cleaned_trajectory.size() > 0)
+            {
+                SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSecs());
+            }
             // Send the latest trajectory chunk (this does nothing if we have nothing to send)
             sendTrajectory(cleaned_trajectory);
         }
