@@ -27,15 +27,24 @@ class ReachabilitySphere(object):
         self.axisLength = 0.1
         self.configs = []
 
-    def show(self,myEnv):
+    def show(self,myEnv,myColor=None,myT=None):
         # print self.T[0][0:3,3]
         # print str(self.reachability)," : ",str(len(self.T))
-        self.shapeHandle = myEnv.plot3(points=self.T[0][0:3,3],
-                                       pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
-                                       colors=self.color, # This changes the transparency
-                                       drawstyle=1)
+        if(myT != None):
+            self.axisHandle = misc.DrawAxes(myEnv,myT,0.01)
+
+        if(myColor == None):
+            self.shapeHandle = myEnv.plot3(points=self.T[0][0:3,3],
+                                           pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                           colors=self.color, # This changes the transparency
+                                           drawstyle=1)
+        else:
+            self.shapeHandle = myEnv.plot3(points=self.T[0][0:3,3],
+                                           pointsize=self.radius, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                           colors=myColor, # This changes the transparency
+                                           drawstyle=1)
         # for t in self.T:
-        #     self.axisHandle.append(misc.DrawAxes(myEnv,t,0.01))
+        
 
     def hide(self):
         self.shapeHandle = None
@@ -574,6 +583,8 @@ class SearchPattern:
                 s.T = transforms[t]
                 self.pattern.append(s)
             else: # Otherwise do mapping (discretization)
+                print "---"
+                print "mapping ",str(t)," to 0"
                 r = self.map([transforms[0],transforms[t]])
                 if(r != None):
                     s.T = r
@@ -584,9 +595,17 @@ class SearchPattern:
             return 1
         elif(num < 0):
             return -1
+
+    def myFmod(self,a,b):
+        a1,a2 = a.as_integer_ratio()
+        b1,b2 = b.as_integer_ratio()
+        div = float(a1*b2) / float(a2*b1)
+        mod = a - b*div
+        return mod
+    
     
     def map(self,tCouple):
-        debug = False
+        debug = True
         # find the relative transform between the couple
         Trel = dot(linalg.inv(tCouple[0]),tCouple[1])
 
@@ -595,19 +614,19 @@ class SearchPattern:
         rely = Trel.tolist()[1][3]
         relz = Trel.tolist()[2][3]
 
-        mx = relx%(self.sign(relx)*ReachabilitySphere().diameter)
+        mx = self.myFmod(relx,self.sign(relx)*ReachabilitySphere().diameter)
         dx = round(relx/ReachabilitySphere().diameter)
         if(abs(mx)>ReachabilitySphere().radius):
-            dx+=sign(relx)         
-            
-        my = rely%(self.sign(rely)*ReachabilitySphere().diameter)
+            dx+=sign(relx)        
+        
+        my = self.myFmod(rely,self.sign(rely)*ReachabilitySphere().diameter)
         dy = round(rely/ReachabilitySphere().diameter)
         if(abs(my)>ReachabilitySphere().radius):
             dy+=sign(rely)
 
-        mz = relz%(self.sign(relz)*ReachabilitySphere().diameter)
+        mz = self.myFmod(relz,self.sign(relz)*ReachabilitySphere().diameter)
         dz = round(relz/ReachabilitySphere().diameter)
-        if(mz>ReachabilitySphere().radius):
+        if(abs(mz)>ReachabilitySphere().radius):
             dz+=sign(relz)
 
         if(dx == 0 and dy == 0 and dz == 0):
@@ -675,7 +694,7 @@ def satisfy():
     #                             if(dot(s.T,t.T)==c):
     pass
 
-def my_function2(start,idx,myPattern,rmap):
+def my_function2(start,idx,myPattern,rmap,myEnv=None):
     # print "my_function2: start.reachability: "
     # print start.reachability
     
@@ -698,6 +717,11 @@ def my_function2(start,idx,myPattern,rmap):
     SoI = start
 
     Tbase_SoI = start.T[idx]
+    
+    if(myEnv != None):
+        print "tbase_soi"
+        print Tbase_SoI
+        SoI.show(myEnv,array((0,1,0,0.1)),Tbase_SoI)
 
     for n in range(1,len(myPattern)):
         # sys.stdin.readline()
@@ -720,7 +744,9 @@ def my_function2(start,idx,myPattern,rmap):
                                 
         # Go through the neighbors of SoI
         # print "sphere of interest has ",str(len(SoI.neighbors))," neighbors."
-        for neighbor in SoI.neighbors:
+        for nIdx, neighbor in enumerate(SoI.neighbors):
+            print "neighbor #: ",str(nIdx)
+
             found = False
             # SoI.neighbors is a list of integers,
             # the list keeps the indices of the 
@@ -729,10 +755,18 @@ def my_function2(start,idx,myPattern,rmap):
             # See if any of SoI's neighbors
             # has the same relative transform
             # as Tp1_p2
-            # print "neighbor with index: ",neighbor," has ",len(rmap[neighbor].T)," transforms."
-            for tIdx, Tbase_neighbor in enumerate(rmap[neighbor].T):                                        
+            print "neighbor with index: ",neighbor," has ",len(rmap[neighbor].T)," transforms."
+            for tIdx, Tbase_neighbor in enumerate(rmap[neighbor].T):
+                print "investigating transform #: ",str(tIdx)
+
+                if(myEnv != None):
+                    rmap[neighbor].show(myEnv,array((0,1,1,0.1)),Tbase_neighbor)
+                print "show next transform"
+                sys.stdin.readline()
+
                 TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
                 if(allclose(TSoI_neighbor,Tp1_p2)):
+                    print "found!"
                     found = True
                     rmap[neighbor].shapeHandle = None
 
@@ -742,8 +776,16 @@ def my_function2(start,idx,myPattern,rmap):
                     # Assign the next sphere of interest
                     SoI = rmap[neighbor]
                     Tbase_SoI = Tbase_neighbor
+                    if(myEnv != None):
+                       SoI.show(myEnv,array((0,1,0,0.1)),Tbase_SoI)
                     break
-                
+            
+            if(myEnv != None):
+                print "show next neighbor"
+                sys.stdin.readline()
+                if(not found):
+                    rmap[neighbor].hide()
+
             if(found):
                 break
 
@@ -751,7 +793,13 @@ def my_function2(start,idx,myPattern,rmap):
             # if we tested all neighbors and couldn't find a match
             # then these start and goal candidates are not
             # connected. Return error.
+            if(myEnv != None):
+                print "not found"
+                sys.stdin.readline()
+                rmap[neighbor].hide()
+                SoI.hide()
             return None
+
 
     return myList
 
@@ -1182,24 +1230,25 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                 # print "Trying: "
                 # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
                 # print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
-                steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1])
-                if(steps0 != None):
-                    path0 = []
-                    path0.append(PathElement(pair[0].sIdx,pair[0].tIdx))
-                    path0.extend(steps0)
+                if(rm[m-1][pair[0].sIdx].T[pair[0].tIdx][0,3] > 0.4 and rm[m-1][pair[0].sIdx].T[pair[0].tIdx][1,3] > 0):
+                    steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1],myEnv)
+                    if(steps0 != None):
+                        path0 = []
+                        path0.append(PathElement(pair[0].sIdx,pair[0].tIdx))
+                        path0.extend(steps0)
 
-                steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m])
-                if(steps1 != None):
-                    path1 = []
-                    path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
-                    path1.extend(steps1)
+                    steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m],myEnv)
+                    if(steps1 != None):
+                        path1 = []
+                        path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
+                        path1.extend(steps1)
 
-                if(steps0 != None and steps1 != None):
-                    # print "start indices: ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
-                    # path is in a list because we might 
-                    # have more than one path candidates
-                    paths0.append(path0) 
-                    paths1.append(path1)
+                    if(steps0 != None and steps1 != None):
+                        # print "start indices: ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
+                        # path is in a list because we might 
+                        # have more than one path candidates
+                        paths0.append(path0) 
+                        paths1.append(path1)
 
             if(paths0 != [] and paths1 != []):
                 candidates.append(paths0)
