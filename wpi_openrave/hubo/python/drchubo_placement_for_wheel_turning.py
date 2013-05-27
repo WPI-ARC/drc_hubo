@@ -187,11 +187,13 @@ traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.
 
 traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.15,0.0])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.15,-0.05])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.15,-0.1])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.05])))))
 
-Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.15,-0.15]))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.1])))))
+
+Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.15]))))
 traj0.append(Tgoal0)
 
 # Right Hand
@@ -207,11 +209,13 @@ traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.
 
 traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.15,0.0])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.15,-0.05])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.15,-0.1])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.05])))))
 
-Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.15,-0.15]))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.1])))))
+
+Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.15]))))
 
 traj1.append(Tgoal1)
 
@@ -382,7 +386,7 @@ Tstart0_start1 = dot(linalg.inv(T0_start0),T0_start1)
 
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
-configurationJumpThreshold = 0.5 
+configurationJumpThreshold = 100 
 
 success = False
 end = False
@@ -417,7 +421,7 @@ while((not success) and (not end)):
         # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
         pathLength = len(candidates[0][c]) 
 
-        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0)
+        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.5)
         h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
