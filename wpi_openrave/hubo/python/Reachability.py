@@ -83,6 +83,10 @@ class ReachabilityMap(object):
         self.map = []
         self.indices = {}
         self.candidates = []
+        self.n = 8
+        self.inc1 = ((2*pi)/self.n)
+        self.m = 12
+        self.inc2 = ((2*pi)/self.m)
         self.name = "default"
 
         # This is the coordinate system of the map, usually attached to the base of the manipulator.
@@ -90,7 +94,35 @@ class ReachabilityMap(object):
         self.T0_base = manip.GetBase().GetTransform() 
         
         # list of rotation matrices that we will evaluate around a point in space
-        self.rm3D=[rodrigues([pi/2,0,0]),rodrigues([-pi/2,0,0]),rodrigues([0,pi/2,0]),rodrigues([0,-pi/2,0]),rodrigues([0,0,pi/2]),rodrigues([0,0,-pi/2])]
+        self.rm3D = []
+        
+        # Rotate around X
+        for i in range(self.n):
+            self.rm3D.append(rodrigues([i*self.inc1,0,0]))
+            
+        # Rotate around Y
+        for i in range(self.n):
+            if(i != 0 and i != (self.n/2)):
+                self.rm3D.append(dot(rodrigues([pi/2,0,0]),rodrigues([0,i*self.inc1,0])))
+        
+        # Rotate around Z for all approach directions
+        aroundZ = []
+        for rIdx, r in enumerate(self.rm3D):
+            for i in range(self.m):
+                aroundZ.append(dot(r,rodrigues([0,0,i*self.inc2])))
+        
+        temp = []
+        for rIdx, r in enumerate(self.rm3D):
+            temp.append(self.rm3D[rIdx])
+            for j in range((rIdx*self.m),(rIdx+1)*self.m):
+                temp.append(aroundZ[j])
+    
+        self.rm3D = deepcopy(temp)
+
+        self.maxReachability = len(self.rm3D)
+        self.reachabilitySphereAlphaIncrement = (1.0/self.maxReachability)
+        #self.rm3D=[rodrigues([pi/2,0,0]),rodrigues([-pi/2,0,0]),rodrigues([0,pi/2,0]),rodrigues([0,-pi/2,0]),rodrigues([0,0,pi/2]),rodrigues([0,0,-pi/2])]
+
         # limits
         self.xmax=1.0
         self.xmin=-1.0
@@ -201,7 +233,7 @@ class ReachabilityMap(object):
                 if(s.shapeHandle == None):
                     s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
                                                 pointsize=s.radius*0.5, # In case dx, dy and dz are all equal, this should be half of that increment constant.
-                                                colors=array((self.r,self.g,self.b,0.166*s.reachability)), # This changes the transparency
+                                                colors=array((self.r,self.g,self.b,self.reachabilitySphereAlphaIncrement*s.reachability)), # This changes the transparency
                                                 drawstyle=1
                                                 )
 
@@ -446,6 +478,7 @@ class ReachabilityMap(object):
 
                         # Show in qt-viewer where the the manipulator is trying to reach
                         h = misc.DrawAxes(env,T0_req,0.2)
+                        # sys.stdin.readline()
 
                         # All rotations and translations passed in should be in the coordinate frames of the base of the manipulator
                         # x, y, z are in manipulator's base coordinate frame
@@ -534,7 +567,7 @@ class ReachabilityMap(object):
                                 # Add shapeHandle only once, if it doesn't exist already
                                 s.shapeHandle = env.plot3(points=T0_ee[0:3,3],
                                                           pointsize=(s.radius*0.5), # In case dx, dy and dz are all equal, this should be half of that increment constant.
-                                                          colors=array((self.r,self.g,self.b,0.166*s.reachability)), # This changes the transparency
+                                                          colors=array((self.r,self.g,self.b,self.reachabilitySphereAlphaIncrement*s.reachability)), # This changes the transparency
                                                           drawstyle=1
                                                           )
                             
