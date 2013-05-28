@@ -407,15 +407,15 @@ class HuboPlusWheelTurning:
         # Left Hand
         TSRString1 = SerializeTSR(0,'NULL',T0_w0L,Tw0_eL,Bw0L)
         # Right Hand
-        TSRstring2 = SerializeTSR(1,'crank crank',T0_w0R,Tw0_eR,Bw0R)
+        TSRString2 = SerializeTSR(1,'crank crank',T0_w0R,Tw0_eR,Bw0R)
         # Left Foot
-        TSRstring3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        TSRString3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
         # Head
-        TSRstring4 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
+        TSRString4 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
         
-        TSRChainStringFootOnly = SerializeTSRChain(0,0,1,1,TSRstring3,'NULL',[])
+        TSRChainStringFootOnly = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
 
-        TSRChainStringFootandHead = TSRChainStringFootOnly+' '+SerializeTSRChain(0,0,1,1,TSRstring4,'NULL',[])
+        TSRChainStringFootandHead = TSRChainStringFootOnly+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])
 
         TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([crankjointind]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+TSRChainStringFootandHead
         
@@ -488,12 +488,10 @@ class HuboPlusWheelTurning:
 
         self.robotid.SetActiveDOFValues(startik)
         # Close hands to start "turning" the wheel
-        self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
-        self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
-        self.crankid.SetDOFValues([crank_rot],[crankjointind])
+        self.crankid.SetDOFValues([0],[crankjointind])
         
         if( self.StopAtKeyStrokes ):
-            print "Press Enter to plan startik --> goalik "
+            print "Press Enter to plan startik --> goalik (DMITRY!!!)"
             sys.stdin.readline()
 
         try:
