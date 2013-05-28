@@ -31,7 +31,7 @@ from str2num import *
 from TSR import *
 
 env = Environment()
-env.SetViewer('qtcoin')
+# env.SetViewer('qtcoin')
 
 robot = env.ReadRobotURI('../../../openHubo/drchubo/drchubo-urdf/robots/drchubo.robot.xml')
 env.Add(robot)
@@ -39,7 +39,7 @@ env.Add(robot)
 leftRm = ReachabilityMap("./drchubo_leftArm_ik_solver_f5",robot,robot.GetManipulators()[0])
 
 # leftRm.xmax=0.6
-# leftRm.xmin=0.4
+leftRm.xmin=0.0
 
 # leftRm.ymax=0.6
 # leftRm.ymin=0.4
@@ -67,7 +67,7 @@ leftRm.save()
 rightRm = ReachabilityMap("./drchubo_rightArm_ik_solver_f23",robot,robot.GetManipulators()[1])
 
 # rightRm.xmax=0.6
-# rightRm.xmin=0.4
+rightRm.xmin=0.0
 
 # rightRm.ymax=-0.4
 # rightRm.ymin=-0.6

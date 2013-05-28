@@ -9,6 +9,7 @@ import sys
 import pickle
 from random import *
 from copy import *
+from datetime import datetime
 
 class ReachabilitySphere(object):
     def __init__(self):
@@ -584,7 +585,8 @@ class ReachabilityMap(object):
 
                     current_point_ind += 1
                     if((current_point_ind%100)==0):
-                        print str(current_point_ind),"/",str(self.totalNumPoints)
+                        print str(current_point_ind),"/",str(self.totalNumPoints)," ",str(datetime.now())
+                        
         # Finished generating the map.
         # Now find neighbors
         self.find_neighbors()
