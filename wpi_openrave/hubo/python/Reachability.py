@@ -86,8 +86,9 @@ class ReachabilityMap(object):
         self.candidates = []
         self.n = 8
         self.inc1 = ((2*pi)/self.n)
-        self.m = 12
-        self.inc2 = ((2*pi)/self.m)
+        self.m = 0 #12
+        if(self.m != 0):
+            self.inc2 = ((2*pi)/self.m)
         self.name = "default"
 
         # This is the coordinate system of the map, usually attached to the base of the manipulator.
@@ -105,20 +106,21 @@ class ReachabilityMap(object):
         for i in range(self.n):
             if(i != 0 and i != (self.n/2)):
                 self.rm3D.append(dot(rodrigues([pi/2,0,0]),rodrigues([0,i*self.inc1,0])))
-        
-        # Rotate around Z for all approach directions
-        aroundZ = []
-        for rIdx, r in enumerate(self.rm3D):
-            for i in range(self.m):
-                aroundZ.append(dot(r,rodrigues([0,0,i*self.inc2])))
-        
-        temp = []
-        for rIdx, r in enumerate(self.rm3D):
-            temp.append(self.rm3D[rIdx])
-            for j in range((rIdx*self.m),(rIdx+1)*self.m):
-                temp.append(aroundZ[j])
-    
-        self.rm3D = deepcopy(temp)
+
+        if(self.m != 0):
+            # Rotate around Z for all approach directions
+            aroundZ = []
+            for rIdx, r in enumerate(self.rm3D):
+                for i in range(self.m):
+                    aroundZ.append(dot(r,rodrigues([0,0,i*self.inc2])))
+
+            temp = []
+            for rIdx, r in enumerate(self.rm3D):
+                temp.append(self.rm3D[rIdx])
+                for j in range((rIdx*self.m),(rIdx+1)*self.m):
+                    temp.append(aroundZ[j])
+
+            self.rm3D = deepcopy(temp)
 
         self.maxReachability = len(self.rm3D)
         self.reachabilitySphereAlphaIncrement = (1.0/self.maxReachability)
