@@ -225,6 +225,10 @@
         </mass>
         <offsetfrom>Body_LWR</offsetfrom>
         <translation>0.0 0.0 -0.0904875</translation>
+	<geom type="box">
+	  <diffusecolor>.9 .9 .9</diffusecolor>
+	  <extents>0.0 0.0 0.0 </extents>
+	</geom>
     </body>
     <joint enable="false" name="LWR_dummy" type="hinge">
         <body>Body_LWR</body>
@@ -528,12 +532,17 @@
         </mass>
         <offsetfrom>Body_LAR</offsetfrom>
         <translation>0.0 0.0 -0.119063</translation>
+	<geom type="box">
+	  <diffusecolor>.9 .9 .9</diffusecolor>
+	  <extents>0.0 0.0 0.0 </extents>
+	</geom>
     </body>
     <joint enable="false" name="LAR_dummy" type="hinge">
         <body>Body_LAR</body>
         <body>leftFoot</body>
         <offsetfrom>Body_LAR</offsetfrom>
         <anchor>0.0 0.0 -0.119063</anchor>
+	<limitsdeg>0 0</limitsdeg>
     </joint>
     <body name="Body_RSP">
         <geometry type="trimesh">
@@ -651,6 +660,10 @@
         </mass>
         <offsetfrom>Body_RWR</offsetfrom>
         <translation>0.0 -0.0 -0.0904875</translation>
+	<geom type="box">
+	  <diffusecolor>.9 .9 .9</diffusecolor>
+	  <extents>0.0 0.0 0.0 </extents>
+	</geom>
     </body>
     <body name="Body_RF1">
         <geometry type="trimesh">
@@ -801,6 +814,10 @@
         </mass>
         <offsetfrom>Body_RAR</offsetfrom>
         <translation>0.0 -0.0 -0.119063</translation>
+	<geom type="box">
+	  <diffusecolor>.9 .9 .9</diffusecolor>
+	  <extents>0.0 0.0 0.0 </extents>
+	</geom>
     </body>
     <joint name="RSP" type="hinge">
         <body>Body_Torso</body>
@@ -878,6 +895,7 @@
         <body>rightPalm</body>
         <offsetfrom>Body_RWR</offsetfrom>
         <anchor>0.0 -0.0 -0.0904875</anchor>
+	<limitsdeg>0 0</limitsdeg>
     </joint>
     <joint name="RF1" type="hinge">
         <body>Body_RWR</body>
@@ -978,6 +996,7 @@
         <body>rightFoot</body>
         <offsetfrom>Body_RAR</offsetfrom>
         <anchor>0.0 -0.0 -0.119063</anchor>
+	<limitsdeg>0 0</limitsdeg>
     </joint>
     <adjacent>Body_RWR rightPalm</adjacent>
     <adjacent>Body_LEP Body_LWY</adjacent>
