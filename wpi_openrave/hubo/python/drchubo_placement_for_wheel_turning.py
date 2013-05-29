@@ -43,19 +43,21 @@ def put_feet_on_the_ground():
         elif( (nonzero(upperLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
             print "setting joint ",str(i)," to negative zero"
             robots[0].SetDOFValues([-0.000001],[i])
-        #else:
-        #    robots[0].SetDOFValues([j],[i])
 
     # Center of Gravity Target
-    T0_TORSO = manips[4].GetEndEffectorTransform()
+    T0_TORSO = manips[5].GetEndEffectorTransform()
+
+    T0_LF = manips[2].GetEndEffectorTransform()
+    T0_LF[2,3] = 0.0
+
+    T0_RF = manips[3].GetEndEffectorTransform()
+    T0_RF[2,3] = 0.0
 
     cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
-    arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+    cogtargStr = str(cogtarg).strip("[]").replace(', ',' ')
 
-    T0_TORSO = manips[4].GetEndEffectorTransform()
-    arg2 = trans_to_str(T0_TORSO)
-
-    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 1 maniptm 4 '+arg2)
+    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+cogtargStr+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+    
     return goalik
 
 def trans_to_str(T):
@@ -334,7 +336,7 @@ elif(version == 1):
     gB = 0.6 # ground color
 
     ge = 5.0 # ground extension
-    wheelHeight = 0.8 #random.random()
+    wheelHeight = 1.1 #random.random()
     wheelPitch = 1.3 # pi*random.random()
     h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
                              indices=None,
@@ -594,6 +596,8 @@ while((not success) and (not end)):
                 print "Press enter to see the result..."
                 sys.stdin.readline()
                 robots[0].SetDOFValues(str2num(myIK), range(35))
+                print "Press enter to proceed with the next solution..."
+                sys.stdin.readline()
 
             robots[0].SetDOFValues(currentIk, range(35))
 
