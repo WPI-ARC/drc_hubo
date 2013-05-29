@@ -31,7 +31,20 @@ from str2num import *
 from TSR import *
 
 # This changes the height and the pitch angle of the wheel
-version = 1
+version = 2
+
+def trans_to_str(T):
+    myStr = ""
+    for c in range(0,3):
+        for r in range(0,3):
+            myStr += str(T[r,c])+" "
+    
+    for r in range(0,3):
+        myStr += str(T[r,3])+" "
+
+    #print "Tee string : " 
+    #print myStr
+    return myStr
 
 # robots: List of all robots in the environment
 # numRobots: (int) Starting from the 0th robot, how many of the robots do we care about?
@@ -113,9 +126,9 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
                             # print "euclidean configuration distance: "
                             # print euclideanConfigDistance
 
-                            if(euclideanConfigDistance > configurationJumpThreshold):
-                                noConfigJump = False
-                                return False
+                            # if(euclideanConfigDistance > configurationJumpThreshold):
+                            #     noConfigJump = False
+                            #     return False
                         else:
                             #print "skipping path element:"
                             pass
@@ -142,6 +155,9 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
                         eConfDist = pow(configDistSq,0.5)
                         print "euclidean configuration distance:"
                         print eConfDist
+                        if(eConfDist > configurationJumpThreshold):
+                            noConfigJump = False
+                            return False
 
             # If you made it here, 
             # it means no configuration jump, and no collision
@@ -263,7 +279,7 @@ for p in myPatterns:
 
 # 3. Add drchubo
 robots = []
-robots.append(env.ReadRobotURI('../../../openHubo/drchubo/drchubo-urdf/robots/drchubo.robot.xml'))
+robots.append(env.ReadRobotURI('../../../openHubo/drchubo/drchubo-urdf/robots/drchubo2.robot.xml'))
 env.Add(robots[0])
 
 # Let's keep the rotation of the robot around it's Z-Axis in a variable...
@@ -271,7 +287,7 @@ rotz=[]
 rotz.append(pi/3);
 
 # Define the transform and apply the transform
-shift_robot0 = MakeTransform(matrix(rodrigues([0,0,rotz[0]])),transpose(matrix([-2.5,0.0,0.0])))
+shift_robot0 = MakeTransform(matrix(rodrigues([0,0,rotz[0]])),transpose(matrix([-2.5,0.0,0.95])))
 robots[0].SetTransform(array(shift_robot0))
 
 # Add the wheel
@@ -281,11 +297,77 @@ if(version == 0):
     wheelHeight = 0.2
     wheelPitch = 0
 elif(version == 1):
-    wheelHeight = 1.0
-    wheelPitch = pi
+    gR = 0.6 # ground color
+    gG = 0.6 # ground color
+    gB = 0.6 # ground color
+
+    ge = 5.0 # ground extension
+    wheelHeight = random.random()
+    wheelPitch = pi*random.random()
+    h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+    h.append(env.drawtrimesh(points=array(((ge,0,0),(0,ge,0),(ge,ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+
+    h.append(env.drawtrimesh(points=array(((0,0,0),(-ge,0,0),(0,-ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+    h.append(env.drawtrimesh(points=array(((-ge,0,0),(0,-ge,0),(-ge,-ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+
+
+    h.append(env.drawtrimesh(points=array(((0,0,0),(-ge,0,0),(0,ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+    h.append(env.drawtrimesh(points=array(((-ge,0,0),(0,ge,0),(-ge,ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+
+    
+    h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,-ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+    h.append(env.drawtrimesh(points=array(((ge,0,0),(0,-ge,0),(ge,-ge,0))),
+                             indices=None,
+                             colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
+elif(version == 2):
+
+    Tee = []
+    manips = robots[0].GetManipulators()
+    for i in range(len(manips)):
+        # Returns End Effector Transform in World Coordinates
+        Tlink = manips[i].GetEndEffectorTransform()
+        Tee.append(Tlink)
+
+    footlinknames = ' Body_RAR Body_LAR '
+
+    # Center of Gravity Target
+    cogtarg = [-0.05, 0.085, 0]
+    arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+
+
+    T0_TORSO = manips[4].GetEndEffectorTransform()
+    arg2 = trans_to_str(T0_TORSO)
+
+    probs_cbirrt = RaveCreateModule(env,'CBiRRT')
+
+    try:
+        env.AddModule(probs_cbirrt,'drchubo2') # this string should match to <Robot name="" > in robot.xml
+    except openrave_exception, e:
+        print e
+
+    print "Getting Loaded Problems"
+    probs = env.GetLoadedProblems()
+
+    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 1 maniptm 4 '+arg2)
+    print goalik
+    sys.stdin.readline()
     
 wheelOffset = matrix([0,0,wheelHeight])
-wheelRotation = matrix(rodrigues([0,wheelPitch,0]))
+wheelRotation = matrix(rodrigues([wheelPitch,0,0]))
 env.Add(wheel)
 
 T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
@@ -401,12 +483,9 @@ iters = 0
 # Relative transform of initial grasp transforms
 Tstart0_start1 = dot(linalg.inv(T0_start0),T0_start1)
 
-print Tstart0_start1
-sys.stdin.readline()
-
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
-configurationJumpThreshold = 100 
+configurationJumpThreshold = 7.0
 
 success = False
 end = False
