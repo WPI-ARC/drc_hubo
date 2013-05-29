@@ -1169,12 +1169,12 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
 
         # Get the euclidean distance between pattern's root's
         pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
-        pD = pow(pD2,0.5)
+        pD = round(pow(pD2,0.5),2)
 
         # Find all pairs of reachability spheres that are 
         # exactly eD apart from each other
         pairs = []
-        print "looking for pairs..."
+        print "looking for pairs...",' ',str(datetime.now())
         # print "Sisters:"
         # print len(sisters)
         # NOTE, DO A SMARTER SEARCH HERE. 
@@ -1214,9 +1214,9 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                     s2.show(myEnv)
                     #sys.stdin.readline()
                     sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
-                    # print sD
-                    # print pD
-                    # print sD == pD
+                    print sD
+                    print pD
+                    print sD == pD
                     # If the euclidean distance of the pattern transforms
                     # is equal to spheres' distance, then keep the pair
                     if(sD == pD):
@@ -1243,7 +1243,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                     pair1 = PathElement(adjusteds1Idx,t1Idx)
                                     pair2 = PathElement(adjusteds2Idx,t2Idx)
                                     pairs.append([pair1,pair2])
-                                    print "found a pair: ",str(len(pairs))
+                                    # print "found a pair: ",str(len(pairs))
                                     # print str(adjusteds1Idx)," : ",str(t1Idx)
                                     # print str(adjusteds2Idx)," : ",str(t2Idx)
                                     # print "sphere info - s1: "
@@ -1265,7 +1265,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                 if len(pairs) == howMany:
                     break
 
-            print "looking for candidates.."
+            print "found ",str(len(pairs))," pair(s). ",str(datetime.now())
+            print "looking for candidates... ",str(datetime.now())
             for pair in pairs:
                 # print "Trying: "
                 # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
@@ -1297,7 +1298,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                 candidates.append(paths1)
         
 
-    print "found ",str(len(candidates[0]))," candidates."
+    print "found ",str(len(candidates[0]))," candidates.",' ',str(datetime.now())
     if(candidates != []):
         # for c in candidates[0]:
         #     for pe in c:

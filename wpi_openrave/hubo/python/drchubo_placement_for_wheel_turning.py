@@ -30,6 +30,9 @@ from TransformMatrix import *
 from str2num import *
 from TSR import *
 
+# This changes the height and the pitch angle of the wheel
+version = 1
+
 # robots: List of all robots in the environment
 # numRobots: (int) Starting from the 0th robot, how many of the robots do we care about?
 # numManips: (list) For each robot, starting from the 0th manipulator, how many of the manipulators do we care about?
@@ -40,8 +43,8 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
     collisionConstOK = True
     noConfigJump = True
 
-    print "numRobots: ",str(numRobots)
-    print "numManips: ",str(numManips)
+    # print "numRobots: ",str(numRobots)
+    # print "numManips: ",str(numManips)
 
     if(start(candidates,numRobots,numManips,c,myRmaps,robots,h,env)):
         # Get their relative Transformation matrix
@@ -74,7 +77,7 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
 
         # If the solution meets the base constraint:
         if(relBaseConstOK):
-            print "Base Constraints OK."
+            # print "Base Constraints OK."
             pathConfigs = [[],[]] # A 2D List
             # ii) Check if the solution collision-free throughout the path?
             # For each path element, go step by step and check
@@ -126,7 +129,20 @@ def play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env
 
                 # If you didn't break yet, wait before the next path element for visualization
                 time.sleep(howLong)
-        
+
+            for manipIdx, manipConfs in enumerate(pathConfigs):
+                print "for manip ",str(manipIdx)
+                for confIdx, conf in enumerate(manipConfs):
+                    if(confIdx > 0):
+                        qdiff = absolute(subtract(conf,manipConfs[confIdx-1]))
+                        
+                        confDistSq = 0
+                        for j in range(len(qdiff)):
+                            configDistSq += pow(qdiff[j],2)
+                        eConfDist = pow(configDistSq,0.5)
+                        print "euclidean configuration distance:"
+                        print eConfDist
+
             # If you made it here, 
             # it means no configuration jump, and no collision
             return True
@@ -145,11 +161,14 @@ def start(candidates,numRobots,numManips,c,myRmaps,robots,h,env):
             # Find where to move the base
             startSphereIndex = candidates[myManipulatorIndex][c][0].sIdx
             startTransformIndex = candidates[myManipulatorIndex][c][0].tIdx
+            # Set the manipulator to its configuration (we will check for collision)
+            myRmaps[myManipulatorIndex].go_to(startSphereIndex,startTransformIndex)
+        
             Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
             T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
             # Finally move the robot base 
             robots[myRobotIndex].SetTransform(T0_newManipPose)
-
+            
             if(myManipulatorIndex == 0):
                 h.append(misc.DrawAxes(env,T0_newManipPose,0.4))
 
@@ -168,7 +187,12 @@ def start(candidates,numRobots,numManips,c,myRmaps,robots,h,env):
             #             break
             #     elif(type(masterBaseConstraint) == type(array(()))):
             #         pass
-    return masterBaseConstOK
+                
+        # Check collision with self and with the environment
+        if(env.CheckCollision(robots[myRobotIndex]) or robots[myRobotIndex].CheckSelfCollision()):
+            collisionConstOK = False
+            return False
+    return True
 
 env = Environment()
 env.SetViewer('qtcoin')
@@ -183,17 +207,11 @@ traj0.append(Tstart0)
 
 traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.05,0.0])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.15,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.05])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0])))))
-
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.05])))))
-
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.1])))))
-
-Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.15]))))
+Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.1]))))
 traj0.append(Tgoal0)
 
 # Right Hand
@@ -205,17 +223,11 @@ traj1.append(Tstart1)
 
 traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.05,0.0])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.15,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.05])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,0.0])))))
-
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.05])))))
-
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.1])))))
-
-Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.2,-0.15]))))
+Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.1]))))
 
 traj1.append(Tgoal1)
 
@@ -228,7 +240,7 @@ myPattern = SearchPattern(traj0)
 myPattern.T0_p = T0_p
 myPattern.setColor(array((0,0,1,0.5))) 
 myPattern.show(env)
-sys.stdin.readline()
+# sys.stdin.readline()
 myPattern.hide("all")
 myPatterns.append(myPattern)
 
@@ -237,7 +249,7 @@ myPattern = SearchPattern(traj1)
 myPattern.T0_p = T0_p
 myPattern.setColor(array((1,0,0,0.5))) 
 myPattern.show(env)
-sys.stdin.readline()
+# sys.stdin.readline()
 myPattern.hide("all")
 myPatterns.append(myPattern)
 
@@ -265,14 +277,19 @@ robots[0].SetTransform(array(shift_robot0))
 # Add the wheel
 wheel = env.ReadRobotURI('../../../../drc_common/models/driving_wheel.robot.xml')
 
-wheelHeight = 0.2
+if(version == 0):
+    wheelHeight = 0.2
+    wheelPitch = 0
+elif(version == 1):
+    wheelHeight = 1.0
+    wheelPitch = pi
+    
 wheelOffset = matrix([0,0,wheelHeight])
-wheelPitch = 0
 wheelRotation = matrix(rodrigues([0,wheelPitch,0]))
-
 env.Add(wheel)
 
 T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
+wheel.SetTransform(array(T0_wheelBase))
 
 # h.append(misc.DrawAxes(env,T0_wheelBase,0.3))
 
@@ -307,7 +324,7 @@ print "Reachability map loaded for right arm."
 # rm2.hide()
 myRmaps.append(rm2)
 
-print "Finding path candidates..."
+
 # sys.stdin.readline()
 
 # 4. Where do we want the end effectors to start from in world coordinates?
@@ -326,12 +343,12 @@ TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transp
 
 TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([-pi, 0, 0])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.15]))))
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.1]))))
 
 T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
 h.append(misc.DrawAxes(env, T0_start0, 0.4))
 
-TwheelEndEffector_start1 = dot(MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transpose(matrix([0.0, 0.0, 0.0]))),MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.15]))))
+TwheelEndEffector_start1 = dot(MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transpose(matrix([0.0, 0.0, 0.0]))),MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.1]))))
 
 T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
 
@@ -384,6 +401,9 @@ iters = 0
 # Relative transform of initial grasp transforms
 Tstart0_start1 = dot(linalg.inv(T0_start0),T0_start1)
 
+print Tstart0_start1
+sys.stdin.readline()
+
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
 configurationJumpThreshold = 100 
@@ -391,8 +411,8 @@ configurationJumpThreshold = 100
 success = False
 end = False
 
-print "Ready to search..."
-sys.stdin.readline()
+print "Ready to search... ",str(datetime.now())
+# sys.stdin.readline()
 
 while((not success) and (not end)):
     iters += 1
@@ -421,7 +441,7 @@ while((not success) and (not end)):
         # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
         pathLength = len(candidates[0][c]) 
 
-        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.5)
+        allGood = play(relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0)
         h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
@@ -458,7 +478,7 @@ while((not success) and (not end)):
         playAll = False
         while(True):
             print "Playing valid solution #: ",str(nxt)
-            play(relBaseConstraint,candidates,numRobots,numManips,valids[nxt],myRmaps,robots,h,env,0.1)
+            play(relBaseConstraint,candidates,numRobots,numManips,valids[nxt],myRmaps,robots,h,env,0.3)
             h.pop() # delete the robot base axis we added last
             if(ask):
                 print "Next [n]"
