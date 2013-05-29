@@ -31,7 +31,32 @@ from str2num import *
 from TSR import *
 
 # This changes the height and the pitch angle of the wheel
-version = 2
+version = 1
+
+def put_feet_on_the_ground():
+    # stupid python to c++ datatype hack around
+    for i in range(35):
+        j = round(robots[0].GetDOFValues([i]),2)
+        if( (nonzero(lowerLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
+            print "setting joint ",str(i)," to positive zero"
+            robots[0].SetDOFValues([0.000001],[i])
+        elif( (nonzero(upperLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
+            print "setting joint ",str(i)," to negative zero"
+            robots[0].SetDOFValues([-0.000001],[i])
+        #else:
+        #    robots[0].SetDOFValues([j],[i])
+
+    # Center of Gravity Target
+    T0_TORSO = manips[4].GetEndEffectorTransform()
+
+    cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
+    arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+
+    T0_TORSO = manips[4].GetEndEffectorTransform()
+    arg2 = trans_to_str(T0_TORSO)
+
+    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 1 maniptm 4 '+arg2)
+    return goalik
 
 def trans_to_str(T):
     myStr = ""
@@ -281,6 +306,13 @@ for p in myPatterns:
 robots = []
 robots.append(env.ReadRobotURI('../../../openHubo/drchubo/drchubo-urdf/robots/drchubo2.robot.xml'))
 env.Add(robots[0])
+lowerLimits, upperLimits = robots[0].GetDOFLimits()
+
+print lowerLimits
+print upperLimits
+
+sys.stdin.readline()
+           
 
 # Let's keep the rotation of the robot around it's Z-Axis in a variable...
 rotz=[]
@@ -302,8 +334,8 @@ elif(version == 1):
     gB = 0.6 # ground color
 
     ge = 5.0 # ground extension
-    wheelHeight = random.random()
-    wheelPitch = pi*random.random()
+    wheelHeight = 0.8 #random.random()
+    wheelPitch = 1.3 # pi*random.random()
     h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
                              indices=None,
                              colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
@@ -333,7 +365,6 @@ elif(version == 1):
     h.append(env.drawtrimesh(points=array(((ge,0,0),(0,-ge,0),(ge,-ge,0))),
                              indices=None,
                              colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
-elif(version == 2):
 
     Tee = []
     manips = robots[0].GetManipulators()
@@ -343,14 +374,6 @@ elif(version == 2):
         Tee.append(Tlink)
 
     footlinknames = ' Body_RAR Body_LAR '
-
-    # Center of Gravity Target
-    cogtarg = [-0.05, 0.085, 0]
-    arg1 = str(cogtarg).strip("[]").replace(', ',' ')
-
-
-    T0_TORSO = manips[4].GetEndEffectorTransform()
-    arg2 = trans_to_str(T0_TORSO)
 
     probs_cbirrt = RaveCreateModule(env,'CBiRRT')
 
@@ -362,9 +385,6 @@ elif(version == 2):
     print "Getting Loaded Problems"
     probs = env.GetLoadedProblems()
 
-    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 1 maniptm 4 '+arg2)
-    print goalik
-    sys.stdin.readline()
     
 wheelOffset = matrix([0,0,wheelHeight])
 wheelRotation = matrix(rodrigues([wheelPitch,0,0]))
@@ -559,6 +579,24 @@ while((not success) and (not end)):
             print "Playing valid solution #: ",str(nxt)
             play(relBaseConstraint,candidates,numRobots,numManips,valids[nxt],myRmaps,robots,h,env,0.3)
             h.pop() # delete the robot base axis we added last
+
+            currentIk = robots[0].GetDOFValues()
+            print currentIk
+
+            # Try to put your feet on the ground
+            print "trying to put the feet on the ground..."
+            myIK = put_feet_on_the_ground()
+
+            print "myIK"
+            print myIK
+            
+            if(myIK != ''):
+                print "Press enter to see the result..."
+                sys.stdin.readline()
+                robots[0].SetDOFValues(str2num(myIK), range(35))
+
+            robots[0].SetDOFValues(currentIk, range(35))
+
             if(ask):
                 print "Next [n]"
                 print "Previous [p]"

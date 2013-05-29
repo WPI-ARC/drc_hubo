@@ -1214,9 +1214,9 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                     s2.show(myEnv)
                     #sys.stdin.readline()
                     sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
-                    print sD
-                    print pD
-                    print sD == pD
+                    # print sD
+                    # print pD
+                    # print sD == pD
                     # If the euclidean distance of the pattern transforms
                     # is equal to spheres' distance, then keep the pair
                     if(sD == pD):
