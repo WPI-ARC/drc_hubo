@@ -47,8 +47,10 @@ using std::endl;
 // ACH channels
 ach_channel_t chan_traj_cmd;
 ach_channel_t chan_traj_state;
-ach_channel_t chan_hubo_state;
-ach_channel_t chan_hubo_ref_filter;
+//ach_channel_t chan_hubo_state;
+//ach_channel_t chan_hubo_ref_filter;
+ach_channel_t chan_hubo_ctrl_state_main;
+ach_channel_t chan_hubo_ctrl_state_pub;
 
 /*
  * These are the two values we don't quite know how to set - we actually want these
@@ -209,7 +211,7 @@ int IndexLookup(std::string joint_name)
  * necessary and we change the interface slightly as a result. A consequnce of this is than not all data
  * reported from this node is accurate, as it doesn't all exist in the first place!
  *************************************************************************************************************************/
-trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, hubo_ref_t* cur_commands)
+trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, hubo_ctrl_state_t* cur_commands)
 {
     trajectory_msgs::JointTrajectoryPoint processed;
     processed.positions.resize(HUBO_JOINT_COUNT);
@@ -220,9 +222,9 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
         ROS_ERROR("Stored joint names and received joint commands do not match");
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[i] = cur_commands->ref[i];
-            processed.velocities[i] = 0.0;
-            processed.accelerations[i] = 0.0;
+            processed.positions[i] = cur_commands->requested_pos[i];
+            processed.velocities[i] = cur_commands->requested_vel[i];
+            processed.accelerations[i] = cur_commands->requested_acc[i];
         }
         return processed;
     }
@@ -232,9 +234,9 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
         // First, fill in everything with data from the current Hubo state
         for (int i = 0; i < HUBO_JOINT_COUNT; i++)
         {
-            processed.positions[i] = cur_commands->ref[i];
-            processed.velocities[i] = 0.0;
-            processed.accelerations[i] = 0.0;
+            processed.positions[i] = cur_commands->requested_pos[i];
+            processed.velocities[i] = cur_commands->requested_vel[i];
+            processed.accelerations[i] = cur_commands->requested_acc[i];
         }
         // Now, overwrite with the commands in the current trajectory
         for (unsigned int i = 0; i < raw.positions.size(); i++)
@@ -258,7 +260,7 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
  *
  * Once a chunk has been reprocessed, it is removed from the stored list of chunks.
 */
-std::vector<trajectory_msgs::JointTrajectoryPoint> processTrajectory(hubo_ref_t* cur_commands)
+std::vector<trajectory_msgs::JointTrajectoryPoint> processTrajectory(hubo_ctrl_state_t* cur_commands)
 {
     std::vector<trajectory_msgs::JointTrajectoryPoint> processed;
     if (g_trajectory_chunks.size() == 0)
@@ -353,38 +355,39 @@ void trajectoryCB(const trajectory_msgs::JointTrajectory& traj)
  */
 void publishLoop()
 {
-    hubo_state_t H_state;
-    memset(&H_state, 0, sizeof(H_state));
-    hubo_ref_t H_ref_filter;
-    memset(&H_ref_filter, 0, sizeof(H_ref_filter));
+    ach_status_t r = ach_open(&chan_hubo_ctrl_state_pub, CTRL_CHAN_STATE , NULL);
+    //r = ach_open(&chan_hubo_ref_filter, HUBO_CHAN_REF_NAME , NULL);
+    if (r != ACH_OK)
+    {
+        ROS_FATAL("Could not open ACH channel: CTRL_CHAN_STATE !");
+        exit(1);
+    }
+//    return;
+//    hubo_state_t H_state;
+//    memset(&H_state, 0, sizeof(H_state));
+    hubo_ctrl_state_t H_ctrl_state;
+    memset(&H_ctrl_state, 0, sizeof(H_ctrl_state));
     // Loop until node shutdown
     while (ros::ok())
     {
         size_t fs;
         ach_status_t r;
 
-        // Get the latest hubo state from HUBO-ACH
-        r = ach_get(&chan_hubo_state, &H_state, sizeof(H_state), &fs, NULL, ACH_O_WAIT);
+        // Get latest reference from HUBO-ACH (this is used to populate the desired values)
+        r = ach_get(&chan_hubo_ctrl_state_pub, &H_ctrl_state, sizeof(H_ctrl_state), &fs, NULL, ACH_O_LAST);
         if( r != ACH_OK )
         {
-            cout << "get ach channel for H_ref_state failed : " << ach_result_to_string(r) << endl;
-        }
-        else if (fs != sizeof(H_state))
-        {
-            ROS_ERROR("Hubo state size error! [publishing loop]");
+            //cout << "get ach channel for H_ctrl_state failed : " << ach_result_to_string(r) << endl;
             continue;
         }
-        // Get latest reference from HUBO-ACH (this is used to populate the desired values)
-        r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
-        if( r != ACH_OK )
-        {
-            cout << "get ach channel for H_ref_filter failed : " << ach_result_to_string(r) << endl;
-        }
-        else if (fs != sizeof(H_ref_filter))
+        else if (fs != sizeof(H_ctrl_state))
         {
             ROS_ERROR("Hubo ref size error! [publishing loop]");
             continue;
         }
+
+        cout << "Read state correctly in the publish loop" << endl;
+
         // Publish the latest hubo state back out
         hubo_robot_msgs::JointTrajectoryState cur_state;
         cur_state.header.stamp = ros::Time::now();
@@ -411,12 +414,14 @@ void publishLoop()
             // Fill in the setpoint and actual data
             // Values that we don't have data for are set to NAN
             int hubo_index = IndexLookup(cur_state.joint_names[i]);
-            cur_setpoint.positions[i] = H_ref_filter.ref[hubo_index];
-            cur_setpoint.velocities[i] = NAN;
-            cur_setpoint.accelerations[i] = NAN;
-            cur_actual.positions[i] = H_state.joint[hubo_index].pos;
-            cur_actual.velocities[i] = H_state.joint[hubo_index].vel;
-            cur_actual.accelerations[i] = NAN;
+
+            cur_setpoint.positions[i]       = H_ctrl_state.requested_pos[hubo_index];
+            cur_setpoint.velocities[i]      = H_ctrl_state.requested_vel[hubo_index];
+            cur_setpoint.accelerations[i]   = H_ctrl_state.requested_acc[hubo_index];
+
+            cur_actual.positions[i]         = H_ctrl_state.actual_pos[hubo_index];
+            cur_actual.velocities[i]        = H_ctrl_state.actual_vel[hubo_index];
+            cur_actual.accelerations[i]     = H_ctrl_state.actual_acc[hubo_index];
             // Calc the error
             cur_error.positions[i] = cur_setpoint.positions[i] - cur_actual.positions[i];
             cur_error.velocities[i] = NAN;
@@ -464,24 +469,20 @@ int main(int argc, char** argv)
     }
     // Register a signal handler to safely shutdown the node
     signal(SIGINT, shutdown);
+    ach_status_t r;
     // Set up the ACH channels to and from hubo-motion-rt
-    //char command[100];
-    //sprintf(command, "ach -1 -C %s -m 10 -n 1000000 -o 666", HUBO_TRAJ_CHAN);
-    //system(command);
-    //sprintf(command, "ach -1 -C %s -o 666", HUBO_TRAJ_STATE_CHAN);
-    //system(command);
-    //initialize HUBO-ACH feedback channel
-    ach_status_t r = ach_open(&chan_hubo_state, HUBO_CHAN_STATE_NAME , NULL);
-    if (r != ACH_OK)
-    {
-        ROS_FATAL("Could not open ACH channel: HUBO_STATE_CHAN !");
-        exit(1);
-    }
+//    char command[100];
+//    sprintf(command, "ach -1 -C %s -m 10 -n 1000000 -o 666", HUBO_TRAJ_CHAN);
+//    system(command);
+//    sprintf(command, "ach -1 -C %s -o 666", HUBO_TRAJ_STATE_CHAN);
+//    system(command);
+
     //initialize HUBO-ACH reference channel
-    r = ach_open(&chan_hubo_ref_filter, HUBO_CHAN_REF_NAME , NULL);
+    r = ach_open(&chan_hubo_ctrl_state_main, CTRL_CHAN_STATE , NULL);
+    //r = ach_open(&chan_hubo_ref_filter, HUBO_CHAN_REF_NAME , NULL);
     if (r != ACH_OK)
     {
-        ROS_FATAL("Could not open ACH channel: HUBO_REF_CHAN !");
+        ROS_FATAL("Could not open ACH channel: CTRL_CHAN_STATE !");
         exit(1);
     }
     // Make sure the ACH channels to hubo motion are opened properly
@@ -501,8 +502,10 @@ int main(int argc, char** argv)
     // Set up state publisher
     std::string pub_path = nh.getNamespace() + "/state";
     g_state_pub = nh.advertise<hubo_robot_msgs::JointTrajectoryState>(pub_path, 1);
+    
     // Spin up the thread for getting data from hubo and publishing it
     pub_thread = new boost::thread(&publishLoop);
+
     // Set up the trajectory subscriber
     std::string sub_path = nh.getNamespace() + "/command";
     g_traj_sub = nh.subscribe(sub_path, 1, trajectoryCB);
@@ -510,24 +513,27 @@ int main(int argc, char** argv)
     // Spin until killed
     
     size_t fs;
-    hubo_ref_t H_ref_filter;
-    memset(&H_ref_filter, 0, sizeof(H_ref_filter));
+    hubo_ctrl_state_t H_ctrl_state;
+    memset(&H_ctrl_state, 0, sizeof(H_ctrl_state));
     while (ros::ok())
     {
         // Get latest reference from HUBO-ACH (this is used to populate the uncommanded joints!)
-        r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
+        r = ach_get(&chan_hubo_ctrl_state_main, &H_ctrl_state, sizeof(H_ctrl_state), &fs, NULL, ACH_O_LAST);
+
         if( r != ACH_OK )
         {
-            cout << "get ach channel for H_ref_filter failed : " << ach_result_to_string(r) << endl;
+            cout << "get ach channel for H_ctrl_state failed : " << ach_result_to_string(r) << endl;
         }
-        else if (fs != sizeof(H_ref_filter))
+        else if (fs != sizeof(H_ctrl_state))
         {
             ROS_ERROR("Hubo ref size error! [sending loop]");
         }
         else
         {
+            cout << "processing trajectory" << endl;
+
             // Reprocess the current trajectory chunk (this does nothing if we have nothing to send)
-            std::vector<trajectory_msgs::JointTrajectoryPoint> cleaned_trajectory = processTrajectory(&H_ref_filter);
+            std::vector<trajectory_msgs::JointTrajectoryPoint> cleaned_trajectory = processTrajectory(&H_ctrl_state);
             if (cleaned_trajectory.size() > 0)
             {
                 SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSec());
