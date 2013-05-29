@@ -509,7 +509,7 @@ int main(int argc, char** argv)
             std::vector<trajectory_msgs::JointTrajectoryPoint> cleaned_trajectory = processTrajectory(&H_ref_filter);
             if (cleaned_trajectory.size() > 0)
             {
-                SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSecs());
+                SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSec());
             }
             // Send the latest trajectory chunk (this does nothing if we have nothing to send)
             sendTrajectory(cleaned_trajectory);
