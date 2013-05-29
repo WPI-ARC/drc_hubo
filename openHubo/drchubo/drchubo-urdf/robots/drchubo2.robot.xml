@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Robot name="drchubo2" >
-  <KinBody file="drchubo.kinbody.xml" makejoinedlinksadjacent="true"/>
+  <KinBody file="drchubo2.kinbody.xml" makejoinedlinksadjacent="true"/>
   
   <Manipulator name="leftArm">
     <base>Body_Torso</base>
