@@ -19,7 +19,7 @@ end
 robotid = orEnvCreateRobot('Hubo',['../../../openHubo/' robotname '.robot.xml']);
 crankid = orEnvCreateRobot('crank','../../../../drc_common/models/driving_wheel.robot.xml');
 
-shiftUp = 0.95
+shiftUp = 0.95;
 
 if(robottype == 1)    
     orBodySetTransform(crankid,[reshape(rodrigues([0 0 pi/2])*rodrigues([pi/2 0 0]),1,9)';[0.5 0.0 shiftUp]']) % Note that when mounted on our foldable table the height of the wheel is 0.8128
@@ -80,12 +80,12 @@ cogtarg = [-0.05 0.085 0];
 
 if(robottype == 1)
     %TODO
-    rhanddofs = 19:25;
-    rhandclosevals = [0.439 0.683 0.497  0.439 0.683 0.497   0.439 0.683 0.497   0.439 0.683 0.497  0 0 1.2];
-    rhandopenvals = [zeros(1,size(rhanddofs,2)-1),0.08];
-    lhanddofs = 1:7;
-    lhandclosevals = [0.439 0.683 0.497  0.439 0.683 0.497   0.439 0.683 0.497   0.439 0.683 0.497  0 0 1.2];
-    lhandopenvals = [zeros(1,size(lhanddofs,2)-1),0.08];
+    rhanddofs = 26:28;
+    rhandclosevals = [0.95 0.95 -0.95];
+    rhandopenvals = zeros(1,size(rhanddofs,2));
+    lhanddofs = 8:10;
+    lhandclosevals = [0.95 0.95 -0.95];
+    lhandopenvals = zeros(1,size(lhanddofs,2));
 elseif(robottype == 2)
     rhanddofs = [45 46 47 48 49 50 51 52 53 54 55 56 57 58 59];
     rhandclosevals = [0.439 0.683 0.497  0.439 0.683 0.497   0.439 0.683 0.497   0.439 0.683 0.497  -0.194 -0.565 -1.242];
@@ -133,7 +133,7 @@ if(robottype == 1)
     temp = temp*MakeTransform(rodrigues([-pi 0 0]),[0 0 0]');
     
     % Translate the new coordinate frame -0.11 meters on its ?-axis and assign it to Left Hand
-    Left_Hand_Point_In_Wheel_Coordinate_Frame = temp*MakeTransform(rodrigues([0 0 0]),[0 0 0.15]');
+    Left_Hand_Point_In_Wheel_Coordinate_Frame = temp*MakeTransform(rodrigues([0 0 0]),[0 0 0.07]');
     
     T0_LH1 = Left_Hand_Point_In_Wheel_Coordinate_Frame;
     
@@ -141,7 +141,7 @@ if(robottype == 1)
     temp = CTee*MakeTransform(rodrigues([0 -pi/2 0]),[0 0 0]');
     
     % Translate the new coordinate frame -0.11 meters on its Z-axis and assign it to Right Hand
-    Right_Hand_Point_In_Wheel_Coordinate_Frame = temp*MakeTransform(rodrigues([0 0 0]),[0 0 0.15]');
+    Right_Hand_Point_In_Wheel_Coordinate_Frame = temp*MakeTransform(rodrigues([0 0 0]),[0 0 0.07]');
     
     T0_RH1 = Right_Hand_Point_In_Wheel_Coordinate_Frame;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -160,18 +160,18 @@ elseif(robottype == 2)
 end
 
 
-% TSRString1 = SerializeTSR(0,'NULL',T0_LH1,eye(4),[0,0,0,0,0,0,0,0,0,0,0,0]);
-% TSRString2 = SerializeTSR(1,'NULL',T0_RH1,eye(4),[0,0,0,0,0,0,0,0,0,0,0,0]);
-% TSRString3 = SerializeTSR(2,'NULL',Tee{3},eye(4),[0,0,0,0,0,0,0,0,0,0,0,0]);
-% 
-% 
-% T0_w0H =  MakeTransform(links(1:9,manips{5}.eelink+1),links(10:12,manips{5}.eelink+1));
-% Tw0_eH = eye(4);
-% %Bw0H = [-0.1,0.1,-0.1,0.1,-0.1,0.01,0,0,-pi,pi,0,0];
-% Bw0H = [0,0,-0.1,0.1,-0.1,0.01,0,0,0,0,0,0];
-% TSRString4 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H);
-% 
-% TSRChainStringGrasping = [SerializeTSRChain(0,1,0,1,TSRString1,'NULL',[]) ' ' SerializeTSRChain(0,1,0,1,TSRString2,'NULL',[]) ' '  SerializeTSRChain(0,1,1,1,TSRString3,'NULLL',[]) ' ' SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[])];
+TSRString1 = SerializeTSR(0,'NULL',T0_LH1,eye(4),zeros(1,12));
+TSRString2 = SerializeTSR(1,'NULL',T0_RH1,eye(4),zeros(1,12));
+TSRString3 = SerializeTSR(2,'NULL',Tee{3},eye(4),zeros(1,12)); %left foot
+TSRString4 = SerializeTSR(3,'NULL',Tee{4},eye(4),zeros(1,12)); %right foot
+T0_w0H =  MakeTransform(links(1:9,manips{5}.eelink+1),links(10:12,manips{5}.eelink+1));
+Tw0_eH = eye(4);
+Bw0H = [-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi];
+TSRString5 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H);
+
+%TSRChainStringGrasping = [SerializeTSRChain(0,1,0,1,TSRString1,'NULL',[]) ' ' SerializeTSRChain(0,1,0,1,TSRString2,'NULL',[]) ' '  SerializeTSRChain(0,1,1,1,TSRString3,'NULLL',[]) ' ' SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[]) ' ' SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])];
+TSRChainStringGrasping = [SerializeTSRChain(0,1,1,1,TSRString1,'NULL',[]) ' ' SerializeTSRChain(0,1,1,1,TSRString2,'NULL',[])];
+
 % 
 % 
 % orProblemSendCommand(['RunCBiRRT psample 0.2 supportlinks 2 ' footlinknames  ' smoothingitrs ' num2str(normalsmoothingitrs) ' ' TSRChainStringGrasping],probs.cbirrt);
@@ -247,16 +247,16 @@ orRobotSetDOFValues(robotid,str2num(goalik));
 %%
 
 orRobotSetDOFValues(crankid,0,crankjointind)
-orRobotSetDOFValues(robotid,str2num(startik));
-%orRobotSetDOFValues(robotid,initconfig);
+%orRobotSetDOFValues(robotid,str2num(startik));
+orRobotSetDOFValues(robotid,initconfig);
+
+orRobotSetDOFValues(robotid,rhandopenvals,rhanddofs);
+orRobotSetDOFValues(robotid,lhandopenvals,lhanddofs);
 
 goaljoints = str2num(startik);
-orProblemSendCommand(['RunCBiRRT supportlinks 2 ' footlinknames  ' smoothingitrs ' num2str(normalsmoothingitrs) ' jointgoals '  num2str(numel(goaljoints)) ' ' num2str(goaljoints) ' ' TSRChainStringFeetandHead],probs.cbirrt);
-
-
-
+orProblemSendCommand(['RunCBiRRT psample 0.2 supportlinks 2 ' footlinknames  ' smoothingitrs ' num2str(normalsmoothingitrs) ' ' TSRChainStringGrasping],probs.cbirrt);
+!mv cmovetraj.txt movetraj0.txt
 orProblemSendCommand(['traj movetraj0.txt'],probs.cbirrt);
-
 orEnvWait(robotid);
 
 orRobotSetDOFValues(robotid,rhandclosevals,rhanddofs);
@@ -264,7 +264,7 @@ orRobotSetDOFValues(robotid,lhandclosevals,lhanddofs);
 
 %%
 
-%orRobotSetDOFValues(robotid,str2num(startik));
+orRobotSetDOFValues(robotid,str2num(startik));
 goaljoints = [str2num(goalik), 0*ones(1,TSRChainMimicDOF)];
 orProblemSendCommand(['RunCBiRRT supportlinks 2 ' footlinknames  ' smoothingitrs ' num2str(fastsmoothingitrs) ' jointgoals '  num2str(numel(goaljoints)) ' ' num2str(goaljoints) ' ' TSRChainString],probs.cbirrt);
 !mv cmovetraj.txt movetraj1.txt
@@ -302,25 +302,37 @@ orEnvWait(robotid);
 %% playback
 while(1)
     pausetime_a = 0.5;
-    pausetime = 0.2
+    pausetime = 0.2;
     orRobotSetDOFValues(robotid,initconfig);
     pause(pausetime)
 
-    orProblemSendCommand(['traj movetraj2.txt'],probs.cbirrt);
+    orProblemSendCommand(['traj movetraj0.txt'],probs.cbirrt);
     orEnvWait(robotid);
     pause(pausetime)
     for i = 1:3
 
         orRobotSetDOFValues(robotid,rhandclosevals,rhanddofs);
         orRobotSetDOFValues(robotid,lhandclosevals,lhanddofs);
-
+        pause(pausetime_a);
+        
         orProblemSendCommand(['traj movetraj1.txt'],probs.cbirrt);
         orProblemSendCommand(['traj movetraj1.txt'],probs.crankmover);
         orEnvWait(robotid);
-        pause(pausetime_a)
-    
+        pause(pausetime_a);
+        
+        orRobotSetDOFValues(robotid,rhandopenvals,rhanddofs);
+        orRobotSetDOFValues(robotid,lhandopenvals,lhanddofs);
+        
+        if (i ~= 3)
+            orRobotSetDOFValues(crankid,0,crankjointind)
+            pause(pausetime_a);
+        
+            orProblemSendCommand(['traj movetraj2.txt'],probs.cbirrt);
+            orEnvWait(robotid); 
+            pause(pausetime_a);
+        end
+            
     end
-
 
     orProblemSendCommand(['traj movetraj3.txt'],probs.cbirrt);
     orEnvWait(robotid);
