@@ -15,7 +15,7 @@
             <height>0.016</height>
             <DiffuseColor>0.2 0.2 0.2</DiffuseColor>
         </Geom>
-        <Mass type="mimicgeom">
+        <Mass type="mimicgeommass">
             <total>0.012</total>
         </Mass>
     </Body>
@@ -34,7 +34,7 @@
             <height>0.016</height>
             <DiffuseColor>0.2 0.2 0.2</DiffuseColor>
         </Geom>
-        <Mass type="mimicgeom">
+        <Mass type="mimicgeommass">
             <total>0.006</total>
         </Mass>
     </Body>
@@ -54,7 +54,7 @@
             <height>0.016</height>
             <DiffuseColor>0.2 0.2 0.2</DiffuseColor>
         </Geom>
-        <Mass type="mimicgeom">
+        <Mass type="mimicgeommass">
             <total>0.010</total>
         </Mass>
     </Body>
