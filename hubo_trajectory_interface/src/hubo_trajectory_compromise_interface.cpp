@@ -37,8 +37,12 @@
 #include <trajectory_msgs/JointTrajectoryPoint.h>
 // Includes for ACH and hubo-motion-rt
 #include <ach.h>
-#include <hubo.h>
+//#include <hubo.h>
+#include "/usr/local/include/hubo.h"
 #include <motion-trajectory.h>
+
+using std::cout;
+using std::endl;
 
 // ACH channels
 ach_channel_t chan_traj_cmd;
@@ -59,7 +63,7 @@ ach_channel_t chan_hubo_ref_filter;
 double SPIN_RATE = 5.0; //Rate in hertz at which to send trajectory chunks
 
 // Index->Joint name mapping (the index in this array matches the numerical index of the joint name in Hubo-Ach as defined in hubo.h
-char* joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
+const char* joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
 // Trajectory storage
 std::vector<std::string> g_joint_names;
@@ -119,6 +123,7 @@ void sendTrajectory(std::vector<trajectory_msgs::JointTrajectoryPoint> processed
         }
         ach_traj.endTime = processed_traj.back().time_from_start.toSec();
         ach_traj.trajID = g_tid;
+        cout << "Send trajectory chunk" << endl;
         ach_put(&chan_traj_cmd, &ach_traj, sizeof(ach_traj));
         g_tid++;
     }
@@ -204,7 +209,7 @@ int IndexLookup(std::string joint_name)
  * necessary and we change the interface slightly as a result. A consequnce of this is than not all data
  * reported from this node is accurate, as it doesn't all exist in the first place!
  *************************************************************************************************************************/
-trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, struct hubo_ref * cur_commands)
+trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTrajectoryPoint raw, hubo_ref_t* cur_commands)
 {
     trajectory_msgs::JointTrajectoryPoint processed;
     processed.positions.resize(HUBO_JOINT_COUNT);
@@ -253,7 +258,7 @@ trajectory_msgs::JointTrajectoryPoint processPoint(trajectory_msgs::JointTraject
  *
  * Once a chunk has been reprocessed, it is removed from the stored list of chunks.
 */
-std::vector<trajectory_msgs::JointTrajectoryPoint> processTrajectory(struct hubo_ref* cur_commands)
+std::vector<trajectory_msgs::JointTrajectoryPoint> processTrajectory(hubo_ref_t* cur_commands)
 {
     std::vector<trajectory_msgs::JointTrajectoryPoint> processed;
     if (g_trajectory_chunks.size() == 0)
@@ -348,24 +353,34 @@ void trajectoryCB(const trajectory_msgs::JointTrajectory& traj)
  */
 void publishLoop()
 {
-    size_t fs;
-    struct hubo_state H_state;
+    hubo_state_t H_state;
     memset(&H_state, 0, sizeof(H_state));
-    struct hubo_ref H_ref_filter;
+    hubo_ref_t H_ref_filter;
     memset(&H_ref_filter, 0, sizeof(H_ref_filter));
     // Loop until node shutdown
     while (ros::ok())
     {
+        size_t fs;
+        ach_status_t r;
+
         // Get the latest hubo state from HUBO-ACH
-        ach_get(&chan_hubo_state, &H_state, sizeof(H_state), &fs, NULL, ACH_O_WAIT);
-        if (fs != sizeof(H_state))
+        r = ach_get(&chan_hubo_state, &H_state, sizeof(H_state), &fs, NULL, ACH_O_WAIT);
+        if( r != ACH_OK )
+        {
+            cout << "get ach channel for H_ref_state failed : " << ach_result_to_string(r) << endl;
+        }
+        else if (fs != sizeof(H_state))
         {
             ROS_ERROR("Hubo state size error! [publishing loop]");
             continue;
         }
         // Get latest reference from HUBO-ACH (this is used to populate the desired values)
-        ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
-        if (fs != sizeof(H_ref_filter))
+        r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
+        if( r != ACH_OK )
+        {
+            cout << "get ach channel for H_ref_filter failed : " << ach_result_to_string(r) << endl;
+        }
+        else if (fs != sizeof(H_ref_filter))
         {
             ROS_ERROR("Hubo ref size error! [publishing loop]");
             continue;
@@ -418,14 +433,16 @@ void publishLoop()
 
 int main(int argc, char** argv)
 {
-    printf("Starting JointTrajectoryAction controller interface node...");
+    std::cout << "Starting JointTrajectoryAction controller interface node..." << std::endl;
     ros::init(argc, argv, "hubo_joint_trajectory_controller_interface_node", ros::init_options::NoSigintHandler);
     ros::NodeHandle nh;
     ros::NodeHandle nhp("~");
     ROS_INFO("Attempting to start JointTrajectoryAction controller interface...");
+
     // Get all the active joint names
     XmlRpc::XmlRpcValue joint_names;
-    if (!nhp.getParam("joints", joint_names))
+
+    if (!nhp.getParam("/hubo_fullbody_controller/hubo_fullbody_controller_node/joints", joint_names))
     {
         ROS_FATAL("No joints given. (namespace: %s)", nhp.getNamespace().c_str());
         exit(1);
@@ -448,11 +465,11 @@ int main(int argc, char** argv)
     // Register a signal handler to safely shutdown the node
     signal(SIGINT, shutdown);
     // Set up the ACH channels to and from hubo-motion-rt
-    char command[100];
-    sprintf(command, "ach -1 -C %s -m 10 -n 1000000 -o 666", HUBO_TRAJ_CHAN);
-    system(command);
-    sprintf(command, "ach -1 -C %s -o 666", HUBO_TRAJ_STATE_CHAN);
-    system(command);
+    //char command[100];
+    //sprintf(command, "ach -1 -C %s -m 10 -n 1000000 -o 666", HUBO_TRAJ_CHAN);
+    //system(command);
+    //sprintf(command, "ach -1 -C %s -o 666", HUBO_TRAJ_STATE_CHAN);
+    //system(command);
     //initialize HUBO-ACH feedback channel
     ach_status_t r = ach_open(&chan_hubo_state, HUBO_CHAN_STATE_NAME , NULL);
     if (r != ACH_OK)
@@ -493,13 +510,17 @@ int main(int argc, char** argv)
     // Spin until killed
     
     size_t fs;
-    struct hubo_ref H_ref_filter;
+    hubo_ref_t H_ref_filter;
     memset(&H_ref_filter, 0, sizeof(H_ref_filter));
     while (ros::ok())
     {
-        //Get latest reference from HUBO-ACH (this is used to populate the uncommanded joints!)
-        ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
-        if (fs != sizeof(H_ref_filter))
+        // Get latest reference from HUBO-ACH (this is used to populate the uncommanded joints!)
+        r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
+        if( r != ACH_OK )
+        {
+            cout << "get ach channel for H_ref_filter failed : " << ach_result_to_string(r) << endl;
+        }
+        else if (fs != sizeof(H_ref_filter))
         {
             ROS_ERROR("Hubo ref size error! [sending loop]");
         }
