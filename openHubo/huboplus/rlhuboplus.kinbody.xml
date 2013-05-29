@@ -63,7 +63,9 @@
 			<radius>0.031</radius>
 			<height>0.00726</height>
 		</geom>
-		
+	     <Mass type="sphere">
+            <total>0.000001</total>
+        </Mass>
     </body>
     <body name="Body_RAR" type="dynamic">
         <offsetfrom>rightFoot</offsetfrom>
@@ -667,6 +669,9 @@
 			<radius>0.031</radius>
 			<height>0.00726</height>
 		</geom>
+	     <Mass type="sphere">
+            <total>0.000001</total>
+        </Mass>
     </body>
 
     <joint name="LAR_dummy" type="hinge" enable="false">
@@ -1095,6 +1100,9 @@
             <diffusecolor>.3 .3 .3</diffusecolor>
 			<extents> 0.0197485 0.002 0.037595</extents>
 		</geom>
+	     <Mass type="sphere">
+            <total>0.000001</total>
+        </Mass>
     </body>
 
     <Joint name="RWP_dummy" type="hinge" enable="false">
@@ -1153,6 +1161,9 @@
             <diffusecolor>.3 .3 .3</diffusecolor>
 			<extents>0.0197485 0.002 0.037595 </extents>
 		</geom>
+	     <Mass type="sphere">
+            <total>0.000001</total>
+        </Mass>
     </body>
 
     <Joint name="LWP_dummy" type="hinge" enable="false">
@@ -1170,6 +1181,9 @@
         <translation>0.000000000000 -0.000020548820 0.148299146751</translation>
         <!--Body_HNR Base to Center of Mass -->
         <translation>0.000000000000 0.000000000000 0.000000000000</translation>
+        <Mass type="sphere">
+            <total>0.000001</total>
+        </Mass>
     </body>
 
     <Joint name="HNR" type="hinge">

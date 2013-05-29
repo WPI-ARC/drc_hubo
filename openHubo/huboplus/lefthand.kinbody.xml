@@ -12,6 +12,9 @@
 
     <Body name="leftIndexProximal" type="dynamic">
         <offsetfrom>Body_LWP</offsetfrom>
+        <Mass type="mimicgeommass">
+            <total>0.012</total>
+        </Mass>
     </Body>
     <!--Have to redo all the adjacencies when a body is redefined like this...-->
     <adjacent>Body_LWP leftIndexProximal</adjacent>
@@ -38,6 +41,9 @@
 
     <Body name="leftMiddleProximal" type="dynamic">
         <offsetfrom>Body_LWP</offsetfrom>
+        <Mass type="mimicgeommass">
+            <total>0.012</total>
+        </Mass>
     </Body>
     <!--Have to redo all the adjacencies when a body is redefined like this...-->
     <adjacent>Body_LWP leftMiddleProximal</adjacent>
@@ -64,6 +70,9 @@
 
     <Body name="leftRingProximal" type="dynamic">
         <offsetfrom>Body_LWP</offsetfrom>
+        <Mass type="mimicgeommass">
+            <total>0.012</total>
+        </Mass>
     </Body>
     <!--Have to redo all the adjacencies when a body is redefined like this...-->
     <adjacent>Body_LWP leftRingProximal</adjacent>
@@ -90,6 +99,9 @@
 
     <Body name="leftPinkyProximal" type="dynamic">
         <offsetfrom>Body_LWP</offsetfrom>
+        <Mass type="mimicgeommass">
+            <total>0.012</total>
+        </Mass>
     </Body>
     <!--Have to redo all the adjacencies when a body is redefined like this...-->
     <adjacent>Body_LWP leftPinkyProximal</adjacent>
@@ -116,6 +128,9 @@
 
     <Body name="leftThumbProximal" type="dynamic">
         <offsetfrom>Body_LWP</offsetfrom>
+        <Mass type="mimicgeommass">
+            <total>0.012</total>
+        </Mass>
     </Body>
     <!--Have to redo all the adjacencies when a body is redefined like this...-->
     <adjacent>Body_LWP leftThumbProximal</adjacent>
