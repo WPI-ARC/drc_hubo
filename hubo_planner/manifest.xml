@@ -13,6 +13,7 @@
   <depend package="sensor_msgs"/>
   <depend package="geometry_msgs"/>
   <depend package="trajectory_msgs"/>
+  <depend package="hubo_robot_msgs"/>
 
 </package>
 

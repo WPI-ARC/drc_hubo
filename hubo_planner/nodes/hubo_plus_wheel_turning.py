@@ -47,6 +47,7 @@ class HuboPlusWheelTurning:
         # Do it using the member functions
         self.StopAtKeyStrokes = False
         self.ShowUserInterface = False
+        self.ViewerStarted = False
 
         self.T_Wheel = None
         self.HuboModelPath = HuboModelPath
@@ -61,6 +62,10 @@ class HuboPlusWheelTurning:
         self.env.Add(self.crankid)
 
         print "init HuboPlusWheelTurning"
+
+    def KillOpenrave(self):
+        self.env.Destroy()
+        RaveDestroy()
 
     def SetViewer(self,arg=True):
         print "SetViewer"
@@ -162,18 +167,26 @@ class HuboPlusWheelTurning:
         fastsmoothingitrs = 20;
 
         # Start the Viewer and draws the world frame
-        if( self.ShowUserInterface ):
+        if( self.ShowUserInterface and not self.ViewerStarted ):
             cam_rot = dot(xyz_rotation([3*pi/2,0,0]),xyz_rotation([0,-pi/2,0]))
             cam_rot = dot(cam_rot,xyz_rotation([-pi/10,0,0])) # inclination of the camera
             T_cam = MakeTransform(cam_rot,transpose(matrix([2.0, 0.00, 01.4])))
             self.env.SetViewer('qtcoin')
             self.env.GetViewer().SetCamera(array(T_cam))
             self.env.GetViewer().EnvironmentSync()
+            self.ViewerStarted = True
             #handles.append( misc.DrawAxes(self.env,T_cam,1) )
             handles.append( misc.DrawAxes(self.env,MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0]))),1) )
             
+        # Wheel Joint Index  
+        crankjointind = 0
+        # Set the wheel joints back to 0 for replanning
+        self.crankid.SetDOFValues([0],[crankjointind])
+        self.crankid.GetController().Reset(0)
+
         # Move the wheel infront of the robot
-        self.crankid.SetTransform(array(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.09, 0.9])))))
+        if self.T_Wheel is None:
+            self.crankid.SetTransform(array(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.09, 0.9])))))
         
         manips = self.robotid.GetManipulators()
         crankmanip = self.crankid.GetManipulators()
@@ -216,8 +229,6 @@ class HuboPlusWheelTurning:
             Tlink = manips[i].GetEndEffectorTransform()
             Tee.append(Tlink)
 
-        # Wheel Joint Index  
-        crankjointind = 0
         
         # Get Transformation Matrix for the Wheel
         # Note that crank's links are not rotated
@@ -651,12 +662,15 @@ class HuboPlusWheelTurning:
             print "Press Enter to exit..."
             sys.stdin.readline()
 
-        self.env.Destroy()
-        RaveDestroy()
+        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj1.txt','movetraj3.txt']
+        return file_names
+
 
 if __name__ == "__main__":
     planner = HuboPlusWheelTurning()
     planner.SetViewer(True)
     planner.SetStopKeyStrokes(True)
     planner.Run()
+    planner.KillOpenrave()
+
     

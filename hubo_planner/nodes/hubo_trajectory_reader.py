@@ -5,11 +5,10 @@
 #import easy to use xml parser called minidom:
 from xml.dom.minidom import parseString
 
+import rospy;
 import roslib;
-
 roslib.load_manifest('hubo_planner')
 
-import rospy
 from math import *
 import random
 import time
@@ -83,7 +82,7 @@ hubo_joint_names = {
 56 : 'leftThumbKnuckle1' }     
 
 
-def getCompleteTraj(fname,num_sample=-1):
+def read(fname,num_sample=-1):
 
     debug = True # this makes the script print out some of what it reads from file
     #open the xml file for reading:
@@ -267,10 +266,6 @@ def getCompleteTraj(fname,num_sample=-1):
             # Empty velocity buffers for arm trajectories
             v_buffer = []
 
-            #print i_vel 
-            #print f_vel
-            #print joint_offsets.keys()
-
             # Fill in velocity buffers
             for v in range(i_vel,f_vel):
                 if( v in joint_vel_offsets.keys()):
@@ -283,12 +278,10 @@ def getCompleteTraj(fname,num_sample=-1):
             hubo_goal = JointTrajectoryGoal()
             hubo_goal.trajectory = hubo_traj
 
-            #print v_buffer
-
             if(False):
                 print v_buffer
 
-        return [hubo_traj]
+        return hubo_traj
                     
     except NameError, e:
         print "Error - one of the necessary variables is not found:"
@@ -297,127 +290,6 @@ def getCompleteTraj(fname,num_sample=-1):
     # print "Finished playing trajectory file: " + fname
     return 1
 
-def compilePrepTrajectory(arm):
-    t = JointTrajectory()
-
-    #if(arm == 'leftArm'):
-    #    t.joint_names = l_arm_active_joint_names
-    #    i = 0
-    
-    #if(arm == 'rightArm'):
-    #    t.joint_names = r_arm_active_joint_names
-    #    i = 1
-
-    #init = getPointFromTrajFile('movetraj0.txt',1,1.0)[i]
-    #approach1 = getPointFromTrajFile('movetraj1.txt',1,2.0)[i]
-    #approach2 = getPointFromTrajFile('movetraj2.txt',1,3.0)[i]
-    #t.points.append(init)
-    #t.points.append(approach1)
-    #t.points.append(approach2)
-    
-    if(arm == 'leftArm'):
-        return getCompleteTraj('movetraj2.txt')[0]
-    
-    if(arm == 'rightArm'):
-        return getCompleteTraj('movetraj2.txt')[1]
-
-    return t
-
-def compileMainTrajectory(arm):
-    if(arm == 'leftArm'):
-        return getCompleteTraj('movetraj3.txt')[0]
-    
-    if(arm == 'rightArm'):
-        return getCompleteTraj('movetraj3.txt')[1]
-
-def compileReverseTrajectory(arm):
-    if(arm == 'leftArm'):
-        tr3 = reverseTrajectory('movetraj3.txt',arm)
-        return tr3
-
-    if(arm == 'rightArm'):
-        tr3 = reverseTrajectory('movetraj3.txt',arm)
-        return tr3
-
-def compilePostTrajectory(arm):
-    if(arm == 'leftArm'):
-        tr5 = getCompleteTraj('movetraj5.txt')[0]
-        return tr5
-    if(arm == 'rightArm'):
-        tr5 = getCompleteTraj('movetraj5.txt')[1]
-        return tr5
-
-def concatenateTrajectories(t1,t2):
-    last_t = t1.points[len(t1.points)-1].time_from_start.to_sec()
-    for p in range(len(t2.points)):
-            t2.points[p].time_from_start = rospy.Duration(t2.points[p].time_from_start.to_sec()+6.0)
-            t1.points.append(t2.points[p])
-    return t1
-
-def reverseTrajectory(tname,arm):
-    if(arm == 'leftArm'):
-        t_fwd = JointTrajectory()
-        t_bwd = JointTrajectory()
-        t_fwd = getCompleteTraj(tname)[0]
-        for p in range(len(t_fwd.points)-1,-1,-1):
-            t_bwd.points.append(t_fwd.points[p])
-
-        for p in range(len(t_fwd.points)):
-            t_bwd.points[p].time_from_start = rospy.Duration(float(p*(6.0/len(t_fwd.points))))
-            
-
-        t_bwd.joint_names = t_fwd.joint_names
-        return t_bwd
-
-    if(arm == 'rightArm'):
-        t_fwd = JointTrajectory()
-        t_bwd = JointTrajectory()
-        t_fwd = getCompleteTraj(tname)[1]
-        for p in range(len(t_fwd.points)-1,-1,-1):
-            t_bwd.points.append(t_fwd.points[p])
-
-        for p in range(len(t_fwd.points)):
-            t_bwd.points[p].time_from_start = rospy.Duration(float(p*(6.0/len(t_fwd.points))))
-
-        t_bwd.joint_names = t_fwd.joint_names
-        return t_bwd
-
-def pr2_rave2task_control(traj_code="test"):
-
-    rospy.wait_for_service("task_control/Trajectory_Request")
-    traj_client = rospy.ServiceProxy("task_control/Trajectory_Request", PR2ManagedJointTrajectory)
-
-    close_gripper_goal = Pr2GripperCommandGoal()
-    close_gripper_goal.command.position = 0.00
-    close_gripper_goal.command.max_effort = -1.0
-    open_gripper_goal = Pr2GripperCommandGoal()
-    open_gripper_goal.command.position = 0.09
-    open_gripper_goal.command.max_effort = -1.0
-
-    trajectory_to_execute = PR2ManagedJointTrajectory._request_class()    
-    trajectory_to_execute.left_arm_command.prep_trajectory = compilePrepTrajectory('leftArm')
-    trajectory_to_execute.left_arm_command.main_trajectory = compileMainTrajectory('leftArm')
-    trajectory_to_execute.left_arm_command.return_trajectory = compileReverseTrajectory('leftArm')
-    trajectory_to_execute.left_arm_command.post_trajectory = compilePostTrajectory('leftArm')
-    trajectory_to_execute.right_arm_command.prep_trajectory = compilePrepTrajectory('rightArm')
-    trajectory_to_execute.right_arm_command.main_trajectory = compileMainTrajectory('rightArm')
-    trajectory_to_execute.right_arm_command.return_trajectory = compileReverseTrajectory('rightArm')
-    trajectory_to_execute.right_arm_command.post_trajectory = compilePostTrajectory('rightArm')
-
-    #Set gripper commands
-    trajectory_to_execute.left_gripper_commands = [open_gripper_goal, close_gripper_goal, open_gripper_goal, open_gripper_goal, open_gripper_goal]
-    trajectory_to_execute.right_gripper_commands = [open_gripper_goal, close_gripper_goal, open_gripper_goal, open_gripper_goal, open_gripper_goal]
-
-    #Set header info
-    trajectory_to_execute.code = traj_code
-    trajectory_to_execute.filepath = "test"
-
-    #Send the trajectory to the trajectory controller
-    print "sent trajectories to the client. waiting for a result..."
-    result = traj_client(trajectory_to_execute)
-    print "got a result:"
-    print result
-    return result
 
 def main():
     # Initialize ROS node
