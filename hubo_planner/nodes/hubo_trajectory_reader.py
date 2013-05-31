@@ -22,6 +22,36 @@ import numpy
 from copy import deepcopy
 import sys
 
+hubo_body_joint_names = { 
+0 : 'HPY' ,  
+1 : 'RHY' ,  
+2 : 'LHY' ,
+3 : 'RHR' ,
+4 : 'LHR' ,
+5 : 'RHP' , 
+6 : 'LHP' ,  
+7 : 'RKP' ,        
+8 : 'LKP' ,  
+9 : 'RAP' ,      
+10 : 'LAP' ,        
+11 : 'RAR_dummy' ,
+12 : 'LAR_dummy' ,
+13 : 'RSP' ,
+14 : 'LSP' ,   
+15 : 'RSR' ,        
+16 : 'LSR' ,
+17 : 'RSY' ,
+18 : 'LSY' ,      
+19 : 'REP' , 
+20 : 'LEP' ,
+21 : 'RWY' ,
+22 : 'LWY' ,
+23 : 'RWP' ,    
+24 : 'LWP' ,
+25 : 'HNR' ,
+26 : 'HNP' 
+}
+
 hubo_joint_names = { 
 0 : 'HPY' ,  
 1 : 'RHY' ,  
@@ -34,13 +64,13 @@ hubo_joint_names = {
 8 : 'LKP' ,  
 9 : 'RAP' ,      
 10 : 'LAP' ,        
-11 : 'RAR' ,
-12 : 'LAR' ,
+11 : 'RAR_dummy' ,
+12 : 'LAR_dummy' ,
 13 : 'RSP' ,
 14 : 'LSP' ,   
 15 : 'RSR' ,        
-16 : 'LSR' ,       
-17 : 'RSY' , 
+16 : 'LSR' ,
+17 : 'RSY' ,
 18 : 'LSY' ,      
 19 : 'REP' , 
 20 : 'LEP' ,
@@ -84,7 +114,7 @@ hubo_joint_names = {
 
 def read(fname,num_sample=-1):
 
-    debug = True # this makes the script print out some of what it reads from file
+    debug = False # this makes the script print out some of what it reads from file
     #open the xml file for reading:
     # print "Reading - playing: " + fname
     trajFile = open(fname,'r')
@@ -228,15 +258,20 @@ def read(fname,num_sample=-1):
 
         hubo_traj = JointTrajectory()
 
+        # Set the time stamp to now
+        hubo_traj.header.stamp = rospy.Time.now()
+
+        # Set the joint names
         hubo_joint_names_list = []
-        for key, value in hubo_joint_names.iteritems():
+        for key, value in hubo_body_joint_names.iteritems():
             hubo_joint_names_list.append(value)
 
         hubo_traj.joint_names = hubo_joint_names_list
-
         
         tc = 1 # time_counter
+
         deltaT = float(6.0/data_count)
+
         for c in range(start_from,end_at,increment_by):
 
             current_point = JointTrajectoryPoint()
@@ -254,38 +289,42 @@ def read(fname,num_sample=-1):
             i_jval = i + jval_offset
             f_jval = i_jval + jval_dof
 
-            # Start reading data based on indices
-            # Read joint positions 
-            # Emptry position buffers for arm trajectories
+            # Empty position buffers
             p_buffer = []
-
+        
             # Fill in position buffers
-            for p in range(i_jval,f_jval):
-                if( p in joint_pos_offsets.keys()):
-                    p_buffer.append(float(data[p]))
+            joint_id = 0
+            for p in range( i_jval, f_jval ):
+                if( p in joint_pos_offsets.keys() ):
+                    if( joint_id in hubo_body_joint_names.keys() ):
+                        p_buffer.append(float(data[p]))
+                    joint_id += 1
 
-
-            if(False):
+            if(debug):
                 print p_buffer
 
-            # Empty velocity buffers for arm trajectories
+            # Empty velocity buffers
             v_buffer = []
 
             # Fill in velocity buffers
-            for v in range(i_vel,f_vel):
-                if( v in joint_vel_offsets.keys()):
-                    v_buffer.append(float(data[v]))
-                    #v_buffer.append(0.0)
+            joint_id = 0
+            for v in range( i_vel, f_vel ):
+                if( v in joint_vel_offsets.keys() ):
+                    if( joint_id in hubo_body_joint_names.keys() ):
+                        v_buffer.append(float(data[v]))
+                    joint_id += 1
 
+            if(debug):
+                print v_buffer
+
+            # Append trajectory point
             current_point.positions = deepcopy(p_buffer)
             current_point.velocities = deepcopy(v_buffer)
             hubo_traj.points.append(current_point)
-            hubo_goal = JointTrajectoryGoal()
-            hubo_goal.trajectory = hubo_traj
-
-            if(False):
-                print v_buffer
-
+            
+        # Set hubo trajectory 
+        #hubo_goal = JointTrajectoryGoal()
+        #hubo_goal.trajectory = hubo_traj
         return hubo_traj
                     
     except NameError, e:
