@@ -227,7 +227,12 @@ def read(fname,num_sample=-1):
         # print increment_by
 
         hubo_traj = JointTrajectory()
-        hubo_traj.joint_names = hubo_joint_names
+
+        hubo_joint_names_list = []
+        for key, value in hubo_joint_names.iteritems():
+            hubo_joint_names_list.append(value)
+
+        hubo_traj.joint_names = hubo_joint_names_list
 
         
         tc = 1 # time_counter

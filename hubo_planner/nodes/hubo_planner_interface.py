@@ -48,7 +48,8 @@ class HuboPlannerInterface:
         wheel_trans = [request.valve_position.position.x, request.valve_position.position.y, request.valve_position.position.z]
         wheel_rot = [request.valve_position.orientation.x, request.valve_position.orientation.y, request.valve_position.orientation.z, request.valve_position.orientation.w]
 
-        if( not self.debug ):
+        if( True #not self.debug
+            ):
             self.planner.SetWheelPosition( wheel_trans, wheel_rot )
         else:
             print wheel_trans
@@ -72,14 +73,14 @@ class HuboPlannerInterface:
 
     def BuildResponse(self, trajectory_files):
 
+        #trajectory_msgs/JointTrajectory[]
         traj_array = []
 
         for f in trajectory_files:
             traj_array.append( hubo_trajectory_reader.read( f ) )
 
-        #return traj_array
-        print traj_array
-        return True
+        #print traj_array
+        return PlanValveTurningResponse( traj_array, ["LABELS"] , "PLAN_OK" )
 
 
     def Hubo_CB(self, msg):
