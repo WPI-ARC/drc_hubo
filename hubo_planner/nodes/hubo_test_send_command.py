@@ -10,7 +10,7 @@ import actionlib
 
 # Brings in the messages used by the fibonacci action, including the
 # goal message and the result message.
-#from hubo_msgs.msg import *
+from hubo_robot_msgs.msg import *
 from hubo_planner.srv import *
 from geometry_msgs.msg import *
 #from ach_srvers.msg import *
@@ -38,7 +38,7 @@ def usage():
 def joint_traj_client():
     # Creates the SimpleActionClient, passing the type of the action
     # (FibonacciAction) to the constructor.
-    client = actionlib.SimpleActionClient('ach_server', hubo_msgs.msg.JointTrajectoryAction)
+    client = actionlib.SimpleActionClient('/hubo_fullbody_controller/hubo_fullbody_action_node', hubo_robot_msgs.msg.JointTrajectoryAction )
 
     print "waiting...\n"
 
@@ -66,8 +66,8 @@ if __name__ == '__main__':
         # Initializes a rospy node so that the SimpleActionClient can
         # publish and subscribe over ROS.
         rospy.init_node('hubo_test_send_command')
-        #result = joint_traj_client()
-        print call_to_planner()
+        result = joint_traj_client()
+        #print call_to_planner()
         #print "Result:", ', '.join([str(n) for n in result.sequence])
     except rospy.ROSInterruptException:
         print "program interrupted before completion"
