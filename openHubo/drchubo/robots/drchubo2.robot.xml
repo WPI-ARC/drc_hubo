@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Robot name="drchubo" >
     <KinBody file="drchubo.kinbody.xml" makejoinedlinksadjacent="true">
-        <translation>0 0 .98</translation>
+        <translation>0 0 0</translation>
     </KinBody>
 
     <Manipulator name="leftArm">

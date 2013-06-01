@@ -53,10 +53,12 @@ def put_feet_on_the_ground():
     T0_RF = manips[3].GetEndEffectorTransform()
     T0_RF[2,3] = 0.0
 
-    cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
-    cogtargStr = str(cogtarg).strip("[]").replace(', ',' ')
+    # cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
+    # cogtargStr = str(cogtarg).strip("[]").replace(', ',' ')
 
-    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+cogtargStr+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+    # goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+cogtargStr+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+
+    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
     
     return goalik
 
@@ -250,11 +252,10 @@ traj0.append(Tstart0)
 
 traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.05,0.0])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
+traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.05])))))
+Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.15,0.0]))))
 
-Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.1]))))
 traj0.append(Tgoal0)
 
 # Right Hand
@@ -266,11 +267,9 @@ traj1.append(Tstart1)
 
 traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.05,0.0])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
+traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.05])))))
-
-Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/2,0,0])),transpose(matrix([0.0,-0.1,-0.1]))))
+Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.15,0.0]))))
 
 traj1.append(Tgoal1)
 
@@ -306,14 +305,13 @@ for p in myPatterns:
 
 # 3. Add drchubo
 robots = []
-robots.append(env.ReadRobotURI('../../../openHubo/drchubo/drchubo-urdf/robots/drchubo2.robot.xml'))
+robots.append(env.ReadRobotURI('../../../openHubo/drchubo/robots/drchubo2.robot.xml'))
 env.Add(robots[0])
 lowerLimits, upperLimits = robots[0].GetDOFLimits()
 
-print lowerLimits
-print upperLimits
-
-sys.stdin.readline()
+# print lowerLimits
+# print upperLimits
+# sys.stdin.readline()
            
 
 # Let's keep the rotation of the robot around it's Z-Axis in a variable...
@@ -380,7 +378,7 @@ elif(version == 1):
     probs_cbirrt = RaveCreateModule(env,'CBiRRT')
 
     try:
-        env.AddModule(probs_cbirrt,'drchubo2') # this string should match to <Robot name="" > in robot.xml
+        env.AddModule(probs_cbirrt,'drchubo') # this string should match to <Robot name="" > in robot.xml
     except openrave_exception, e:
         print e
 
@@ -447,12 +445,12 @@ TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transp
 
 TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([-pi, 0, 0])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.1]))))
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.15]))))
 
 T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
 h.append(misc.DrawAxes(env, T0_start0, 0.4))
 
-TwheelEndEffector_start1 = dot(MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transpose(matrix([0.0, 0.0, 0.0]))),MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.1]))))
+TwheelEndEffector_start1 = dot(MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transpose(matrix([0.0, 0.0, 0.0]))),MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.15]))))
 
 T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
 
@@ -507,7 +505,7 @@ Tstart0_start1 = dot(linalg.inv(T0_start0),T0_start1)
 
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
-configurationJumpThreshold = 7.0
+configurationJumpThreshold = 100.0
 
 success = False
 end = False

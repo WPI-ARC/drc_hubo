@@ -2,3 +2,7 @@ Package to plan turning the wheel for huboplus
 
  - Comps must be installed with OPENRAVE_PLUGINS added to you envirnoment
  - PYTHONPATH must include "../wpi_openrave/hubo/python"
+
+To call the planner service :
+    
+rosservice call /hubo_planner/PlanningQuery '{valve_position: { position: { x: 0, y: 0 ,z: 1 }, orientation: {x: 0, y: 0, z: 0, w: 1 } } }'

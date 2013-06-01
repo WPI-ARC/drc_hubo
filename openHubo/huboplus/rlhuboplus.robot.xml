@@ -8,7 +8,8 @@
     <Manipulator name="leftArm">
         <base>Body_Torso</base>
         <effector>leftPalm</effector>
-	<Translation>0 -0.06 0.02</Translation>
+	<!--Translation>0 -0.06 0.02</Translation-->
+	<Translation>0 0 0</Translation>
 	<joints>leftIndexKnuckle1 leftMiddleKnuckle1 leftRingKnuckle1 leftPinkyKnuckle1 leftThumbKnuckle1</joints>
 	<closingdirection>1 1 1 1 1</closingdirection>
         <direction>0 -1 0</direction>
@@ -17,7 +18,8 @@
     <Manipulator name="rightArm">
         <base>Body_Torso</base>
         <effector>rightPalm</effector>
-	<Translation>0 0.06 0.02</Translation>
+	<!--Translation>0 0.06 0.02</Translation-->
+	<Translation>0 0 0</Translation>
 	<joints>rightIndexKnuckle1 rightMiddleKnuckle1 rightRingKnuckle1 rightPinkyKnuckle1 rightThumbKnuckle1</joints>
 	<closingdirection>1 1 1 1 1</closingdirection>
         <direction>0 1 0</direction>

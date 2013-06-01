@@ -33,12 +33,12 @@ from TSR import *
 env = Environment()
 env.SetViewer('qtcoin')
 
-robot = env.ReadRobotURI('../../../openHubo/drchubo/drchubo-urdf/robots/drchubo.robot.xml')
+robot = env.ReadRobotURI('../../../openHubo/drchubo/robots/drchubo2.robot.xml')
 env.Add(robot)
 
-leftRm = ReachabilityMap("./drchubo_leftArm_ik_solver_f5",robot,robot.GetManipulators()[0])
+leftRm = ReachabilityMap("./drchubo_leftArm_ik_solver_f3",robot,robot.GetManipulators()[0])
 
-rightRm = ReachabilityMap("./drchubo_rightArm_ik_solver_f23",robot,robot.GetManipulators()[1])
+rightRm = ReachabilityMap("./drchubo_rightArm_ik_solver_f21",robot,robot.GetManipulators()[1])
 
 print "Press Enter to load drchubo's reachability maps."
 sys.stdin.readline()

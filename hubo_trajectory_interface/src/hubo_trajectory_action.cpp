@@ -52,6 +52,9 @@
 #include <hubo_robot_msgs/JointTrajectoryAction.h>
 #include <hubo_robot_msgs/JointTrajectoryState.h>
 
+using std::cout;
+using std::endl;
+
 const double DEFAULT_GOAL_THRESHOLD = 0.1;
 
 class HuboJointTrajectoryServer
@@ -85,6 +88,7 @@ private:
         // First, check to make sure that the sets are the same size
         if (a.size() != b.size())
         {
+            cout << " set a.size() : " << a.size() << " , b.size() : " <<   b.size() << endl;
             return false;
         }
         // Now, make sure a is a subset of b (i.e. make sure every element of a is in b)
@@ -92,6 +96,7 @@ private:
         {
             if (count(b.begin(), b.end(), a[i]) != 1)
             {
+                cout << a[i] << " does not apprear in vecor b" << endl;
                 return false;
             }
         }
@@ -100,6 +105,7 @@ private:
         {
             if (count(a.begin(), a.end(), b[i]) != 1)
             {
+                cout << b[i] << " does not apprear in vecor a" << endl;
                 return false;
             }
         }
@@ -147,7 +153,9 @@ private:
     {
         // Make sure the goal is in the future (if it starts in the past, it could be older than a newer goal that got here first)
         ros::Time now = ros::Time::now();
-        if (gh.getGoal()->trajectory.points.size() > 0 && now > (gh.getGoal()->trajectory.header.stamp + gh.getGoal()->trajectory.points[0].time_from_start))
+
+        if (gh.getGoal()->trajectory.points.size() > 0 && 
+            now > (gh.getGoal()->trajectory.header.stamp + gh.getGoal()->trajectory.points[0].time_from_start))
         {
             ROS_ERROR("Goal timing in the past");
             gh.setRejected();
@@ -177,6 +185,8 @@ private:
         has_active_goal_ = true;
         // Sends the trajectory along to the controller
         current_traj_ = active_goal_.getGoal()->trajectory;
+        ROS_INFO( "publish goal trajectory" );
+        //cout << current_traj_ << endl;
         pub_interface_command_.publish(current_traj_);
     }
 
@@ -215,6 +225,8 @@ private:
     void controllerStateCB(const hubo_robot_msgs::JointTrajectoryStateConstPtr &msg)
     {
         last_interface_state_ = msg;
+        //cout << "last_interface_state_ : " << last_interface_state_ << endl;
+
         ros::Time now = ros::Time::now();
         // Nothing to do if there isn't an active goal
         if (!has_active_goal_)
@@ -324,7 +336,7 @@ public:
         // Get joint names, constraints, and information
         // Gets all of the joint names
         XmlRpc::XmlRpcValue joint_names;
-        if (!pn.getParam("joints", joint_names))
+        if (!pn.getParam("/hubo_fullbody_controller/hubo_fullbody_controller_node/joints", joint_names))
         {
             ROS_FATAL("No joints given. (namespace: %s)", pn.getNamespace().c_str());
             exit(1);
@@ -343,6 +355,7 @@ public:
                 exit(1);
             }
             joint_names_.push_back((std::string)name_value);
+            //cout << joint_names_.back() << endl;
         }
         // Get the goal time constraint (i.e. how long after the desired end time we let the goal run before aborting)
         pn.param("constraints/goal_time", goal_time_constraint_, 0.0);
@@ -364,12 +377,15 @@ public:
         sub_interface_state_ = node_.subscribe("state", 1, &HuboJointTrajectoryServer::controllerStateCB, this);
         // Set up a watchdog timer to handle drops in the communication between this server and the trajectory controller
         watchdog_timer_ = node_.createTimer(ros::Duration(1.0), &HuboJointTrajectoryServer::watchdog, this);
+
+        ROS_INFO("Start waiting for controller");
         ///////////////////////////////////////////////////
         // Wait for the interface to be ready before starting the joint trajectory action server
         ros::Time started_waiting_for_controller = ros::Time::now();
         while (ros::ok() && !last_interface_state_)
         {
             ros::spinOnce();
+
             if (started_waiting_for_controller != ros::Time(0) && ros::Time::now() > started_waiting_for_controller + ros::Duration(30.0))
             {
                 ROS_WARN("Waited for the controller for 30 seconds, but it never showed up.");
@@ -379,7 +395,7 @@ public:
         }
         // Once everything is ready, start the actionserver
         action_server_.start();
-        ROS_INFO("Started JointTrajectoryAction server");
+        ROS_INFO("Action server started");
     }
 
     ~HuboJointTrajectoryServer()
@@ -431,7 +447,7 @@ void shutdown(int signum)
 
 int main(int argc, char** argv)
 {
-    printf("Starting JointTrajectoryAction action server node...");
+    ROS_INFO("Starting JointTrajectoryAction action server node...");
     ros::init(argc, argv, "hubo_joint_trajectory_action_node", ros::init_options::NoSigintHandler);
     ros::NodeHandle node;
     // Register a signal handler to safely shutdown the node
