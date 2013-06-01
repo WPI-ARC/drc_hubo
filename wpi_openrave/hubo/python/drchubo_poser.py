@@ -34,16 +34,16 @@ r01 = 0.0
 r02 = 0.0
 
 r10 = 0.0
-r11 = 1.0
-r12 = 0.0
+r11 = 0.0
+r12 = 1.0
 
 r20 = 0.0
-r21 = 0.0
-r22 = 1.0
+r21 = -1.0
+r22 = 0.0
 
-tx = 0.3
+tx = 0.4
 ty = 0.0
-tz = 0.0
+tz = 0.1
 
 debug=True # if true, will print things out
 
@@ -131,3 +131,7 @@ if(solutions_float != []):
 
 print "Done!"
 sys.stdin.readline()
+
+
+env.Destroy()
+RaveDestroy()

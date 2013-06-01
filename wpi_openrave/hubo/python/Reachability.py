@@ -86,7 +86,7 @@ class ReachabilityMap(object):
         self.candidates = []
         self.n = 8
         self.inc1 = ((2*pi)/self.n)
-        self.m = 0 #12
+        self.m = 12
         if(self.m != 0):
             self.inc2 = ((2*pi)/self.m)
         self.name = "default"

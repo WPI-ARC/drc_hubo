@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # Ben Suay, RAIL
-# November 2012
+# April 2013
 # Worcester Polytechnic Institute
 #
-
 
 from openravepy import *
 import sys
