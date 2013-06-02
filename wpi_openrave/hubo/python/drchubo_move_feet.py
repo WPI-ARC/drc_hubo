@@ -50,29 +50,44 @@ h.append(misc.DrawAxes(env,array(MakeTransform(matrix(rodrigues([0,0,0])),transp
 
 # Add drchubo
 robots = []
+
+# limitless drchubo (old)
 robots.append(env.ReadRobotURI('../../../openHubo/drchubo/old/drchubo-urdf/robots/drchubo2.robot.xml'))
-env.Add(robots[0])
 
-manips = robots[0].GetManipulators()
+# up-to-date drchubo with joint limits defined
+robots.append(env.ReadRobotURI('../../../openHubo/drchubo/robots/drchubo2.robot.xml'))
 
-lowerLimits, upperLimits = robots[0].GetDOFLimits()
+# rlhuboplus
+robots.append(env.ReadRobotURI('../../../openHubo/huboplus/rlhuboplus.robot.xml'))
+
+
+# Which robot?
+R = 2
+
+env.Add(robots[R])
+
+robots[R].SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.5,0.0,0.0])))))
+
+manips = robots[R].GetManipulators()
+
+lowerLimits, upperLimits = robots[R].GetDOFLimits()
 
 print lowerLimits
 print upperLimits
 
 for i in range(35):
-    j = round(robots[0].GetDOFValues([i]),2)
+    j = round(robots[R].GetDOFValues([i]),2)
     if( (nonzero(lowerLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
         print "setting joint ",str(i)," to positive zero"
-        robots[0].SetDOFValues([0.000001],[i])
+        robots[R].SetDOFValues([0.000001],[i])
     elif( (nonzero(upperLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
         print "setting joint ",str(i)," to negative zero"
-        robots[0].SetDOFValues([-0.000001],[i])
+        robots[R].SetDOFValues([-0.000001],[i])
 
 probs_cbirrt = RaveCreateModule(env,'CBiRRT')
 
 try:
-    env.AddModule(probs_cbirrt,'drchubo2') # this string should match to <Robot name="" > in robot.xml
+    env.AddModule(probs_cbirrt,robots[R].GetName()) # this string should match to <Robot name="" > in robot.xml
 except openrave_exception, e:
     print e
     
@@ -81,24 +96,51 @@ probs = env.GetLoadedProblems()
 
 footlinknames = ' Body_RAR Body_LAR '
 
-# Center of Gravity Target
-T0_TORSO = manips[5].GetEndEffectorTransform()
-        
-cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
+if( R == 1 or R == 0 ):
+    ## DRCHUBO
+    # Center of Gravity Target
+    T0_TORSO = manips[5].GetEndEffectorTransform()
+
+    cogtarg = [1.0, 2.0, 0]
+    cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
+
+    T0_LF = manips[2].GetEndEffectorTransform()
+    T0_LF[0,3]+= 0.1
+    T0_LF[2,3]+= 0.3
+    
+    T0_RF = manips[3].GetEndEffectorTransform()
+    T0_RF[0,3]+= 0.1
+    T0_RF[2,3]+= 0.3
+elif( R == 2 ):
+    ## RLHUBOPLUS
+    ## DRCHUBO
+    T0_LF = manips[2].GetEndEffectorTransform()
+    T0_LF[0,3]+= 0.1
+    T0_LF[2,3]+= 0.1
+    
+    T0_RF = manips[3].GetEndEffectorTransform()
+
+    cogtarg = [-0.05, 0.085, 0]
+
 cogtargStr = str(cogtarg).strip("[]").replace(', ',' ')
+    
 
-T0_LF = manips[2].GetEndEffectorTransform()
-T0_LF[2,3]+= 0.1
 
-T0_RF = manips[3].GetEndEffectorTransform()
-T0_RF[2,3]+= 0.1
+h.append(misc.DrawAxes(env,T0_LF,0.1))
+h.append(misc.DrawAxes(env,T0_RF,0.1))
 
-T0_TORSO = manips[5].GetEndEffectorTransform()
+goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames
++' movecog '+cogtargStr
++' nummanips 2 maniptm 2 '+trans_to_str(T0_LF)
++' maniptm 3 '+trans_to_str(T0_RF)
+)
 
-goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+cogtargStr+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+print "goalik"
+print goalik
 
 if(goalik != ''):
-    robots[0].SetDOFValues(str2num(goalik),range(35))
+    robots[R].SetDOFValues(str2num(goalik),range(35))
+
 
 print "Press Enter to exit..."
 sys.stdin.readline()
