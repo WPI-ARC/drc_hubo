@@ -68,3 +68,6 @@ rlhuboplusRightRm.show(env)
 
 print "Done! Press Enter to exit..."
 sys.stdin.readline()
+
+env.Destroy()
+RaveDestroy()
