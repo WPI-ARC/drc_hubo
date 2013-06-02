@@ -27,6 +27,10 @@ from TransformMatrix import *
 from str2num import *
 from TSR import *
 
+from copy import deepcopy
+
+from Reachability import *
+
 env = Environment()
 RaveSetDebugLevel(1)
 drchubo = env.ReadRobotURI('../../../openHubo/drchubo/robots/drchubo2.robot.xml')
@@ -44,10 +48,23 @@ shift_rlhuboplus_back = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matri
 rlhuboplus.SetTransform(array(shift_rlhuboplus_back))
 env.Add(rlhuboplus)
 
+drchuboLeftRm = ReachabilityMap("./drchubo_leftArm_ik_solver_f3",drchubo,drchubo.GetManipulators()[0])
+drchuboRightRm = ReachabilityMap("./drchubo_rightArm_ik_solver_f21",drchubo,drchubo.GetManipulators()[1])
+rlhuboplusLeftRm = ReachabilityMap("./rlhuboplus_leftArm_ik_solver",rlhuboplus,rlhuboplus.GetManipulators()[0])
+rlhuboplusRightRm = ReachabilityMap("./rlhuboplus_rightArm_ik_solver",rlhuboplus,rlhuboplus.GetManipulators()[1])
+
+print "loading"
+drchuboLeftRm.load("drchubo_left")
+drchuboRightRm.load("drchubo_right")
+rlhuboplusLeftRm.load("rlhuboplus_left")
+rlhuboplusRightRm.load("rlhuboplus_right")
+
 env.SetViewer('qtcoin')
 
-h1 = misc.DrawAxes(env,MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0]))),0.4)
-h2 = misc.DrawAxes(env,T0_RF,0.2)
+drchuboLeftRm.show(env)
+drchuboRightRm.show(env)
+rlhuboplusLeftRm.show(env)
+rlhuboplusRightRm.show(env)
 
 print "Done! Press Enter to exit..."
 sys.stdin.readline()
