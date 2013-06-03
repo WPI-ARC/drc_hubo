@@ -440,6 +440,20 @@ class ReachabilityMap(object):
         for j in range(len(self.armJoints)):
             q.append(0.0)
         self.robot.SetDOFValues(q,self.armJoints)
+    
+    def print_rm3D(self):
+        for rotMatIdx, rotMat in enumerate(self.rm3D):
+            print rotMatIdx
+            print rotMat
+            
+    def print_all_transforms(self):
+        for sIdx, s in enumerate(self.map):
+            print "\n \n"
+            for tIdx, t in enumerate(s.T):
+                print "\n"
+                print "sIdx: ",str(sIdx)
+                print "tIdx: ",str(tIdx)
+                print t
 
     def generate(self,env):
         self.handles.append(misc.DrawAxes(env,self.T0_base,0.4))
@@ -797,12 +811,12 @@ def my_function2(start,idx,myPattern,rmap,myEnv=None):
             # as Tp1_p2
             # print "neighbor with index: ",neighbor," has ",len(rmap[neighbor].T)," transforms."
             for tIdx, Tbase_neighbor in enumerate(rmap[neighbor].T):
-                #print "investigating transform #: ",str(tIdx)
+                # print "investigating transform #: ",str(tIdx)
 
                 if(myEnv != None):
                     rmap[neighbor].show(myEnv,array((0,1,1,0.1)),Tbase_neighbor)
-                #print "show next transform"
-                #sys.stdin.readline()
+                # print "show next transform"
+                # sys.stdin.readline()
 
                 TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
                 if(allclose(TSoI_neighbor,Tp1_p2)):
@@ -822,7 +836,7 @@ def my_function2(start,idx,myPattern,rmap,myEnv=None):
             
             if(myEnv != None):
                 print "show next neighbor"
-                sys.stdin.readline()
+                # sys.stdin.readline()
                 if(not found):
                     rmap[neighbor].hide()
 
@@ -835,7 +849,7 @@ def my_function2(start,idx,myPattern,rmap,myEnv=None):
             # connected. Return error.
             if(myEnv != None):
                 print "not found"
-                sys.stdin.readline()
+                # sys.stdin.readline()
                 rmap[neighbor].hide()
                 SoI.hide()
             return None
@@ -1267,7 +1281,9 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
 
             print "found ",str(len(pairs))," pair(s). ",str(datetime.now())
             print "looking for candidates... ",str(datetime.now())
-            for pair in pairs:
+            for pairIdx, pair in enumerate(pairs):
+                if((pairIdx%20)==0):
+                    print str(pairIdx),"/",str(len(pairs))," ",str(datetime.now())
                 # print "Trying: "
                 # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
                 # print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
@@ -1279,20 +1295,26 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                     path0.append(PathElement(pair[0].sIdx,pair[0].tIdx))
                     path0.extend(steps0)
                     
-                # steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m],myEnv)
-                steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m])
-                if(steps1 != None):
-                    path1 = []
-                    path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
-                    path1.extend(steps1)
+                    # steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m],myEnv)
+                    steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m])
+                    if(steps1 != None):
+                        path1 = []
+                        path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
+                        path1.extend(steps1)
 
-                if(steps0 != None and steps1 != None):
-                    # print "start indices: ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
-                    # path is in a list because we might 
-                    # have more than one path candidates
-                    paths0.append(path0) 
-                    paths1.append(path1)
+                        if(steps0 != None and steps1 != None):
+                            print "start indices (spheres): ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
 
+                            print "start indices (transforms): ",str(pair[0].tIdx),", ",str(pair[1].tIdx)
+
+                            print "start transforms: ",str(rm[m-1][pair[0].sIdx].T[pair[0].tIdx]),", ",str(rm[m][pair[1].sIdx].T[pair[1].tIdx])
+
+                            # s.stdin.readline()
+                            # path is in a list because we might 
+                            # have more than one path candidates
+                            paths0.append(path0) 
+                            paths1.append(path1)
+            
             if(paths0 != [] and paths1 != []):
                 candidates.append(paths0)
                 candidates.append(paths1)

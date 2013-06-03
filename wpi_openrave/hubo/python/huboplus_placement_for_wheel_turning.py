@@ -270,9 +270,18 @@ def start(candidates,numRobots,numManips,c,myRmaps,robots,h,env):
             startSphereIndex = candidates[myManipulatorIndex][c][0].sIdx
             startTransformIndex = candidates[myManipulatorIndex][c][0].tIdx
             # Set the manipulator to its configuration (we will check for collision)
+            print "for manipulator: ",str(myManipulatorIndex)
+            print "go_to: start_sphere_index: "
+            print startSphereIndex
+            print "go_to: start_transform_index: "
+            print startTransformIndex
             myRmaps[myManipulatorIndex].go_to(startSphereIndex,startTransformIndex)
         
             Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
+            
+            for myT in myRmaps[myManipulatorIndex].map[startSphereIndex].T:
+                print myT
+            
             T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
             # Finally move the robot base 
             robots[myRobotIndex].SetTransform(T0_newManipPose)
@@ -313,11 +322,14 @@ traj0 = []
 Tstart0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0]))))
 traj0.append(Tstart0)
 
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.05,0.0])))))
+# traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05])))))
 
-traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
+# traj0.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.1])))))
 
-Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.15,0.0]))))
+# Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.15]))))
+# Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
+
+Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05]))))
 
 traj0.append(Tgoal0)
 
@@ -328,11 +340,15 @@ Tstart1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0
 
 traj1.append(Tstart1)
 
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.05,0.0])))))
+# traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
 
-traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,-0.1,0.0])))))
+# traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.1])))))
 
-Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.15,0.0]))))
+# Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.15]))))
+
+# Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.05]))))
+
+Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05]))))
 
 traj1.append(Tgoal1)
 
@@ -368,7 +384,7 @@ for p in myPatterns:
 
 # 3. Add drchubo
 robots = []
-robots.append(env.ReadRobotURI('../../../openHubo/drchubo/robots/drchubo2.robot.xml'))
+robots.append(env.ReadRobotURI('../../../openHubo/huboplus/huboplus.robot.xml'))
 env.Add(robots[0])
 lowerLimits, upperLimits = robots[0].GetDOFLimits()
 
@@ -461,9 +477,9 @@ wheel.SetTransform(array(T0_wheelBase))
 # 4. Load the reachability map for drchubo left arm
 # Robot 1
 myRmaps = []
-rm = ReachabilityMap("./drchubo_leftArm_ik_solver_f5",robots[0],robots[0].GetManipulators()[0])
+rm = ReachabilityMap("./rlhuboplus_leftArm_ik_solver",robots[0],robots[0].GetManipulators()[0])
 print "Loading reachability map for left arm..."
-rm.load("drchubo_left")
+rm.load("rlhuboplus_left")
 # print "map size before crop: ",str(len(rm.map))
 # rm.crop([-1.0,1.0,-1.0,0.2,0.0,1.0])
 # print "map size after crop: ",str(len(rm.map))
@@ -477,9 +493,12 @@ print "Left arm Reachability Map loaded.."
 # sys.stdin.readline()
 
 # Do the same for Robot 2
-rm2 = ReachabilityMap("./drchubo_rightArm_ik_solver_f23",robots[0],robots[0].GetManipulators()[1])
+rm2 = ReachabilityMap("./rlhuboplus_rightArm_ik_solver",robots[0],robots[0].GetManipulators()[1])
 print "Loading reachability map for right arm..."
-rm2.load("drchubo_right")
+rm2.load("rlhuboplus_right")
+rm2.print_rm3D()
+sys.stdin.readline()
+rm2.print_all_transforms()
 
 print "Reachability map loaded for right arm."
 
@@ -504,16 +523,20 @@ T0_starts = []
 # wheelBase is not tilted.
 T0_wheelEndEffector = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transpose(matrix([0.0, 0.0, 0.0])))
+TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([-pi, 0, 0])),transpose(matrix([0.0, 0.0, 0.0]))))
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.15]))))
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.15, 0.0]))))
 
 T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
 h.append(misc.DrawAxes(env, T0_start0, 0.4))
 
-TwheelEndEffector_start1 = dot(MakeTransform(matrix(rodrigues([0, -pi/2, 0])),transpose(matrix([0.0, 0.0, 0.0]))),MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.15]))))
+TwheelEndEffector_start1 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
+
+TwheelEndEffector_start1 = dot(TwheelEndEffector_start1, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
+
+TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.15, 0.0]))))
 
 T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
 
@@ -574,7 +597,7 @@ success = False
 end = False
 
 print "Ready to search... ",str(datetime.now())
-# sys.stdin.readline()
+sys.stdin.readline()
 
 while((not success) and (not end)):
     iters += 1
