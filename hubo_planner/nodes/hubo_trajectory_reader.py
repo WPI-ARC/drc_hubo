@@ -317,9 +317,21 @@ def read(fname,num_sample=-1):
             if(debug):
                 print v_buffer
 
+            # Empty accelerations buffers
+            a_buffer = []
+
+            # Fill in accelerations buffers
+            for i in range( 1 , len(v_buffer)-1 ):
+                a_buffer.append( (v_buffer[i+1]-v_buffer[i-1])/2 )
+                #print a_buffer
+            
+            if(debug):
+                print a_buffer
+
             # Append trajectory point
             current_point.positions = deepcopy(p_buffer)
             current_point.velocities = deepcopy(v_buffer)
+            current_point.accelerations = deepcopy(a_buffer)
             hubo_traj.points.append(current_point)
             
         # Set hubo trajectory 
