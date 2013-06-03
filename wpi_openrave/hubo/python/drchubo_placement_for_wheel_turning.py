@@ -33,33 +33,95 @@ from TSR import *
 # This changes the height and the pitch angle of the wheel
 version = 1
 
-def put_feet_on_the_ground():
+def get_robot_com(myRobot):
+    
+    # print "let's calculate the COM here..."
+    #
+    # This is how the center of mass is calculated
+    #
+    # https://en.wikipedia.org/wiki/Center_of_mass
+    # R*M = SUM(r_i*m_i)
+    #
+    # R = SUM(r_i*m_i)/M
+    M = 0
+    rm = 0
+    for l in myRobot.GetLinks():
+        
+        # mass of this link
+        m = l.GetMass() 
+
+        # keep the total mass of the robot
+        M += m
+
+        # l.GetTransform() does not return the center of mass of the link
+        r = dot(l.GetTransform(),array(MakeTransform(rodrigues([0,0,0]),transpose(matrix(l.GetCOMOffset())))))
+        
+        # multiplication by element
+        rm += multiply(r,m) 
+
+    print "total mass:"
+    print M
+
+    # division by element
+    R = divide(rm,M)
+
+    print "T0_COM for "+myRobot.GetName()
+    print R.round(4)
+
+    # Draw the center of mass if you want
+    # h.append(misc.DrawAxes(env,array(R.round(4)),0.1))
+    
+    return R
+
+# input: T0_FACING, where do we want the robot's feet to face?
+def put_feet_on_the_ground(myRobot,T0_FACING):
+    
+
     # stupid python to c++ datatype hack around
+    # This will prevent the error of "can't find an ik solution
+    # because joint X is out of range -0.0"
     for i in range(35):
-        j = round(robots[0].GetDOFValues([i]),2)
+        j = round(myRobot.GetDOFValues([i]),2)
         if( (nonzero(lowerLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
             print "setting joint ",str(i)," to positive zero"
-            robots[0].SetDOFValues([0.000001],[i])
+            myRobot.SetDOFValues([0.000001],[i])
         elif( (nonzero(upperLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
             print "setting joint ",str(i)," to negative zero"
-            robots[0].SetDOFValues([-0.000001],[i])
+            myRobot.SetDOFValues([-0.000001],[i])
 
-    # Center of Gravity Target
-    T0_TORSO = manips[5].GetEndEffectorTransform()
-
+    # Calculate the center of mass
+    T0_COM = get_robot_com(myRobot)
     T0_LF = manips[2].GetEndEffectorTransform()
-    T0_LF[2,3] = 0.0
-
     T0_RF = manips[3].GetEndEffectorTransform()
-    T0_RF[2,3] = 0.0
 
-    # cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
-    # cogtargStr = str(cogtarg).strip("[]").replace(', ',' ')
+    for y in range(21):
+        # Center of Gravity Target
+        # T0_TORSO = manips[5].GetEndEffectorTransform()
 
-    # goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+cogtargStr+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+        # Where to put the left foot?
+        # Rotation matrix is eye(3)
+        T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3],T0_COM[1,3]-(0.1+y*0.01),0]))))
 
-    goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
-    
+        # Same for the right foot
+        T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3],T0_COM[1,3]-(0.1+y*0.01),0]))))
+
+        print "this is where the feet should go."
+        myHandle1 = misc.DrawAxes(env,array(T0_lf),0.1)
+        myHandle2 = misc.DrawAxes(env,array(T0_rf),0.1)
+        # sys.stdin.readline()
+
+        # cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
+        # cogtargStr = str(cogtarg).strip("[]").replace(', ',' ')
+
+        # goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+cogtargStr+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+
+        # goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
+
+        goalik = probs[0].SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 2 maniptm 2 '+trans_to_str(T0_lf)+' maniptm 3 '+trans_to_str(T0_rf))
+        
+        if goalik != '':
+            return goalik
+
     return goalik
 
 def trans_to_str(T):
@@ -334,8 +396,8 @@ elif(version == 1):
     gB = 0.6 # ground color
 
     ge = 5.0 # ground extension
-    wheelHeight = 1.1 #random.random()
-    wheelPitch = 1.3 # pi*random.random()
+    wheelHeight = 0.8 #random.random()
+    wheelPitch = 1.7 # pi*random.random()
     h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
                              indices=None,
                              colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
@@ -585,7 +647,8 @@ while((not success) and (not end)):
 
             # Try to put your feet on the ground
             print "trying to put the feet on the ground..."
-            myIK = put_feet_on_the_ground()
+            whereToFace = MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0])))
+            myIK = put_feet_on_the_ground(robots[0],whereToFace)
 
             print "myIK"
             print myIK
@@ -594,6 +657,9 @@ while((not success) and (not end)):
                 print "Press enter to see the result..."
                 sys.stdin.readline()
                 robots[0].SetDOFValues(str2num(myIK), range(35))
+                myCOM = array(get_robot_com(robots[0]))
+                myCOM[2,3] = 0.0
+                COMHandle = misc.DrawAxes(env,myCOM,0.3)
                 print "Press enter to proceed with the next solution..."
                 sys.stdin.readline()
 
