@@ -271,16 +271,16 @@ def start(candidates,numRobots,numManips,c,myRmaps,robots,h,env):
             startTransformIndex = candidates[myManipulatorIndex][c][0].tIdx
             # Set the manipulator to its configuration (we will check for collision)
             print "for manipulator: ",str(myManipulatorIndex)
-            print "go_to: start_sphere_index: "
-            print startSphereIndex
-            print "go_to: start_transform_index: "
-            print startTransformIndex
+            # print "go_to: start_sphere_index: "
+            # print startSphereIndex
+            # print "go_to: start_transform_index: "
+            # print startTransformIndex
             myRmaps[myManipulatorIndex].go_to(startSphereIndex,startTransformIndex)
         
             Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
             
-            for myT in myRmaps[myManipulatorIndex].map[startSphereIndex].T:
-                print myT
+            # for myT in myRmaps[myManipulatorIndex].map[startSphereIndex].T:
+            #    print myT
             
             T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
             # Finally move the robot base 

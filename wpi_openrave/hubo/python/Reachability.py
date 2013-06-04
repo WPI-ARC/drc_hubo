@@ -127,7 +127,7 @@ class ReachabilityMap(object):
                 # There are 11 rotation matrices aroundZ
                 # that's why range is between (i*0), and ((i+1)*11)
                 for j in range((rIdx*(self.m-1)),(rIdx+1)*(self.m-1)):
-                    print j
+                    # print j
                     temp.append(aroundZ[j])
 
             self.rm3D = deepcopy(temp)
@@ -1177,10 +1177,13 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                 Ts1_sister = dot(Ti_s1,pTi_j)
                 sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
                 if(sisterKey in newIndices):
+                    print sisterKey
                     sisterIndex = newIndices[sisterKey]
                     currentSisters.append(sisterIndex)
-                    # print "Found a sister for ",str(s1Idx)
-                    # print sisterIndex
+                    print "Found a sister for ",str(s1Idx)
+                    print sisterIndex
+                    print t1Idx
+                    sys.stdin.readline()
 
             #if(currentSisters != []): --> raises key error. To fix.
             sisters[str(s1Idx)]=currentSisters
@@ -1268,9 +1271,10 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                                     pair1 = PathElement(adjusteds1Idx,t1Idx)
                                     pair2 = PathElement(adjusteds2Idx,t2Idx)
                                     pairs.append([pair1,pair2])
-                                    # print "found a pair: ",str(len(pairs))
-                                    # print str(adjusteds1Idx)," : ",str(t1Idx)
-                                    # print str(adjusteds2Idx)," : ",str(t2Idx)
+                                    print "found a pair: ",str(len(pairs))
+                                    print str(adjusteds1Idx)," : ",str(t1Idx)
+                                    print str(adjusteds2Idx)," : ",str(t2Idx)
+                                    sys.stdin.readline()
                                     # print "sphere info - s1: "
                                     # print "s1.T: "
                                     # print s1.T
