@@ -111,7 +111,7 @@ class ReachabilityMap(object):
             # Rotate around Z for all approach directions
             aroundZ = []
             for rIdx, r in enumerate(self.rm3D):
-                for i in range(self.m):
+                for i in range(1,self.m):
                     aroundZ.append(dot(r,rodrigues([0,0,i*self.inc2])))
 
             temp = []
@@ -398,6 +398,7 @@ class ReachabilityMap(object):
         params.g = deepcopy(self.g)
         params.b = deepcopy(self.b)
         
+        params.name = deepcopy(self.name)
         params.indices = deepcopy(self.indices)
 
         output = open(self.name+'_params.pkl', 'wb')
