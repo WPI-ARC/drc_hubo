@@ -479,7 +479,7 @@ wheel.SetTransform(array(T0_wheelBase))
 myRmaps = []
 rm = ReachabilityMap("./rlhuboplus_leftArm_ik_solver",robots[0],robots[0].GetManipulators()[0])
 print "Loading reachability map for left arm..."
-rm.load("rlhuboplus_left")
+rm.load("rlhuboplus_left_m12")
 # print "map size before crop: ",str(len(rm.map))
 # rm.crop([-1.0,1.0,-1.0,0.2,0.0,1.0])
 # print "map size after crop: ",str(len(rm.map))
@@ -495,10 +495,10 @@ print "Left arm Reachability Map loaded.."
 # Do the same for Robot 2
 rm2 = ReachabilityMap("./rlhuboplus_rightArm_ik_solver",robots[0],robots[0].GetManipulators()[1])
 print "Loading reachability map for right arm..."
-rm2.load("rlhuboplus_right")
-rm2.print_rm3D()
-sys.stdin.readline()
-rm2.print_all_transforms()
+rm2.load("rlhuboplus_right_m12")
+# rm2.print_rm3D()
+# sys.stdin.readline()
+# rm2.print_all_transforms()
 
 print "Reachability map loaded for right arm."
 
@@ -597,7 +597,7 @@ success = False
 end = False
 
 print "Ready to search... ",str(datetime.now())
-sys.stdin.readline()
+# sys.stdin.readline()
 
 while((not success) and (not end)):
     iters += 1

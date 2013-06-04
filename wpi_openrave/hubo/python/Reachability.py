@@ -126,11 +126,12 @@ class ReachabilityMap(object):
                 temp.append(self.rm3D[rIdx])
                 # There are 11 rotation matrices aroundZ
                 # that's why range is between (i*0), and ((i+1)*11)
-                for j in range((rIdx*self.m),(rIdx+1)*(self.m-1)):
+                for j in range((rIdx*(self.m-1)),(rIdx+1)*(self.m-1)):
+                    print j
                     temp.append(aroundZ[j])
 
             self.rm3D = deepcopy(temp)
-
+        
         self.maxReachability = len(self.rm3D)
         self.reachabilitySphereAlphaIncrement = (1.0/self.maxReachability)
         #self.rm3D=[rodrigues([pi/2,0,0]),rodrigues([-pi/2,0,0]),rodrigues([0,pi/2,0]),rodrigues([0,-pi/2,0]),rodrigues([0,0,pi/2]),rodrigues([0,0,-pi/2])]
