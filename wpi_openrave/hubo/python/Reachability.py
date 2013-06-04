@@ -98,26 +98,35 @@ class ReachabilityMap(object):
         # list of rotation matrices that we will evaluate around a point in space
         self.rm3D = []
         
-        # Rotate around X
+        # Rotate around X (Approach from top, bottom and sides)
         for i in range(self.n):
             self.rm3D.append(rodrigues([i*self.inc1,0,0]))
             
-        # Rotate around Y
+        # Rotate around Y (Approach from the front, back and sides)
         for i in range(self.n):
             if(i != 0 and i != (self.n/2)):
                 self.rm3D.append(dot(rodrigues([pi/2,0,0]),rodrigues([0,i*self.inc1,0])))
 
         if(self.m != 0):
-            # Rotate around Z for all approach directions
+            # Rotate around Z of all approach directions
             aroundZ = []
             for rIdx, r in enumerate(self.rm3D):
+                # when i=0, the rotatin matrix is equal to r.
+                # So we skip i=0.
                 for i in range(1,self.m):
                     aroundZ.append(dot(r,rodrigues([0,0,i*self.inc2])))
 
+            # Insert rotation around Z axis in between 
+            # main approach rotations for a legitimate order.
+            #
+            # (i.e. approach from top, rotate around that approach
+            #       approach from left, rotate around that approach...)
             temp = []
             for rIdx, r in enumerate(self.rm3D):
                 temp.append(self.rm3D[rIdx])
-                for j in range((rIdx*self.m),(rIdx+1)*self.m):
+                # There are 11 rotation matrices aroundZ
+                # that's why range is between (i*0), and ((i+1)*11)
+                for j in range((rIdx*self.m),(rIdx+1)*(self.m-1)):
                     temp.append(aroundZ[j])
 
             self.rm3D = deepcopy(temp)

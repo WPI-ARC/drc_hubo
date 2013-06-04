@@ -34,14 +34,14 @@ from Reachability import *
 env = Environment()
 RaveSetDebugLevel(1)
 
-huboplus = env.ReadRobotURI('../../../openHubo/huboplus/huboplus.robot.xml')
-env.Add(huboplus)
+drchubo = env.ReadRobotURI('../../../openHubo/drchubo/robots/drchubo2.robot.xml')
+env.Add(drchubo)
 
-huboplusLeftRm = ReachabilityMap("./rlhuboplus_leftArm_ik_solver",huboplus,huboplus.GetManipulators()[0])
-huboplusRightRm = ReachabilityMap("./rlhuboplus_rightArm_ik_solver",huboplus,huboplus.GetManipulators()[1])
+drchuboLeftRm = ReachabilityMap("./drchubo_rightArm_ik_solver_f3",drchubo,drchubo.GetManipulators()[0])
+drchuboRightRm = ReachabilityMap("./drchubo_rightArm_ik_solver_f21",drchubo,drchubo.GetManipulators()[1])
 
-huboplusLeftRm.load("rlhuboplus_left_m12_messy")
-huboplusRightRm.load("rlhuboplus_right_m12_messy")
+drchuboLeftRm.load("drchubo_left_m12_messy")
+drchuboRightRm.load("drchubo_right_m12_messy")
 
 matricesToPop = []
 
@@ -83,7 +83,7 @@ c = 0
 moveToNextSphere = False
 whatToPop = []
 for pIdx, p in enumerate(matricesToPop):
-    for sIdx, s in enumerate(huboplusLeftRm.map):
+    for sIdx, s in enumerate(drchuboLeftRm.map):
         c = 0
         for tIdx, t in enumerate(s.T):
             if (allclose(t[0:3,0:3],p)):
@@ -97,7 +97,7 @@ print "whatToPop"
 for w in whatToPop:
     print w
 
-for sIdx, s in enumerate(huboplusLeftRm.map):
+for sIdx, s in enumerate(drchuboLeftRm.map):
     print "\n \n"
     for tIdx, t in enumerate(s.T):
         print "s: ",str(sIdx)," , t: ",str(tIdx)
@@ -107,7 +107,7 @@ myCleanLeftRmMap = []
 totalNumOfTransformsBefore = 0
 totalNumOfTransformsAfter = 0
 
-for sIdx, s in enumerate(huboplusLeftRm.map):
+for sIdx, s in enumerate(drchuboLeftRm.map):
     myCleanS = deepcopy(s)
     myCleanS.T = []
     isThisOneOnTheList = False
@@ -130,9 +130,9 @@ print totalNumOfTransformsBefore
 print totalNumOfTransformsAfter
 print len(whatToPop)
 
-huboplusLeftRm.map = deepcopy(myCleanLeftRmMap)
-huboplusLeftRm.name = "rlhuboplus_left"
-huboplusLeftRm.save()
+drchuboLeftRm.map = deepcopy(myCleanLeftRmMap)
+drchuboLeftRm.name = "drchubo_left"
+drchuboLeftRm.save()
 
 #### RIGHT MAP ###
 
@@ -143,7 +143,7 @@ c = 0
 moveToNextSphere = False
 whatToPop = []
 for pIdx, p in enumerate(matricesToPop):
-    for sIdx, s in enumerate(huboplusRightRm.map):
+    for sIdx, s in enumerate(drchuboRightRm.map):
         c = 0
         for tIdx, t in enumerate(s.T):
             if (allclose(t[0:3,0:3],p)):
@@ -157,7 +157,7 @@ print "whatToPop"
 for w in whatToPop:
     print w
 
-for sIdx, s in enumerate(huboplusRightRm.map):
+for sIdx, s in enumerate(drchuboRightRm.map):
     print "\n \n"
     for tIdx, t in enumerate(s.T):
         print "s: ",str(sIdx)," , t: ",str(tIdx)
@@ -167,7 +167,7 @@ myCleanRightRmMap = []
 totalNumOfTransformsBefore = 0
 totalNumOfTransformsAfter = 0
 
-for sIdx, s in enumerate(huboplusRightRm.map):
+for sIdx, s in enumerate(drchuboRightRm.map):
     myCleanS = deepcopy(s)
     myCleanS.T = []
     isThisOneOnTheList = False
@@ -190,9 +190,9 @@ print totalNumOfTransformsBefore
 print totalNumOfTransformsAfter
 print len(whatToPop)
 
-huboplusRightRm.map = deepcopy(myCleanRightRmMap)
-huboplusRightRm.name = "rlhuboplus_right"
-huboplusRightRm.save()
+drchuboRightRm.map = deepcopy(myCleanRightRmMap)
+drchuboRightRm.name = "drchubo_right"
+drchuboRightRm.save()
 
 print "Done!..."
 sys.stdin.readline()
