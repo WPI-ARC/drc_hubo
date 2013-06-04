@@ -181,7 +181,7 @@ def run():
     T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.15,0]))))
 
     # Uncomment if you want to see where T0_LH1 is 
-    # handles.append(misc.DrawAxes(env,matrix(T0_LH1),1))
+    handles.append(misc.DrawAxes(env,matrix(T0_LH1),1))
 
     # Figure out where to put the right hand on the wheel
     temp = dot(CTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
@@ -190,7 +190,7 @@ def run():
     T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,-0.15,0]))))
     
     # Uncomment if you want to see where T0_RH1 is 
-    # handles.append(misc.DrawAxes(env,matrix(T0_RH1),1))
+    handles.append(misc.DrawAxes(env,matrix(T0_RH1),1))
     
     # Define Task Space Region strings
     # Left Hand
@@ -289,7 +289,7 @@ def run():
     # End effector transform in wheel coordinates
     Tw0_eR = dot(linalg.inv(T0_crankcrank),T0_RH1)
 
-    #handles.append(misc.DrawAxes(env,matrix(Tw0_eR),1))
+    # handles.append(misc.DrawAxes(env,matrix(Tw0_eR),1))
 
     # How much freedom? (note: in frame of crank)
     Bw0R = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
