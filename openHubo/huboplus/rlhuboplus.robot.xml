@@ -37,6 +37,12 @@
         <direction>0 0 -1</direction>
     </Manipulator>
 
+    <Manipulator name="Head">
+        <base>Body_Torso</base>
+        <effector>Body_HNP</effector>
+        <direction>0 0 -1</direction>
+    </Manipulator>
+
     <AttachedSensor name="leftFootFT">
         <link>leftFoot</link>
         <sensor type="ForceSensor">

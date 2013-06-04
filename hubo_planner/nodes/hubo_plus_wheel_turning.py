@@ -40,7 +40,7 @@ def trans_to_str(T):
 class HuboPlusWheelTurning:
 
     def __init__(self,
-                 HuboModelPath = '../../openHubo/huboplus/rlhuboplus_mit.robot.xml',
+                 HuboModelPath = '../../openHubo/huboplus/rlhuboplus.robot.xml',
                  WheelModelPath = '../../../drc_common/models/driving_wheel.robot.xml' ):
         
         # Set those variables to show or hide the interface
