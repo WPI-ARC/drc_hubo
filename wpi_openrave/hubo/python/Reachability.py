@@ -1102,7 +1102,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
     rmT = []
     p = []
     pT = []
-    howMany = 10000
+    howMany = 100
     candidates = []
     paths0 = []
     paths1 = []
@@ -1171,8 +1171,10 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         
         # Find sisters of all map_i spheres' in map_i+1
         sisters={}
+        print "finding sister spheres... ",str(datetime.now())
         for s1Idx, s1 in enumerate(rm[m-1]):
-            
+            if((s1Idx%20)==0):
+                print str(s1Idx),"/",str(len(rm[m-1]))," ",str(datetime.now())
             # currentSisters = []
             # currentTransforms = []
             current = []
@@ -1181,16 +1183,16 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                 myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
                 sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
                 if(sisterKey in newIndices):
-                    print sisterKey
+                    # print sisterKey
                     sisterIndex = newIndices[sisterKey]
                     # currentSisters.append(sisterIndex)
                     # currentTransforms.append(t1Idx)
                     current.append([sisterIndex, t1Idx])
-                    print "Found a sister for ",str(s1Idx)
+                    # print "Found a sister for ",str(s1Idx)
                     rm[m-1][s1Idx].show(myEnv)
                     rm[m][sisterIndex].show(myEnv)
-                    print sisterIndex
-                    print t1Idx
+                    # print sisterIndex
+                    # print t1Idx
                     # sys.stdin.readline()
                     rm[m-1][s1Idx].hide()
                     rm[m][sisterIndex].hide()
@@ -1207,6 +1209,8 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         pairs = []
         print "looking for pairs...",' ',str(datetime.now())
         for s1Idx in sisters:
+            if len(pairs) >= howMany :
+                break
             for couple in sisters[s1Idx]:
                 s2Idx = couple[0]
                 t1Idx = couple[1]
@@ -1252,6 +1256,7 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
                             print "found a pair: ",str(len(pairs))
                             # print str(adjusteds1Idx)," : ",str(t1Idx)
                             # print str(adjusteds2Idx)," : ",str(t2Idx)
+                            
 
 
         # ############################################################################
