@@ -328,10 +328,11 @@ def read(fname,num_sample=-1):
             a_buffer = []
 
             # Fill in accelerations buffers
-            a_buffer.append( (v_buffer[0]-v_buffer[1])/deltaT )
+            a_factor = 10;
+            a_buffer.append( a_factor*(v_buffer[0]-v_buffer[1])/deltaT )
             for i in range( 1 , len(v_buffer)-1 ):
-                a_buffer.append( (v_buffer[i+1]-v_buffer[i-1])/deltaT )
-            a_buffer.append( (v_buffer[len(v_buffer)-1]-v_buffer[len(v_buffer)-2])/deltaT )
+                a_buffer.append( a_factor*(v_buffer[i+1]-v_buffer[i-1])/deltaT )
+            a_buffer.append( a_factor*(v_buffer[len(v_buffer)-1]-v_buffer[len(v_buffer)-2])/deltaT )
             
             if(debug):
                 print a_buffer
@@ -347,6 +348,7 @@ def read(fname,num_sample=-1):
             hubo_traj.points.append(current_point)
             
         print len(hubo_traj.points)
+        print hubo_traj.points[len(hubo_traj.points)-1].time_from_start.to_sec()
         # Set hubo trajectory 
         #hubo_goal = JointTrajectoryGoal()
         #hubo_goal.trajectory = hubo_traj

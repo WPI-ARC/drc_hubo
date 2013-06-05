@@ -36,8 +36,9 @@ class HuboTestSendCommand:
             valve_position.orientation.y = 0.5
             valve_position.orientation.z = 0.5 
             valve_position.orientation.w = 0.5
+
             response = planner_srv( valve_position )
-            self.traj = response.trajectories[0]
+            self.traj = response.trajectories
             return self.traj
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
@@ -64,19 +65,27 @@ class HuboTestSendCommand:
 
         print "client started"
 
+        res = None
+
         try:
-            # Creates a goal to send to the action server.
-            goal = JointTrajectoryGoal()
-            goal.trajectory = self.traj
+            # for all trajectories
+            for t in self.traj:
+            
+                # Creates a goal to send to the action server.
+                goal = JointTrajectoryGoal()
+                t.header.stamp = rospy.Time.now()
+                goal.trajectory = t
 
-            # Sends the goal to the action server.
-            client.send_goal(goal)
+                # Sends the goal to the action server.
+                client.send_goal( goal )
+                client.wait_for_result( rospy.Duration.from_sec(500.0) )
+                res = client.get_result()
 
-            # Waits for the server to finish performing the action.
-            client.wait_for_result()
-
-            # Prints out the result of executing the action
-            return client.get_result()  # A FibonacciResult
+                # Prints out the result of executing the action
+                print "end execution of trajectory"
+                #print res
+            
+            return res
 
         except rospy.ServiceException, e:
             print "Goal Sending failed : %s"%e
@@ -88,7 +97,7 @@ if __name__ == '__main__':
         rospy.init_node('hubo_test_send_command')
         command = HuboTestSendCommand()
         traj = command.call_to_planner()
-        #print traj
+        #print traj[0]
         command.joint_traj_client()
         #rospy.spin()
 
