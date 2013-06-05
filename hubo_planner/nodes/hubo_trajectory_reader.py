@@ -268,7 +268,7 @@ def read(fname,num_sample=-1):
 
         hubo_traj.joint_names = hubo_joint_names_list
         
-        tc = 1 # time_counter
+        tc = 0 # time_counter
 
         deltaT = float(6.0/data_count)
 
@@ -307,12 +307,19 @@ def read(fname,num_sample=-1):
             v_buffer = []
 
             # Fill in velocity buffers
-            joint_id = 0
-            for v in range( i_vel, f_vel ):
-                if( v in joint_vel_offsets.keys() ):
-                    if( joint_id in hubo_body_joint_names.keys() ):
-                        v_buffer.append(float(data[v]))
-                    joint_id += 1
+            v_buffer.append( (p_buffer[0]-p_buffer[1])/deltaT )
+            for i in range( 1 , len(p_buffer)-1 ):
+                v_buffer.append( (p_buffer[i+1]-p_buffer[i-1])/deltaT )
+            v_buffer.append( (p_buffer[len(p_buffer)-1]-p_buffer[len(p_buffer)-2])/deltaT )
+            
+            # TODO : We do not use the velocity profile of
+            # COMPS, we simply compute them by finit differenciation    
+            #joint_id = 0
+            #for v in range( i_vel, f_vel ):
+            #    if( v in joint_vel_offsets.keys() ):
+            #        if( joint_id in hubo_body_joint_names.keys() ):
+            #            v_buffer.append(float(data[v]))
+            #        joint_id += 1
 
             if(debug):
                 print v_buffer
@@ -321,9 +328,10 @@ def read(fname,num_sample=-1):
             a_buffer = []
 
             # Fill in accelerations buffers
+            a_buffer.append( (v_buffer[0]-v_buffer[1])/deltaT )
             for i in range( 1 , len(v_buffer)-1 ):
-                a_buffer.append( (v_buffer[i+1]-v_buffer[i-1])/2 )
-                #print a_buffer
+                a_buffer.append( (v_buffer[i+1]-v_buffer[i-1])/deltaT )
+            a_buffer.append( (v_buffer[len(v_buffer)-1]-v_buffer[len(v_buffer)-2])/deltaT )
             
             if(debug):
                 print a_buffer
@@ -332,8 +340,13 @@ def read(fname,num_sample=-1):
             current_point.positions = deepcopy(p_buffer)
             current_point.velocities = deepcopy(v_buffer)
             current_point.accelerations = deepcopy(a_buffer)
+            #print "len(current_point.positions) : " + str(len(current_point.positions))
+            #print "len(current_point.velocities) : " + str(len(current_point.velocities))
+            #print "len(current_point.accelerations) : " + str(len(current_point.accelerations))
+
             hubo_traj.points.append(current_point)
             
+        print len(hubo_traj.points)
         # Set hubo trajectory 
         #hubo_goal = JointTrajectoryGoal()
         #hubo_goal.trajectory = hubo_traj

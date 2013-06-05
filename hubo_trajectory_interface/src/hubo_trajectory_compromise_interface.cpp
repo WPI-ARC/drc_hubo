@@ -52,6 +52,10 @@ ach_channel_t chan_traj_state;
 ach_channel_t chan_hubo_ctrl_state_main;
 ach_channel_t chan_hubo_ctrl_state_pub;
 
+// In debug mode we do not take into 
+// account flushing (premature abortion of the trajectory execution)
+bool debug_interface = true;
+
 /*
  * These are the two values we don't quite know how to set - we actually want these
  * to be "slow" - i.e. small trajectory chunks at a comparatively slow rate, since
@@ -136,6 +140,32 @@ int IndexLookup(const std::string& joint_name)
 }
 
 /*
+ * Sets a null trajectory in the channel
+*/
+void resetTrajectoryChannel()
+{
+    hubo_traj_t ach_traj;
+    ach_traj.trajID = -1;
+    ach_traj.endTime = -1;
+    ach_put( &chan_traj_cmd, &ach_traj, sizeof(ach_traj) );
+
+    hubo_traj_output_t H_output;
+    memset(&H_output, 0, sizeof(hubo_traj_output_t));
+
+    size_t fs; int i=0;
+
+    H_output.status = TRAJ_RUNNING;
+
+    while( H_output.status != TRAJ_COMPLETE )
+    {
+        ach_get( &chan_traj_state, &H_output, sizeof(H_output), &fs, NULL, ACH_O_LAST );
+
+        if( i++ == 1000 )
+            break;
+    }
+}
+
+/*
  * Takes the current "trajectory chunk" and sends it to hubo-motion over
  * hubo ach channels. Because the trajectory chunk has been reprocessed,
  * the joint indices in the trajectory chunk match the indicies used by
@@ -143,7 +173,7 @@ int IndexLookup(const std::string& joint_name)
 */
 void sendTrajectory( const std::vector<trajectory_msgs::JointTrajectoryPoint>& processed_traj )
 {
-    if (processed_traj.size() == 0)
+    if ( processed_traj.empty() )
     {
         return;
     }
@@ -160,10 +190,10 @@ void sendTrajectory( const std::vector<trajectory_msgs::JointTrajectoryPoint>& p
                 ach_traj.joint[i].position[p] = processed_traj[p].positions[i];
                 ach_traj.joint[i].velocity[p] = processed_traj[p].velocities[i];
                 ach_traj.joint[i].acceleration[p] = processed_traj[p].accelerations[i];
-                //cout << ach_traj.joint[i].position[p] << " " ;
-                cout << ach_traj.joint[i].acceleration[p] << " " ;
+                // cout << ach_traj.joint[i].position[p] << " " ;
+                // cout << ach_traj.joint[i].acceleration[p] << " " ;
             }
-            cout << endl;
+            //cout << endl;
             ach_traj.time[p] = processed_traj[p].time_from_start.toSec();
             //cout << "time from start : " << processed_traj[p].time_from_start.toSec() << endl;
         }
@@ -322,7 +352,8 @@ void trajectoryCB( const trajectory_msgs::JointTrajectory& traj )
     // Before we do anything, check if the trajectory is empty - this is a special "stop" value that flushes the current stored trajectory
     if (traj.points.size() == 0)
     {
-        g_trajectory_chunks.clear();
+        if( !debug_interface )
+            g_trajectory_chunks.clear();
         ROS_INFO("Flushing current trajectory");
         return;
     }
@@ -538,6 +569,7 @@ int main(int argc, char** argv)
         ROS_FATAL("Could not open ACH channel: HUBO_TRAJ_STATE_CHAN !");
         exit(1);
     }
+
     ROS_INFO("Opened ACH channels to hubo-motion-rt");
     // Set up state publisher
     std::string pub_path = nh.getNamespace() + "/state";
@@ -553,8 +585,19 @@ int main(int argc, char** argv)
     // Spin until killed
     
     size_t fs;
+
     hubo_ctrl_state_t H_ctrl_state;
     memset(&H_ctrl_state, 0, sizeof(H_ctrl_state));
+
+    hubo_traj_output_t H_output;
+    memset(&H_output, 0, sizeof(hubo_traj_output_t));
+
+    //resetTrajectoryChannel();
+    
+    bool running = false;
+    bool next_chunk_sent = false;
+    bool wait_for_new_state = false;
+
     while (ros::ok())
     {
         // Get latest reference from HUBO-ACH (this is used to populate the uncommanded joints!)
@@ -566,22 +609,76 @@ int main(int argc, char** argv)
         }
         else if (fs != sizeof(H_ctrl_state))
         {
-            ROS_ERROR("Hubo ref size error! [sending loop]");
+            ROS_ERROR("Hubo state size error! [sending loop] with %s", ach_result_to_string(r) );
         }
         else
         {
-           //cout << "processing trajectory" << endl;
-            // Reprocess the current trajectory chunk (this does nothing if we have nothing to send)
-            const std::vector<trajectory_msgs::JointTrajectoryPoint>& cleaned_trajectory = processTrajectory( &H_ctrl_state );
-            if (cleaned_trajectory.size() > 0)
-            {
-                SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSec());
-            }
             // Send the latest trajectory chunk (this does nothing if we have nothing to send)
-            sendTrajectory( cleaned_trajectory );
+            // only send the next chunk
+            if( !running || !next_chunk_sent )
+            {
+                // cout << "processing trajectory" << endl;
+                // Reprocess the current trajectory chunk (this does nothing if we have nothing to send)
+                const std::vector<trajectory_msgs::JointTrajectoryPoint>& cleaned_trajectory = processTrajectory( &H_ctrl_state );
+
+                if ( !cleaned_trajectory.empty() )
+                {
+                    SPIN_RATE = 1.0 / (cleaned_trajectory.back().time_from_start.toSec());
+
+                    sendTrajectory( cleaned_trajectory );
+
+                    if( running )
+                        next_chunk_sent = true;
+                   
+                    wait_for_new_state = true;
+                }
+             }
         }
+
+        if( wait_for_new_state )
+        {
+            //ROS_INFO( "Waiting for trajectory state" );
+            wait_for_new_state = false;
+
+            // Reset the trajectory channel when execution is finished
+            r = ach_get( &chan_traj_state, &H_output, sizeof(H_output), &fs, NULL, ACH_O_WAIT );
+
+            if( r != ACH_OK && r != ACH_MISSED_FRAME && r != ACH_STALE_FRAMES )
+            {
+                ROS_ERROR("get ach channel for H_output failed in [sending loop] : %s", ach_result_to_string(r) );
+            }
+            else if (fs != sizeof(H_output))
+            {
+                ROS_ERROR("Hubo output size error! [sending loop] with %s", ach_result_to_string(r) );
+            }
+            else if( H_output.status == TRAJ_COMPLETE && g_trajectory_chunks.empty() )
+            {
+                cout << "trajectory completed, reset trajectory channel" << endl;
+                resetTrajectoryChannel();
+                running = false;
+            }
+            else if( H_output.status == TRAJ_COMPLETE && g_trajectory_chunks.size() > 0 )
+            {
+                cout << "trajectory chunk complete!" << endl;
+                next_chunk_sent = false;
+            }
+            else if( H_output.status == TRAJ_RUNNING )
+            {
+                //cout << "trajectory running" << endl;
+                running = true;
+                wait_for_new_state = true;
+            }
+        }
+
+//        for (int i=0;i<HUBO_JOINT_COUNT;i++)
+//            ROS_INFO("Trajectory error : %d, %f", i, H_output.error[i] );
+
+//        ROS_INFO("Trajectory id : %d", H_output.trajID );
+//        ROS_INFO("Trajectory state channel in [sending loop] : %s", ach_result_to_string(r) );  
+//        ROS_INFO("Trajectory size of : %d", sizeof(H_output) );
+
+        // Wait long enough before sending the next one and receiving the running signal
         ros::spinOnce();
-        // Wait long enough before sending the next one
         ros::Rate looprate(SPIN_RATE);
         looprate.sleep();
     }
