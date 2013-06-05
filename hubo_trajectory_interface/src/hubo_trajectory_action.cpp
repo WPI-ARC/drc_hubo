@@ -270,7 +270,7 @@ private:
                     // Marks the current goal as aborted
                     active_goal_.setAborted();
                     has_active_goal_ = false;
-                    ROS_WARN("Aborting because we would up outside the trajectory constraints");
+                    ROS_WARN("Aborting because we would up outside the trajectory constraints, now < end_time");
                     return;
                 }
             }
@@ -316,7 +316,7 @@ private:
                 // Marks the current goal as aborted
                 active_goal_.setAborted();
                 has_active_goal_ = false;
-                ROS_WARN("Aborting because we wound up outside the goal constraints");
+                ROS_WARN("Aborting because we wound up outside the goal constraints, end_time > now");
             }
         }
     }
