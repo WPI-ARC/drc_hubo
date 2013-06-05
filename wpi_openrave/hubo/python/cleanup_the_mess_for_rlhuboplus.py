@@ -110,6 +110,7 @@ totalNumOfTransformsAfter = 0
 for sIdx, s in enumerate(huboplusLeftRm.map):
     myCleanS = deepcopy(s)
     myCleanS.T = []
+    myCleanS.configs = []
     isThisOneOnTheList = False
     for tIdx, t in enumerate(s.T):
         totalNumOfTransformsBefore += 1
@@ -122,6 +123,7 @@ for sIdx, s in enumerate(huboplusLeftRm.map):
         else:
             totalNumOfTransformsAfter += 1
             myCleanS.T.append(t)
+            myCleanS.configs.append(deepcopy(s.configs[tIdx]))
 
     myCleanLeftRmMap.append(myCleanS)
 
@@ -131,7 +133,7 @@ print totalNumOfTransformsAfter
 print len(whatToPop)
 
 huboplusLeftRm.map = deepcopy(myCleanLeftRmMap)
-huboplusLeftRm.name = "rlhuboplus_left"
+huboplusLeftRm.name = "rlhuboplus_left_m12"
 huboplusLeftRm.save()
 
 #### RIGHT MAP ###
@@ -170,6 +172,7 @@ totalNumOfTransformsAfter = 0
 for sIdx, s in enumerate(huboplusRightRm.map):
     myCleanS = deepcopy(s)
     myCleanS.T = []
+    myCleanS.configs = []
     isThisOneOnTheList = False
     for tIdx, t in enumerate(s.T):
         totalNumOfTransformsBefore += 1
@@ -182,6 +185,7 @@ for sIdx, s in enumerate(huboplusRightRm.map):
         else:
             totalNumOfTransformsAfter += 1
             myCleanS.T.append(t)
+            myCleanS.configs.append(deepcopy(s.configs[tIdx]))
 
     myCleanRightRmMap.append(myCleanS)
 
@@ -191,7 +195,7 @@ print totalNumOfTransformsAfter
 print len(whatToPop)
 
 huboplusRightRm.map = deepcopy(myCleanRightRmMap)
-huboplusRightRm.name = "rlhuboplus_right"
+huboplusRightRm.name = "rlhuboplus_right_m12"
 huboplusRightRm.save()
 
 print "Done!..."

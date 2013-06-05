@@ -110,6 +110,7 @@ totalNumOfTransformsAfter = 0
 for sIdx, s in enumerate(drchuboLeftRm.map):
     myCleanS = deepcopy(s)
     myCleanS.T = []
+    myCleanS.configs = []
     isThisOneOnTheList = False
     for tIdx, t in enumerate(s.T):
         totalNumOfTransformsBefore += 1
@@ -122,6 +123,7 @@ for sIdx, s in enumerate(drchuboLeftRm.map):
         else:
             totalNumOfTransformsAfter += 1
             myCleanS.T.append(t)
+            myCleanS.configs.append(deepcopy(s.configs[tIdx]))
 
     myCleanLeftRmMap.append(myCleanS)
 
@@ -131,7 +133,7 @@ print totalNumOfTransformsAfter
 print len(whatToPop)
 
 drchuboLeftRm.map = deepcopy(myCleanLeftRmMap)
-drchuboLeftRm.name = "drchubo_left"
+drchuboLeftRm.name = "drchubo_left_m12"
 drchuboLeftRm.save()
 
 #### RIGHT MAP ###
@@ -170,6 +172,7 @@ totalNumOfTransformsAfter = 0
 for sIdx, s in enumerate(drchuboRightRm.map):
     myCleanS = deepcopy(s)
     myCleanS.T = []
+    myCleanS.configs = []
     isThisOneOnTheList = False
     for tIdx, t in enumerate(s.T):
         totalNumOfTransformsBefore += 1
@@ -182,6 +185,7 @@ for sIdx, s in enumerate(drchuboRightRm.map):
         else:
             totalNumOfTransformsAfter += 1
             myCleanS.T.append(t)
+            myCleanS.configs.append(deepcopy(s.configs[tIdx]))
 
     myCleanRightRmMap.append(myCleanS)
 
@@ -191,7 +195,7 @@ print totalNumOfTransformsAfter
 print len(whatToPop)
 
 drchuboRightRm.map = deepcopy(myCleanRightRmMap)
-drchuboRightRm.name = "drchubo_right"
+drchuboRightRm.name = "drchubo_right_m12"
 drchuboRightRm.save()
 
 print "Done!..."

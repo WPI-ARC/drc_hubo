@@ -324,12 +324,15 @@ traj0.append(Tstart0)
 
 # traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05])))))
 
+#traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.1])))))
+
 # traj0.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.1])))))
 
 # Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.15]))))
 # Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
 
-Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05]))))
+
+Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
 
 traj0.append(Tgoal0)
 
@@ -342,7 +345,7 @@ traj1.append(Tstart1)
 
 # traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
 
-# traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.1])))))
+# traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
 
 # Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.15]))))
 
@@ -414,7 +417,7 @@ elif(version == 1):
 
     ge = 5.0 # ground extension
     wheelHeight = 0.8 #random.random()
-    wheelPitch = 1.7 # pi*random.random()
+    wheelPitch = 1.0 # pi*random.random()
     h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
                              indices=None,
                              colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
@@ -527,7 +530,7 @@ TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transp
 
 TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.15, 0.0]))))
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.1, 0.0]))))
 
 T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
 h.append(misc.DrawAxes(env, T0_start0, 0.4))
@@ -536,7 +539,7 @@ TwheelEndEffector_start1 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transp
 
 TwheelEndEffector_start1 = dot(TwheelEndEffector_start1, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.15, 0.0]))))
+TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.1, 0.0]))))
 
 T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
 
@@ -678,6 +681,11 @@ while((not success) and (not end)):
             print myIK
             
             if(myIK != ''):
+                print "left hand init sphere index : transform index"
+                print str(candidates[0][valids[nxt]][0].sIdx),' : ',str(candidates[0][valids[nxt]][0].tIdx)
+                print "right hand init sphere index : transform index"
+                print str(candidates[1][valids[nxt]][0].sIdx),' : ',str(candidates[1][valids[nxt]][0].tIdx)
+                
                 print "Press enter to see the result..."
                 sys.stdin.readline()
                 robots[0].SetDOFValues(str2num(myIK), range(len(robots[0].GetJoints())))

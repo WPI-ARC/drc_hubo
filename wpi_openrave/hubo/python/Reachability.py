@@ -238,8 +238,7 @@ class ReachabilityMap(object):
         self.handles=[]
         print "In show - map length: ",str(len(self.map))
         for idx, s in enumerate(self.map):
-            for direction in range(s.reachability):
-                Tbase_s = s.T[direction]
+            for Tbase_s in s.T:
                 # if(Tbase_s[0,3] > 0):
                 #    print "warning!!!"
                 T0_ee =  dot(self.T0_base, Tbase_s)
@@ -1166,173 +1165,241 @@ def search(reachabilityMaps, mapTs, patterns, patternTs, myEnv):
         # Transform of pattern_i+1 with reference to pattern_i
         # relative transforms of the start points
         pTi_j = patternTs[m-1]
+
+        print pTi_j
+        sys.stdin.readline()
         
         # Find sisters of all map_i spheres' in map_i+1
         sisters={}
         for s1Idx, s1 in enumerate(rm[m-1]):
             
-            currentSisters = []
-
+            # currentSisters = []
+            # currentTransforms = []
+            current = []
             for t1Idx, Ti_s1 in enumerate(s1.T):
                 Ts1_sister = dot(Ti_s1,pTi_j)
+                myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
                 sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
                 if(sisterKey in newIndices):
                     print sisterKey
                     sisterIndex = newIndices[sisterKey]
-                    currentSisters.append(sisterIndex)
+                    # currentSisters.append(sisterIndex)
+                    # currentTransforms.append(t1Idx)
+                    current.append([sisterIndex, t1Idx])
                     print "Found a sister for ",str(s1Idx)
+                    rm[m-1][s1Idx].show(myEnv)
+                    rm[m][sisterIndex].show(myEnv)
                     print sisterIndex
                     print t1Idx
-                    sys.stdin.readline()
+                    # sys.stdin.readline()
+                    rm[m-1][s1Idx].hide()
+                    rm[m][sisterIndex].hide()
+                    
 
             #if(currentSisters != []): --> raises key error. To fix.
-            sisters[str(s1Idx)]=currentSisters
+            # sisters[str(s1Idx)]=currentSisters
+            sisters[s1Idx] = current
 
-        # Convert all search pattern elements of pattern_i+1
-        # into pattern_i's base transform
-        # for idx, s in enumerate(p[m]):
-        #     pTj_s = s.T
-        #     pTi_s = dot(pTi_j,pTj_s)
-        #     s.T = pTi_s
-
-        # Get the euclidean distance between pattern's root's
+        
         pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
         pD = round(pow(pD2,0.5),2)
 
-        # Find all pairs of reachability spheres that are 
-        # exactly eD apart from each other
         pairs = []
         print "looking for pairs...",' ',str(datetime.now())
-        # print "Sisters:"
-        # print len(sisters)
-        # NOTE, DO A SMARTER SEARCH HERE. 
-        # WE DON'T WANT A COMPLEXITY OF N^2
-        while(candidates == []):
-            s1Init = 0 # int(ceil(random()*(len(rm[m-1])-1)))
-            s2Init = 0 # int(ceil(random()*(len(rm[m])-1)))
-            # done = False
-            # while(not done):
-            #     s1Init = int(ceil(random()*(len(rm[m-1])-1)))
-            #     #print s1Init
-            #     allHigh = True
-            #     for n in rm[m-1][s1Init].neighbors:
-            #         if rm[m-1][n].reachability != 6:
-            #             allHigh = False
-            #             break
-            #     if(allHigh):
-            #         done = True
-            # done = False
-            # while(not done):
-            #     s2Init = int(ceil(random()*(len(rm[m])-1)))
-            #     #print s2Init
-            #     allHigh = True
-            #     for n in rm[m][s2Init].neighbors:
-            #         if rm[m][n].reachability != 6:
-            #             allHigh = False
-            #             break
-            #     if(allHigh):
-            #         done = True
-            for s1Idx, s1 in enumerate(rm[m-1][s1Init:]):
-                s1.show(myEnv)
-                for s2Idx in sisters[str(s1Idx)]:
-                    # print s1Idx
-                    # print s2Idx
-                    s2 = rm[m][s2Idx]
-                #for s2Idx, s2 in enumerate(rm[m][s2Init:]):
-                    s2.show(myEnv)
-                    #sys.stdin.readline()
-                    sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
-                    # print sD
-                    # print pD
-                    # print sD == pD
-                    # If the euclidean distance of the pattern transforms
-                    # is equal to spheres' distance, then keep the pair
-                    if(sD == pD):
-                        # Find which transforms of these spheres
-                        # satisfy the transform between search patterns
-                        transformsMatch = False
-                        for t1Idx, Ti_s1 in enumerate(s1.T):
-                            for t2Idx, Ti_s2 in enumerate(s2.T):
-                                # if there's a match keep the pair
-                                Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
-                                if(allclose(pTi_j,Ts1_s2)):
-                                    s1.show(myEnv)
-                                    s2.show(myEnv)
-                                    reachabilityMaps[0].go_to(s1Idx+s1Init,t1Idx)
-                                    reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
-                                    reachabilityMaps[1].go_to(s2Idx+s2Init,t2Idx)
-                                    reachabilityMaps[1].robot.SetTransform(array(Ti_j))
-                                    # sys.stdin.readline()
-                                    s1.hide()
-                                    s2.hide()
-                                    transformsMatch = False
-                                    adjusteds1Idx = s1Idx+s1Init
-                                    adjusteds2Idx = s2Idx+s2Init
-                                    pair1 = PathElement(adjusteds1Idx,t1Idx)
-                                    pair2 = PathElement(adjusteds2Idx,t2Idx)
-                                    pairs.append([pair1,pair2])
-                                    print "found a pair: ",str(len(pairs))
-                                    print str(adjusteds1Idx)," : ",str(t1Idx)
-                                    print str(adjusteds2Idx)," : ",str(t2Idx)
-                                    sys.stdin.readline()
-                                    # print "sphere info - s1: "
-                                    # print "s1.T: "
-                                    # print s1.T
-                                    # print "s2.T: "
-                                    # print s2.T
-                                    # break --> See what happens if you un/comment this line
-                                else:
-                                    # else, discard, even if the distance
-                                    # is close enough
-                                    pass
-                            if(transformsMatch):
-                                break
-                    if len(pairs) == howMany :
-                        break
-                    s2.hide()
-                s1.hide()
-                if len(pairs) == howMany:
-                    break
+        for s1Idx in sisters:
+            for couple in sisters[s1Idx]:
+                s2Idx = couple[0]
+                t1Idx = couple[1]
+                s1 = rm[m-1][s1Idx]
+                s2 = rm[m][s2Idx]
+                Ti_s1 = s1.T[t1Idx]
+                sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
+                if(sD == pD):
+                    for t2Idx, Ti_s2 in enumerate(s2.T):
+                        myh = misc.DrawAxes(myEnv,Ti_s1,0.3)
+                        myh1 = misc.DrawAxes(myEnv,Ti_s2,0.3)
+                        Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
 
-            print "found ",str(len(pairs))," pair(s). ",str(datetime.now())
-            print "looking for candidates... ",str(datetime.now())
-            for pairIdx, pair in enumerate(pairs):
-                if((pairIdx%20)==0):
-                    print str(pairIdx),"/",str(len(pairs))," ",str(datetime.now())
-                # print "Trying: "
-                # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
-                # print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
-                #if(rm[m-1][pair[0].sIdx].T[pair[0].tIdx][0,3] > 0.4 and rm[m-1][pair[0].sIdx].T[pair[0].tIdx][1,3] > 0.4):
-                # steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1],myEnv)
-                steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1])
-                if(steps0 != None):
-                    path0 = []
-                    path0.append(PathElement(pair[0].sIdx,pair[0].tIdx))
-                    path0.extend(steps0)
-                    
-                    # steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m],myEnv)
-                    steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m])
-                    if(steps1 != None):
-                        path1 = []
-                        path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
-                        path1.extend(steps1)
+                        # print "left manip Tee:"
+                        # print reachabilityMaps[0].manip.GetEndEffectorTransform()
+                        
+                        # print "Ti_s1:"
+                        # print Ti_s1
 
-                        if(steps0 != None and steps1 != None):
-                            print "start indices (spheres): ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
+                        # print "right manip Tee:"
+                        # print reachabilityMaps[1].manip.GetEndEffectorTransform()
 
-                            print "start indices (transforms): ",str(pair[0].tIdx),", ",str(pair[1].tIdx)
+                        # print "Ti_s2:"
+                        # print Ti_s2
+                        
+                        # if there's a match keep the pair
+                        if(allclose(pTi_j,Ts1_s2)):
+                            s1.show(myEnv)
+                            s2.show(myEnv)
+                            reachabilityMaps[0].go_to(s1Idx,t1Idx)
+                            reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
+                            reachabilityMaps[1].go_to(s2Idx,t2Idx)
+                            reachabilityMaps[1].robot.SetTransform(array(Ti_j))
+                            # sys.stdin.readline()
+                            s1.hide()
+                            s2.hide()
+                            transformsMatch = False
+                            adjusteds1Idx = s1Idx#+s1Init
+                            adjusteds2Idx = s2Idx#+s2Init
+                            pair1 = PathElement(adjusteds1Idx,t1Idx)
+                            pair2 = PathElement(adjusteds2Idx,t2Idx)
+                            pairs.append([pair1,pair2])
+                            print "found a pair: ",str(len(pairs))
+                            # print str(adjusteds1Idx)," : ",str(t1Idx)
+                            # print str(adjusteds2Idx)," : ",str(t2Idx)
 
-                            print "start transforms: ",str(rm[m-1][pair[0].sIdx].T[pair[0].tIdx]),", ",str(rm[m][pair[1].sIdx].T[pair[1].tIdx])
 
-                            # s.stdin.readline()
-                            # path is in a list because we might 
-                            # have more than one path candidates
-                            paths0.append(path0) 
-                            paths1.append(path1)
-            
-            if(paths0 != [] and paths1 != []):
-                candidates.append(paths0)
-                candidates.append(paths1)
+        # ############################################################################
+        # # Convert all search pattern elements of pattern_i+1
+        # # into pattern_i's base transform
+        # # for idx, s in enumerate(p[m]):
+        # #     pTj_s = s.T
+        # #     pTi_s = dot(pTi_j,pTj_s)
+        # #     s.T = pTi_s
+
+        # # Get the euclidean distance between pattern's root's
+        # pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
+        # pD = round(pow(pD2,0.5),2)
+
+        # # Find all pairs of reachability spheres that are 
+        # # exactly eD apart from each other
+        # pairs = []
+        # print "looking for pairs...",' ',str(datetime.now())
+        # # print "Sisters:"
+        # # print len(sisters)
+        # # NOTE, DO A SMARTER SEARCH HERE. 
+        # # WE DON'T WANT A COMPLEXITY OF N^2
+        # while(candidates == []):
+        #     s1Init = 0 # int(ceil(random()*(len(rm[m-1])-1)))
+        #     s2Init = 0 # int(ceil(random()*(len(rm[m])-1)))
+        #     # done = False
+        #     # while(not done):
+        #     #     s1Init = int(ceil(random()*(len(rm[m-1])-1)))
+        #     #     #print s1Init
+        #     #     allHigh = True
+        #     #     for n in rm[m-1][s1Init].neighbors:
+        #     #         if rm[m-1][n].reachability != 6:
+        #     #             allHigh = False
+        #     #             break
+        #     #     if(allHigh):
+        #     #         done = True
+        #     # done = False
+        #     # while(not done):
+        #     #     s2Init = int(ceil(random()*(len(rm[m])-1)))
+        #     #     #print s2Init
+        #     #     allHigh = True
+        #     #     for n in rm[m][s2Init].neighbors:
+        #     #         if rm[m][n].reachability != 6:
+        #     #             allHigh = False
+        #     #             break
+        #     #     if(allHigh):
+        #     #         done = True
+        #     for s1Idx, s1 in enumerate(rm[m-1][s1Init:]):
+        #         s1.show(myEnv)
+        #         for s2Idx in sisters[str(s1Idx)]:
+        #             # print s1Idx
+        #             # print s2Idx
+        #             s2 = rm[m][s2Idx]
+        #         #for s2Idx, s2 in enumerate(rm[m][s2Init:]):
+        #             s2.show(myEnv)
+        #             #sys.stdin.readline()
+        #             sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
+        #             # print sD
+        #             # print pD
+        #             # print sD == pD
+        #             # If the euclidean distance of the pattern transforms
+        #             # is equal to spheres' distance, then keep the pair
+        #             if(sD == pD):
+        #                 # Find which transforms of these spheres
+        #                 # satisfy the transform between search patterns
+        #                 transformsMatch = False
+        #                 for t1Idx, Ti_s1 in enumerate(s1.T):
+        #                     for t2Idx, Ti_s2 in enumerate(s2.T):
+        #                         # if there's a match keep the pair
+        #                         Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
+        #                         if(allclose(pTi_j,Ts1_s2)):
+        #                             s1.show(myEnv)
+        #                             s2.show(myEnv)
+        #                             reachabilityMaps[0].go_to(s1Idx+s1Init,t1Idx)
+        #                             reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
+        #                             reachabilityMaps[1].go_to(s2Idx+s2Init,t2Idx)
+        #                             reachabilityMaps[1].robot.SetTransform(array(Ti_j))
+        #                             # sys.stdin.readline()
+        #                             s1.hide()
+        #                             s2.hide()
+        #                             transformsMatch = False
+        #                             adjusteds1Idx = s1Idx+s1Init
+        #                             adjusteds2Idx = s2Idx+s2Init
+        #                             pair1 = PathElement(adjusteds1Idx,t1Idx)
+        #                             pair2 = PathElement(adjusteds2Idx,t2Idx)
+        #                             pairs.append([pair1,pair2])
+        #                             print "found a pair: ",str(len(pairs))
+        #                             print str(adjusteds1Idx)," : ",str(t1Idx)
+        #                             print str(adjusteds2Idx)," : ",str(t2Idx)
+        #                             sys.stdin.readline()
+        #                             # print "sphere info - s1: "
+        #                             # print "s1.T: "
+        #                             # print s1.T
+        #                             # print "s2.T: "
+        #                             # print s2.T
+        #                             # break --> See what happens if you un/comment this line
+        #                         else:
+        #                             # else, discard, even if the distance
+        #                             # is close enough
+        #                             pass
+        #                     if(transformsMatch):
+        #                         break
+        #             if len(pairs) == howMany :
+        #                 break
+        #             s2.hide()
+        #         s1.hide()
+        #         if len(pairs) == howMany:
+        #             break
+        
+        print "found ",str(len(pairs))," pair(s). ",str(datetime.now())
+        print "looking for candidates... ",str(datetime.now())
+        for pairIdx, pair in enumerate(pairs):
+            if((pairIdx%20)==0):
+                print str(pairIdx),"/",str(len(pairs))," ",str(datetime.now())
+            # print "Trying: "
+            # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
+            # print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
+            #if(rm[m-1][pair[0].sIdx].T[pair[0].tIdx][0,3] > 0.4 and rm[m-1][pair[0].sIdx].T[pair[0].tIdx][1,3] > 0.4):
+            # steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1],myEnv)
+            steps0 = my_function2(rm[m-1][pair[0].sIdx],pair[0].tIdx,p[m-1],rm[m-1])
+            if(steps0 != None):
+                path0 = []
+                path0.append(PathElement(pair[0].sIdx,pair[0].tIdx))
+                path0.extend(steps0)
+
+                # steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m],myEnv)
+                steps1 = my_function2(rm[m][pair[1].sIdx],pair[1].tIdx,p[m],rm[m])
+                if(steps1 != None):
+                    path1 = []
+                    path1.append(PathElement(pair[1].sIdx,pair[1].tIdx))
+                    path1.extend(steps1)
+
+                    if(steps0 != None and steps1 != None):
+                        print "start indices (spheres): ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
+
+                        print "start indices (transforms): ",str(pair[0].tIdx),", ",str(pair[1].tIdx)
+
+                        print "start transforms: ",str(rm[m-1][pair[0].sIdx].T[pair[0].tIdx]),", ",str(rm[m][pair[1].sIdx].T[pair[1].tIdx])
+
+                        # s.stdin.readline()
+                        # path is in a list because we might 
+                        # have more than one path candidates
+                        paths0.append(path0) 
+                        paths1.append(path1)
+
+        if(paths0 != [] and paths1 != []):
+            candidates.append(paths0)
+            candidates.append(paths1)
         
 
     print "found ",str(len(candidates[0]))," candidates.",' ',str(datetime.now())
