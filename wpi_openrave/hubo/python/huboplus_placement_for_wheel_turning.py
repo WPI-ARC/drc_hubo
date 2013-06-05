@@ -236,9 +236,6 @@ myRmaps.append(rm2)
 
 # sys.stdin.readline()
 
-# 4. Where do we want the end effectors to start from in world coordinates?
-T0_starts = []
-
 # Crank Transform End Effector in World Coordinates
 # This is the transformation matrix of the end effector 
 # named "dummy" in the xml file.
@@ -246,29 +243,12 @@ T0_starts = []
 #
 # wheelEndEffector is tilted 23 degrees.
 # wheelBase is not tilted.
-T0_wheelEndEffector = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
+T0_OBJECT = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
+TOBJECT_LH = 
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.1, 0.0]))))
-
-T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
-h.append(misc.DrawAxes(env, T0_start0, 0.4))
-
-TwheelEndEffector_start1 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
-
-TwheelEndEffector_start1 = dot(TwheelEndEffector_start1, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
-
-TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.1, 0.0]))))
-
-T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
-
-h.append(misc.DrawAxes(env, T0_start1, 0.4))
-
-T0_starts.append(array(T0_start0))
-T0_starts.append(array(T0_start1))
+TOBJECT_RH = 
 
 # Define robot base constraint(s)
 # a) Bounds <type 'list'>
