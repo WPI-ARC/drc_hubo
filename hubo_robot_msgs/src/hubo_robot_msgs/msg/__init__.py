@@ -7,7 +7,7 @@ from ._JointTrajectoryActionResult import *
 from ._JointCommandActionResult import *
 from ._JointTrajectoryAction import *
 from ._JointCommandState import *
-from ._WalkFeedback import *
+from ._WalkGoal import *
 from ._JointCommandAction import *
 from ._WalkResult import *
 from ._JointControllerState import *
@@ -18,9 +18,9 @@ from ._JointTrajectoryResult import *
 from ._WalkAction import *
 from ._JointCommandResult import *
 from ._JointTrajectoryActionFeedback import *
-from ._WalkGoal import *
+from ._JointTrajectoryState import *
 from ._JointCommandActionFeedback import *
 from ._JointTrajectoryGoal import *
 from ._WalkActionResult import *
-from ._JointTrajectoryState import *
 from ._JointCommand import *
+from ._WalkFeedback import *

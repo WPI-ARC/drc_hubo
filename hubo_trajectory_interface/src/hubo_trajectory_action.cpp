@@ -88,7 +88,7 @@ private:
         // First, check to make sure that the sets are the same size
         if (a.size() != b.size())
         {
-            cout << " set a.size() : " << a.size() << " , b.size() : " <<   b.size() << endl;
+            ROS_DEBUG("Set a size: %d, set b size: %d", a.size(), b.size());
             return false;
         }
         // Now, make sure a is a subset of b (i.e. make sure every element of a is in b)
@@ -96,7 +96,7 @@ private:
         {
             if (count(b.begin(), b.end(), a[i]) != 1)
             {
-                cout << a[i] << " does not apprear in vecor b" << endl;
+                ROS_DEBUG("Element a[%d] (value %s) is not in b", i, a[i].c_str());
                 return false;
             }
         }
@@ -105,7 +105,7 @@ private:
         {
             if (count(a.begin(), a.end(), b[i]) != 1)
             {
-                cout << b[i] << " does not apprear in vecor a" << endl;
+                ROS_DEBUG("Element b[%d] (value %s) is not in a", i, b[i].c_str());
                 return false;
             }
         }
@@ -185,8 +185,7 @@ private:
         has_active_goal_ = true;
         // Sends the trajectory along to the controller
         current_traj_ = active_goal_.getGoal()->trajectory;
-        ROS_INFO( "publish goal trajectory" );
-        //cout << current_traj_ << endl;
+        ROS_INFO("Sending goal trajectory to the execution backend");
         pub_interface_command_.publish(current_traj_);
     }
 
@@ -225,8 +224,6 @@ private:
     void controllerStateCB(const hubo_robot_msgs::JointTrajectoryStateConstPtr &msg)
     {
         last_interface_state_ = msg;
-        //cout << "last_interface_state_ : " << last_interface_state_ << endl;
-
         ros::Time now = ros::Time::now();
         // Nothing to do if there isn't an active goal
         if (!has_active_goal_)
@@ -270,7 +267,7 @@ private:
                     // Marks the current goal as aborted
                     active_goal_.setAborted();
                     has_active_goal_ = false;
-                    ROS_WARN("Aborting because we would up outside the trajectory constraints, now < end_time");
+                    ROS_WARN("Aborting because we would up outside the trajectory constraints, now < end_time!");
                     return;
                 }
             }
@@ -316,7 +313,7 @@ private:
                 // Marks the current goal as aborted
                 active_goal_.setAborted();
                 has_active_goal_ = false;
-                ROS_WARN("Aborting because we wound up outside the goal constraints, end_time > now");
+                ROS_WARN("Aborting because we ran out of time, now > end_time!");
             }
         }
     }
@@ -336,7 +333,7 @@ public:
         // Get joint names, constraints, and information
         // Gets all of the joint names
         XmlRpc::XmlRpcValue joint_names;
-        if (!pn.getParam("/hubo_fullbody_controller/hubo_fullbody_controller_node/joints", joint_names))
+        if (!pn.getParam("joints", joint_names))
         {
             ROS_FATAL("No joints given. (namespace: %s)", pn.getNamespace().c_str());
             exit(1);
@@ -357,6 +354,13 @@ public:
             joint_names_.push_back((std::string)name_value);
             //cout << joint_names_.back() << endl;
         }
+        std::ostringstream strm;
+        strm << "Loaded joint names from the parameter server:";
+        for (unsigned int i = 0; i < joint_names_.size(); i++)
+        {
+            strm << "\n" << joint_names_[i];
+        }
+        ROS_INFO(strm.str().c_str());
         // Get the goal time constraint (i.e. how long after the desired end time we let the goal run before aborting)
         pn.param("constraints/goal_time", goal_time_constraint_, 0.0);
         // Gets the constraints for each joint.
@@ -378,7 +382,7 @@ public:
         // Set up a watchdog timer to handle drops in the communication between this server and the trajectory controller
         watchdog_timer_ = node_.createTimer(ros::Duration(1.0), &HuboJointTrajectoryServer::watchdog, this);
 
-        ROS_INFO("Start waiting for controller");
+        ROS_INFO("Waiting for the execution backend to start...");
         ///////////////////////////////////////////////////
         // Wait for the interface to be ready before starting the joint trajectory action server
         ros::Time started_waiting_for_controller = ros::Time::now();
@@ -395,14 +399,14 @@ public:
         }
         // Once everything is ready, start the actionserver
         action_server_.start();
-        ROS_INFO("Action server started");
+        ROS_INFO("JointTrajectoryAction server started");
     }
 
     ~HuboJointTrajectoryServer()
     {
-      pub_interface_command_.shutdown();
-      sub_interface_state_.shutdown();
-      watchdog_timer_.stop();
+        pub_interface_command_.shutdown();
+        sub_interface_state_.shutdown();
+        watchdog_timer_.stop();
     }
 
     /*
@@ -441,6 +445,10 @@ void shutdown(int signum)
     if (g_htjs != NULL)
     {
         g_htjs->shutdown(signum);
+    }
+    else
+    {
+        ROS_WARN("HJTAS not yet loaded, aborting the load process and shutting down");
     }
     ros::shutdown();
 }
