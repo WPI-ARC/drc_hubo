@@ -12,7 +12,7 @@ if not __openravepy_build_doc__:
 from openravepy.misc import OpenRAVEGlobalArguments
 
 ## ROBOT PLACEMENET ##
-from Reachability import *
+from ReachabilityOld import *
 
 ## MATH ##
 from random import *
@@ -57,7 +57,7 @@ traj0.append(Tstart0)
 # Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
 
 
-Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
+Tgoal0 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05]))))
 
 traj0.append(Tgoal0)
 
@@ -141,7 +141,7 @@ elif(version == 1):
 
     ge = 5.0 # ground extension
     wheelHeight = 1.1 #random.random()
-    wheelPitch = -0.5 # pi*random.random()
+    wheelPitch = 1.0 # pi*random.random()
     h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
                              indices=None,
                              colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
@@ -236,6 +236,9 @@ myRmaps.append(rm2)
 
 # sys.stdin.readline()
 
+# 4. Where do we want the end effectors to start from in world coordinates?
+T0_starts = []
+
 # Crank Transform End Effector in World Coordinates
 # This is the transformation matrix of the end effector 
 # named "dummy" in the xml file.
@@ -244,11 +247,29 @@ myRmaps.append(rm2)
 # wheelEndEffector is tilted 23 degrees.
 # wheelBase is not tilted.
 
-T0_OBJECT = wheel.GetManipulators()[0].GetEndEffectorTransform()
+T0_wheelEndEffector = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-TOBJECT_LH = 
+TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
 
-TOBJECT_RH = 
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
+
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.15, 0.0]))))
+
+T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
+h.append(misc.DrawAxes(env, T0_start0, 0.4))
+
+TwheelEndEffector_start1 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
+
+TwheelEndEffector_start1 = dot(TwheelEndEffector_start1, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
+
+TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.15, 0.0]))))
+
+T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
+
+h.append(misc.DrawAxes(env, T0_start1, 0.4))
+
+T0_starts.append(array(T0_start0))
+T0_starts.append(array(T0_start1))
 
 # Define robot base constraint(s)
 # a) Bounds <type 'list'>

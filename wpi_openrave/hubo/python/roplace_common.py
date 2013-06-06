@@ -12,7 +12,7 @@ if not __openravepy_build_doc__:
 from openravepy.misc import OpenRAVEGlobalArguments
 
 ## ROBOT PLACEMENET ##
-from Reachability import *
+# from Reachability import *
 
 ## MATH ##
 from random import *
@@ -29,6 +29,8 @@ from rodrigues import *
 from TransformMatrix import *
 from str2num import *
 from TSR import *
+
+from copy import deepcopy
 
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
@@ -131,16 +133,18 @@ def put_feet_on_the_ground(myProblem, myRobot, T0_FACING, lowerLimits, upperLimi
     T0_LF = myRobot.GetManipulators()[2].GetEndEffectorTransform()
     T0_RF = myRobot.GetManipulators()[3].GetEndEffectorTransform()
 
-    for y in range(21):
+    for x in range(21):
         # Center of Gravity Target
         # T0_TORSO = myRobot.GetManipulators()[5].GetEndEffectorTransform()
 
         # Where to put the left foot?
         # Rotation matrix is eye(3)
-        T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3],T0_COM[1,3]-(0.1+y*0.01),0]))))
+        # T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
+        T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
 
         # Same for the right foot
-        T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3],T0_COM[1,3]-(0.1+y*0.01),0]))))
+        # T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
+        T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
 
         print "this is where the feet should go."
         myHandle1 = misc.DrawAxes(myEnv,array(T0_lf),0.1)
