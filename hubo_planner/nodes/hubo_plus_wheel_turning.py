@@ -278,7 +278,8 @@ class HuboPlusWheelTurning:
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
-        footlinknames = ' Body_RAR Body_LAR polyscale 0.7 0.5 0 polytrans -0.015 0 0 '
+        footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 polytrans -0.03 0 0 '
+        #footlinknames = ' Body_RAR Body_LAR polyscale 0.7 0.5 0 polytrans -0.015 0 0 '
 
         # What is this?
         handrot = rodrigues([0,-pi/2,0])
@@ -498,6 +499,8 @@ class HuboPlusWheelTurning:
         goaljoints = str2num(goaljoints)
 
         self.robotid.SetActiveDOFValues(startik)
+        self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
+        self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
         # Close hands to start "turning" the wheel
         self.crankid.SetDOFValues([0],[crankjointind])
         
@@ -570,8 +573,8 @@ class HuboPlusWheelTurning:
             print e
         
         self.robotid.GetController().Reset(0)
-        #robotid.SetDOFValues(rhandclosevals,rhanddofs)
-        #robotid.SetDOFValues(lhandclosevals,lhanddofs)
+        #self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
+        #self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
 
         if( self.StopAtKeyStrokes ):
             print "Press Enter to plan startik --> initconfig "
