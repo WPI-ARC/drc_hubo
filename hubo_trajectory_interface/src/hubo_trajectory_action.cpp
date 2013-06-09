@@ -88,7 +88,7 @@ private:
         // First, check to make sure that the sets are the same size
         if (a.size() != b.size())
         {
-            ROS_DEBUG("Set a size: %lu, set b size: %lu", a.size(), b.size());
+            ROS_ERROR("Set a size: %lu, set b size: %lu", a.size(), b.size());
             return false;
         }
         // Now, make sure a is a subset of b (i.e. make sure every element of a is in b)
@@ -96,7 +96,7 @@ private:
         {
             if (count(b.begin(), b.end(), a[i]) != 1)
             {
-                ROS_DEBUG("Element a[%lu] (value %s) is not in b", i, a[i].c_str());
+                ROS_ERROR("Element a[%lu] (value %s) is not in b", i, a[i].c_str());
                 return false;
             }
         }
@@ -105,7 +105,7 @@ private:
         {
             if (count(a.begin(), a.end(), b[i]) != 1)
             {
-                ROS_DEBUG("Element b[%lu] (value %s) is not in a", i, b[i].c_str());
+                ROS_ERROR("Element b[%lu] (value %s) is not in a", i, b[i].c_str());
                 return false;
             }
         }
