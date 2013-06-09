@@ -23,21 +23,25 @@ class HuboTestSendCommand:
 
         self.traj = None
 
-    def call_to_planner(self):
+    def call_to_planner(self, valve_pose=None):
 
         rospy.wait_for_service('hubo_planner/PlanningQuery')
         try:
             planner_srv = rospy.ServiceProxy('hubo_planner/PlanningQuery', PlanValveTurning)
-            valve_position = Pose()
-            valve_position.position.x = 0.18
-            valve_position.position.y = 0.09
-            valve_position.position.z = 0.9
-            valve_position.orientation.x = 0.5 
-            valve_position.orientation.y = 0.5
-            valve_position.orientation.z = 0.5 
-            valve_position.orientation.w = 0.5
+            valve_position = None
+            if (valve_pose == None):
+                valve_position = Pose()
+                valve_position.position.x = 0.18
+                valve_position.position.y = 0.09
+                valve_position.position.z = 0.9
+                valve_position.orientation.x = 0.5 
+                valve_position.orientation.y = 0.5
+                valve_position.orientation.z = 0.5 
+                valve_position.orientation.w = 0.5
+            else:
+                valve_position = valve_pose
 
-            response = planner_srv( valve_position )
+            response = planner_srv(valve_position)
             self.traj = response.trajectories
             return self.traj
         except rospy.ServiceException, e:
@@ -78,7 +82,7 @@ class HuboTestSendCommand:
 
                 # Sends the goal to the action server.
                 client.send_goal( goal )
-                client.wait_for_result( rospy.Duration.from_sec(500.0) )
+                client.wait_for_result()
                 res = client.get_result()
 
                 # Prints out the result of executing the action
