@@ -10,6 +10,7 @@ import actionlib
 
 # Brings in the messages used by the fibonacci action, including the
 # goal message and the result message.
+from std_msgs.msg import *
 from hubo_robot_msgs.msg import *
 from hubo_planner.srv import *
 from geometry_msgs.msg import *
@@ -20,8 +21,8 @@ from trajectory_msgs.msg import *
 class HuboTestSendCommand:
 
     def __init__(self):
-
         self.traj = None
+        self.hand_pub = rospy.Publisher("hand_command", Bool)
 
     def call_to_planner(self, valve_pose=None):
 
@@ -71,6 +72,63 @@ class HuboTestSendCommand:
 
         res = None
 
+        # Execute the start -> wheel trajectory
+        self.hand_pub.publish(False)
+        rospy.sleep(1.0)
+        t0_goal = JointTrajectoryGoal()
+        t0 = self.traj[0]
+        t0.header.stamp = rospy.Time.now()
+        t0_goal.trajectory = t0
+        client.send_goal( goal )
+        client.wait_for_result()
+        res = client.get_result()
+        print "end execution of trajectory 0"
+        # Execute the turning trajectory
+        self.hand_pub.publish(True)
+        rospy.sleep(1.0)
+        t1_goal = JointTrajectoryGoal()
+        t1 = self.traj[1]
+        t1.header.stamp = rospy.Time.now()
+        t1_goal.trajectory = t1
+        client.send_goal( goal )
+        client.wait_for_result()
+        res = client.get_result()
+        print "end execution of trajectory 1"
+        # Execute the return trajectory
+        self.hand_pub.publish(False)
+        rospy.sleep(1.0)
+        t2_goal = JointTrajectoryGoal()
+        t2 = self.traj[2]
+        t2.header.stamp = rospy.Time.now()
+        t2_goal.trajectory = t2
+        client.send_goal( goal )
+        client.wait_for_result()
+        res = client.get_result()
+        print "end execution of trajectory 2"
+        # Execute the turning trajectory
+        self.hand_pub.publish(True)
+        rospy.sleep(1.0)
+        t3_goal = JointTrajectoryGoal()
+        t3 = self.traj[3]
+        t3.header.stamp = rospy.Time.now()
+        t3_goal.trajectory = t3
+        client.send_goal( goal )
+        client.wait_for_result()
+        res = client.get_result()
+        print "end execution of trajectory 3"
+        # Execute the wheel -> start trajectory
+        self.hand_pub.publish(False)
+        rospy.sleep(1.0)
+        t4_goal = JointTrajectoryGoal()
+        t4 = self.traj[4]
+        t4.header.stamp = rospy.Time.now()
+        t4_goal.trajectory = t4
+        client.send_goal( goal )
+        client.wait_for_result()
+        res = client.get_result()
+        print "end execution of trajectory 4"
+
+        '''
         try:
             # for all trajectories
             for t in self.traj:
@@ -93,6 +151,7 @@ class HuboTestSendCommand:
 
         except rospy.ServiceException, e:
             print "Goal Sending failed : %s"%e
+        '''
 
 if __name__ == '__main__':
     try:
