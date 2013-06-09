@@ -98,14 +98,11 @@ void hubo_cb(const hubo_robot_msgs::JointCommand &msg)
     int r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
     if(ACH_OK != r)
     {
-        if(hubo_debug)
-        {
-            printf("State ini r = %i\n",r);
-        }
+        ROS_ERROR("Something went wrong in the callback - r = %i\n", r);
     }
     else
     {
-        printf("fs : %d, sizeof(H_ref_filter) : %d\n",fs,sizeof(H_ref_filter));
+        //ROS_INFO("fs : %d, sizeof(H_ref_filter) : %d\n",fs,sizeof(H_ref_filter));
         assert(sizeof(H_ref_filter) == fs);
     }
     //Add the joint values one at a time into the hubo struct
