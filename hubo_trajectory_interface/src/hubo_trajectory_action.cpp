@@ -280,8 +280,10 @@ private:
             {
                 double abs_error = fabs(msg->error.positions[i]);
                 double goal_constraint = goal_constraints_[msg->joint_names[i]];
+                ROS_DEBUG("Checking to see if joint %s ended up in constraints: current error = %f, goal_constraint = %f", msg->joint_names[i].c_str(), fabs(msg->error.positions[i]), goal_constraint);
                 if (goal_constraint >= 0 && abs_error > goal_constraint)
                 {
+                    ROS_WARN("Joint %s ended up outside position constraint: current error = %f, goal_constraint = %f", msg->joint_names[i].c_str(), fabs(msg->error.positions[i]), goal_constraint);
                     inside_goal_constraints = false;
                 }
                 // It's important to be stopped if that's desired.
@@ -291,6 +293,7 @@ private:
                 {
                     if (fabs(msg->actual.velocities[i]) > stopped_velocity_tolerance_)
                     {
+                        ROS_WARN("Joint %s ended up outside velocity constraint: current velocity = %f", msg->joint_names[i].c_str(), fabs(msg->actual.velocities[i]));
                         inside_goal_constraints = false;
                     }
                 }
