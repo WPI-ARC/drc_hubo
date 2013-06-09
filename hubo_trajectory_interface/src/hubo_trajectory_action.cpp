@@ -88,7 +88,7 @@ private:
         // First, check to make sure that the sets are the same size
         if (a.size() != b.size())
         {
-            ROS_DEBUG("Set a size: %d, set b size: %d", a.size(), b.size());
+            ROS_DEBUG("Set a size: %lu, set b size: %lu", a.size(), b.size());
             return false;
         }
         // Now, make sure a is a subset of b (i.e. make sure every element of a is in b)
@@ -96,7 +96,7 @@ private:
         {
             if (count(b.begin(), b.end(), a[i]) != 1)
             {
-                ROS_DEBUG("Element a[%d] (value %s) is not in b", i, a[i].c_str());
+                ROS_DEBUG("Element a[%lu] (value %s) is not in b", i, a[i].c_str());
                 return false;
             }
         }
@@ -105,7 +105,7 @@ private:
         {
             if (count(a.begin(), a.end(), b[i]) != 1)
             {
-                ROS_DEBUG("Element b[%d] (value %s) is not in a", i, b[i].c_str());
+                ROS_DEBUG("Element b[%lu] (value %s) is not in a", i, b[i].c_str());
                 return false;
             }
         }
@@ -313,7 +313,10 @@ private:
                 // Marks the current goal as aborted
                 active_goal_.setAborted();
                 has_active_goal_ = false;
-                ROS_WARN("Aborting because we ran out of time, now > end_time!");
+                // Get the time in secs for better error output
+                double now_secs = now.toSec();
+                double end_secs = end_time.toSec() + goal_time_constraint_;
+                ROS_WARN("Aborting because we ran out of time, now > end_time! now = %f, end_time = %f", now_secs, end_secs);
             }
         }
     }
@@ -360,7 +363,7 @@ public:
         {
             strm << "\n" << joint_names_[i];
         }
-        ROS_INFO(strm.str().c_str());
+        ROS_INFO("%s", strm.str().c_str());
         // Get the goal time constraint (i.e. how long after the desired end time we let the goal run before aborting)
         pn.param("constraints/goal_time", goal_time_constraint_, 0.0);
         // Gets the constraints for each joint.
