@@ -147,6 +147,7 @@ int main(int argc, char **argv)
     {
         //Get latest state from HUBO-ACH
         r = ach_get(&chan_hubo_state, &H_state, sizeof(H_state), &fs, NULL, ACH_O_WAIT);
+
         if(ACH_OK != r)
         {
             if(hubo_debug)
@@ -156,12 +157,15 @@ int main(int argc, char **argv)
         }
         else
         {
+            printf("fs : %d, sizeof(H_state) : %d\n",fs,sizeof(H_state));
             assert(sizeof(H_state) == fs);
         }
+
         //Get latest reference from HUBO-ACH
         r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
         if(ACH_OK != r)
         {
+            printf("ach_get chan_hubo_ref_filter not ok!\n");
             if(hubo_debug)
             {
                 ROS_DEBUG("State ini r = %i",r);
@@ -169,6 +173,7 @@ int main(int argc, char **argv)
         }
         else
         {
+            printf("fs : %d, sizeof(H_filter) : %d\n",fs,sizeof(H_ref_filter));
             assert(sizeof(H_ref_filter) == fs);
         }
         if(ACHtoHuboState(&H_state, &H_ref_filter))

@@ -1,3 +1,4 @@
+from ._WalkGoal import *
 from ._JointCommandActionGoal import *
 from ._JointTrajectoryActionGoal import *
 from ._WalkActionFeedback import *

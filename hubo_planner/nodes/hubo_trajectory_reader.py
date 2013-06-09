@@ -276,7 +276,8 @@ def read(fname,num_sample=-1):
 
             current_point = JointTrajectoryPoint()
             #l_current_point.time_from_start = rospy.Duration(float(data[c*deltatime_offset]))
-            current_point.time_from_start = rospy.Duration(2.0+(tc*deltaT))
+            #current_point.time_from_start = rospy.Duration(2.0+tc*deltaT))
+            current_point.time_from_start = rospy.Duration(2.0+tc*deltaT))
 
             tc = tc + 1
             # Get the indices for this subset of data
