@@ -36,7 +36,7 @@ Copyright (c) 2012, Daniel M. Lofaro
 
 // HUBO-ACH includes
 #include "ach.h"
-#include "hubo.h"
+#include "/usr/local/include/hubo.h"
 
 #define FT_LW 1
 #define FT_RW 2
@@ -57,7 +57,7 @@ ach_channel_t chan_hubo_ref_filter;
 int hubo_debug = 0;
 
 // Index->Joint name mapping
-char *joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach1", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
+char *joint_names[] = {"HPY", "not in urdf NKY/HNY", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf LWR", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf RWR", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR", "RF1", "RF2", "RF3", "RF4", "RF5", "LF1", "LF2", "LF3", "LF4", "LF5", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
 // From the name of the joint, find the corresponding joint index for the Hubo-ACH struct
 int IndexLookup(std::string joint_name)
@@ -113,7 +113,7 @@ void hubo_cb(const hubo_robot_msgs::JointCommand &msg)
     {
         ROS_ERROR("Hubo JointCommand malformed!");
     }
-    for (int i = 0; i < msg.command.positions.size(); i++)
+    for (unsigned int i = 0; i < msg.command.positions.size(); i++)
     {
         int index = IndexLookup(msg.joint_names[i]);
         if (index != -1)

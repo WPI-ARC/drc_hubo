@@ -359,22 +359,23 @@ void trajectoryCB( const trajectory_msgs::JointTrajectory& traj )
     //cout << "trajectoryCB : " << traj << endl;
     // Callback to chunk and save incoming trajectories
     // Before we do anything, check if the trajectory is empty - this is a special "stop" value that flushes the current stored trajectory
-    if (traj.points.size() == 0)
+    if (traj.points.size() == 0 && !debug_interface)
     {
-        if( !debug_interface )
-            g_trajectory_chunks.clear();
+        g_trajectory_chunks.clear();
         ROS_INFO("Flushing current trajectory");
         return;
     }
-
-    ROS_INFO("Cutting trajectory in chunks");
+    else if (traj.points.size() == 0)
+    {
+        ROS_WARN("Execution cancelled, NOT ABORTING DUE TO DEBUG MODE");
+        return;
+    }
+    ROS_INFO("Reprocessing trajectory with %d elements into chunks", traj.points.size());
 
     // First, chunk the trajectory into parts that can be sent over ACH channels to hubo-motion-rt
     std::vector< std::vector<trajectory_msgs::JointTrajectoryPoint> > new_chunks;
     unsigned int i = 0;
     ros::Duration base_time(0.0);
-
-    cout << "traj.size() : " << traj.points.size() << endl;
 
     while ( i < traj.points.size() )
     {
@@ -401,7 +402,7 @@ void trajectoryCB( const trajectory_msgs::JointTrajectory& traj )
             i++;
         }
 
-        cout << "new_chunk.size() : " << new_chunk.size() << endl;
+        ROS_INFO("Assembled a new trajectory chunk with %d elements", new_chunk.size());
 
         if( !new_chunk.empty() )
         {
@@ -413,7 +414,7 @@ void trajectoryCB( const trajectory_msgs::JointTrajectory& traj )
         }
     }
 
-    cout << "new_chunks.size() : " << new_chunks.size() << endl;
+    ROS_INFO("Trajectory reprocessed into %d chunks", new_chunks.size());
 
     // Second, store those chunks - first, we flush the stored trajectory
     g_trajectory_chunks.clear();

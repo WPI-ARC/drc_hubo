@@ -37,7 +37,7 @@ Copyright (c) 2012, Daniel M. Lofaro
 
 // HUBO-ACH includes
 #include "ach.h"
-#include "hubo.h"
+#include "/usr/local/include/hubo.h"
 
 #define FT_LW 1
 #define FT_RW 2
@@ -62,7 +62,7 @@ ros::Publisher g_hubo_clock_pub;
 int hubo_debug = 0;
 
 // Index->Joint name mapping
-char *joint_names[] = {"HPY", "not in urdf1", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf2", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf3", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR_dummy", "not in ach1", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR_dummy", "not in urdf4", "not in urdf5", "not in urdf6", "not in urdf7", "not in urdf8", "not in urdf9", "not in urdf10", "not in urdf11", "not in urdf12", "not in urdf13", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
+char *joint_names[] = {"HPY", "not in urdf NKY/HNY", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf LWR", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf RWR", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR", "RF1", "RF2", "RF3", "RF4", "RF5", "LF1", "LF2", "LF3", "LF4", "LF5", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
 //Convert HUBO-ACH state to an ROS HuboState message
 bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_reference)
