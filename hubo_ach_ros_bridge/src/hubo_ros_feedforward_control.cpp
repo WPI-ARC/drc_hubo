@@ -104,6 +104,7 @@ void hubo_cb(const hubo_robot_msgs::JointCommand &msg)
     }
     else
     {
+        printf("fs : %d, sizeof(H_ref_filter) : %d\n",fs,sizeof(H_ref_filter));
         assert(sizeof(H_ref_filter) == fs);
     }
     //Add the joint values one at a time into the hubo struct
