@@ -22,13 +22,13 @@ hubo_fullbody_controller:
       - LHP
       - LKP
       - LAP
-      - LAR_dummy
+      - LAR
       - RHY
       - RHR
       - RHP
       - RKP
       - RAP
-      - RAR_dummy
+      - RAR
     constraints:
       goal_time: 0.6
       HPY:
@@ -71,7 +71,7 @@ hubo_fullbody_controller:
         goal: 0.02
       LAP:
         goal: 0.02
-      LAR_dummy:
+      LAR:
         goal: 0.02
       RHY:
         goal: 0.02
@@ -83,7 +83,7 @@ hubo_fullbody_controller:
         goal: 0.02
       RAP:
         goal: 0.02
-      RAR_dummy:
+      RAR:
         goal: 0.02
 
   hubo_fullbody_controller_node:
@@ -108,10 +108,10 @@ hubo_fullbody_controller:
       - LHP
       - LKP
       - LAP
-      - LAR_dummy
+      - LAR
       - RHY
       - RHR
       - RHP
       - RKP
       - RAP
-      - RAR_dummy
+      - RAR
