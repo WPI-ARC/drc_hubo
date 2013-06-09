@@ -29,6 +29,16 @@ hubo_fullbody_controller:
       - RKP
       - RAP
       - RAR
+      - LF1
+      - LF2
+      - LF3
+      - LF4
+      - LF5
+      - RF1
+      - RF2
+      - RF3
+      - RF4
+      - RF5
     constraints:
       goal_time: 0.6
       HPY:
@@ -85,6 +95,26 @@ hubo_fullbody_controller:
         goal: 0.02
       RAR:
         goal: 0.02
+      LF1:
+        goal: 0.02
+      LF2:
+        goal: 0.02
+      LF3:
+        goal: 0.02
+      LF4:
+        goal: 0.02
+      LF5:
+        goal: 0.02
+      RF1:
+        goal: 0.02
+      RF2:
+        goal: 0.02
+      RF3:
+        goal: 0.02
+      RF4:
+        goal: 0.02
+      RF5:
+        goal: 0.02
 
   hubo_fullbody_controller_node:
     joints:
@@ -115,3 +145,13 @@ hubo_fullbody_controller:
       - RKP
       - RAP
       - RAR
+      - LF1
+      - LF2
+      - LF3
+      - LF4
+      - LF5
+      - RF1
+      - RF2
+      - RF3
+      - RF4
+      - RF5
