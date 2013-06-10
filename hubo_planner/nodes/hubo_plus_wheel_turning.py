@@ -149,7 +149,7 @@ class HuboPlusWheelTurning:
             print "Removing qhullout.txt"
             os.remove("qhullout.txt")
         except OSError, e:
-            print e    
+            print e
 
         for i in range(4):
             try:
@@ -196,6 +196,7 @@ class HuboPlusWheelTurning:
             cbirrtWheel = RaveCBiRRT(self.env,'crank')
         except openrave_exception, e:
             print e
+            return []
 
         # Keep Active Joint Indices
         # Note that 0 is the driving wheel
@@ -278,8 +279,9 @@ class HuboPlusWheelTurning:
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
-        footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 polytrans -0.03 0 0 '
+        #footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 polytrans -0.03 0 0 '
         #footlinknames = ' Body_RAR Body_LAR polyscale 0.7 0.5 0 polytrans -0.015 0 0 '
+        footlinknames = ' Body_RAR Body_LAR polyscale 1.0 1.0 0 polytrans 0 0 0 '
 
         # What is this?
         handrot = rodrigues([0,-pi/2,0])
@@ -340,12 +342,14 @@ class HuboPlusWheelTurning:
             except openrave_exception, e:
                 print "Cannot send command RunCBiRRT: "
                 print e
+                return []
 
         try:
             os.rename("cmovetraj.txt","movetraj0.txt")
         except OSError, e:
             # No file cmovetraj
             print e
+            return []
 
         # The following is the same as commented out try-except section
         traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj0.txt','r').read())   
@@ -499,14 +503,19 @@ class HuboPlusWheelTurning:
         goaljoints = str2num(goaljoints)
 
         self.robotid.SetActiveDOFValues(startik)
+        time.sleep(0.5)
         self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
         self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
         # Close hands to start "turning" the wheel
         self.crankid.SetDOFValues([0],[crankjointind])
+        time.sleep(0.5)
         
         if( self.StopAtKeyStrokes ):
             print "Press Enter to plan startik --> goalik (DMITRY!!!)"
             sys.stdin.readline()
+
+        print self.robotid.GetActiveDOFValues()
+        print TSRChainStringTurning
 
         try:
             answer = cbirrtHubo.solve('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringTurning)
@@ -514,12 +523,15 @@ class HuboPlusWheelTurning:
         except openrave_exception, e:
             print "Cannot send command RunCBiRRT: "
             print e
+            return []
+       
 
         try:
             os.rename("cmovetraj.txt","movetraj1.txt")
         except OSError, e:
             # No file cmovetraj
             print e
+            return []
 
         # The following is the same as commented out try-except section
         # traj = RaveCreateTrajectory(env,'').deserialize(open('movetraj1.txt','r').read())   
@@ -538,10 +550,12 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
-        
+            return []
+
         self.robotid.GetController().Reset(0)
         self.robotid.SetDOFValues(rhandopenvals,rhanddofs)
         self.robotid.SetDOFValues(lhandopenvals,lhanddofs)
+        self.robotid.SetActiveDOFValues(str2num(goalik))
 
         time.sleep(2)
 
@@ -549,20 +563,26 @@ class HuboPlusWheelTurning:
             print "Press Enter to plan goalik --> startik "
             sys.stdin.readline()
 
+        
+
         goaljoints = startik
 
+        print self.robotid.GetActiveDOFValues()
+        print TSRChainStringFootandHead
         try:
             answer = cbirrtHubo.solve('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFootandHead)
             print "RunCBiRRT answer: ",str(answer)
         except openrave_exception, e:
             print "Cannot send command RunCBiRRT: "
             print e
+            return []
 
         try:
             os.rename("cmovetraj.txt","movetraj2.txt")
         except OSError, e:
             # No file cmovetraj
             print e
+            return []
 
         try:
             answer= cbirrtHubo.solve('traj movetraj2.txt');
@@ -571,10 +591,14 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
+            return []
         
         self.robotid.GetController().Reset(0)
         #self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
         #self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
+
+        self.robotid.SetActiveDOFValues(startik)
+        time.sleep(1)
 
         if( self.StopAtKeyStrokes ):
             print "Press Enter to plan startik --> initconfig "
@@ -588,12 +612,14 @@ class HuboPlusWheelTurning:
         except openrave_exception, e:
             print "Cannot send command RunCBiRRT: "
             print e
+            return []
 
         try:
             os.rename("cmovetraj.txt","movetraj3.txt")
         except OSError, e:
             # No file cmovetraj
             print e
+            return []
 
         try:
             answer= cbirrtHubo.solve('traj movetraj3.txt');
@@ -602,7 +628,8 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
-        
+            return []
+
         self.robotid.GetController().Reset(0)
         
         # Playback 0:(init-start) -> 1:(start-goal) -> 2:(goal-start) -> 3:(start-init)
@@ -616,7 +643,8 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
-        
+            return []
+
         self.robotid.GetController().Reset(0)
         time.sleep(1)
 
@@ -632,7 +660,8 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
-        
+            return []
+
         self.robotid.GetController().Reset(0)
         time.sleep(1)
 
@@ -647,6 +676,7 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
+            return []
         
         self.robotid.GetController().Reset(0)
         time.sleep(1)
@@ -658,6 +688,7 @@ class HuboPlusWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
+            return []
         
         self.robotid.GetController().Reset(0)    
         
