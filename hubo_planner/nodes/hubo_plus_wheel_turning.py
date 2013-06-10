@@ -265,7 +265,8 @@ class HuboPlusWheelTurning:
 
         # Center of Gravity Target
         cogtarg = [-0.05, 0.085, 0]
-        
+        cogtm = MakeTransform(rodrigues([0,0,0]),transpose(matrix(cogtarg)))
+        handles.append(misc.DrawAxes(self.env,cogtm,1))
         # Right Hand Joints 
         # Open - Closed Values
         rhanddofs = range(27,42)
@@ -279,9 +280,9 @@ class HuboPlusWheelTurning:
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
-        #footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 polytrans -0.03 0 0 '
+        footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 polytrans -0.015 0 0 '
         #footlinknames = ' Body_RAR Body_LAR polyscale 0.7 0.5 0 polytrans -0.015 0 0 '
-        footlinknames = ' Body_RAR Body_LAR polyscale 1.0 1.0 0 polytrans 0 0 0 '
+        #footlinknames = ' Body_RAR Body_LAR polyscale 1.0 1.0 0 polytrans 0 0 0 '
 
         # What is this?
         handrot = rodrigues([0,-pi/2,0])
