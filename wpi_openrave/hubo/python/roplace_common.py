@@ -36,14 +36,14 @@ from copy import deepcopy
 # This number would change from manipulator to manipulator
 configurationJumpThreshold = 100.0
 
-footlinknames = ' Body_RAR Body_LAR '
+
 
 def check_support(T0_COM,myRobot):
     # How strict do we want to be in checking balance?
     # This radius is the distance threshold between the 
     # projection of the COM on the support polygon 
     # and the center of mass of the feet of the robot
-    radius = 0.1
+    radius = 0.3
     
     # center of feet in world coordinates [XYZ only]
     T0_LF = myRobot.GetManipulators()[2].GetEndEffectorTransform()
@@ -96,8 +96,8 @@ def get_robot_com(myRobot):
         # multiplication by element
         rm += multiply(r,m) 
 
-    print "total mass:"
-    print M
+    # print "total mass:"
+    # print M
 
     # division by element
     R = divide(rm,M)
@@ -111,9 +111,22 @@ def get_robot_com(myRobot):
     return R
 
 # input: T0_FACING, where do we want the robot's feet to face?
-def put_feet_on_the_ground(myProblem, myRobot, T0_FACING, lowerLimits, upperLimits, myEnv):
+def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR Body_LAR '):
 
-    
+    # TODO: We don't need to do this at every call
+    # Let's find a place to make this call only once
+    # in the beginning
+    lowerLimits, upperLimits = myRobot.GetDOFLimits()
+
+    # Sometimes CBiRRT plugin segfaults if we make
+    # a lot of calls. Let's get a new
+    # instace and clean it up at each function call
+    myProblem = RaveCreateModule(myEnv,'CBiRRT')
+
+    try:
+        myEnv.AddModule(myProblem, myRobot.GetName()) # this string should match to <Robot name="" > in robot.xml
+    except openrave_exception, e:
+        print e     
 
     # stupid python to c++ datatype hack around
     # This will prevent the error of "can't find an ik solution
@@ -128,27 +141,48 @@ def put_feet_on_the_ground(myProblem, myRobot, T0_FACING, lowerLimits, upperLimi
             print "setting joint ",str(i)," to negative zero"
             myRobot.SetDOFValues([-0.000001],[i])
 
+
     # Calculate the center of mass
     T0_COM = get_robot_com(myRobot)
     T0_LF = myRobot.GetManipulators()[2].GetEndEffectorTransform()
     T0_RF = myRobot.GetManipulators()[3].GetEndEffectorTransform()
 
     for x in range(21):
-        # Center of Gravity Target
-        # T0_TORSO = myRobot.GetManipulators()[5].GetEndEffectorTransform()
+        # x is on the X-Axis of roboground and facing wherever we want it to
+        TCOM_LF = dot(linalg.inv(T0_COM),T0_LF)
+        TCOM_RF = dot(linalg.inv(T0_COM),T0_RF)
 
-        # Where to put the left foot?
-        # Rotation matrix is eye(3)
-        # T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
-        T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
+        #Let's shift roboground to where the center of mass is on the ground
+        # Note TCOMXY is where the COM is but it's rotation is the same with the world
+        # TODO: Instead of calculating T0_COMXY's rotation from T0_FACING,
+        # get the torso frame and rotate it back to being flat
+        # around x and y but don't touch the orientation around z.
+        T0_COMXY = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_COM[0,3],T0_COM[1,3],0]))))
+        TCOMXY_LFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([(0.1+x*0.01),TCOM_LF[1,3],0.0]))))
+        TCOMXY_RFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([(0.1+x*0.01),TCOM_RF[1,3],0.0]))))
+        
+        # Now we know where to face and where the feet should be
+        T0_LFTARGET = dot(T0_COMXY,TCOMXY_LFTARGET)
+        T0_RFTARGET = dot(T0_COMXY,TCOMXY_RFTARGET)
+    
+    # old code - delete if the code above works
+    # 
+    # for x in range(21):
+    #     # Center of Gravity Target
+    #     # T0_TORSO = myRobot.GetManipulators()[5].GetEndEffectorTransform()
 
-        # Same for the right foot
-        # T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
-        T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
+    #     # Where to put the left foot?
+    #     # Rotation matrix is eye(3)
+    #     # T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
+    #     T0_lf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_LF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
+
+    #     # Same for the right foot
+    #     # T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
+    #     T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
 
         print "this is where the feet should go."
-        myHandle1 = misc.DrawAxes(myEnv,array(T0_lf),0.1)
-        myHandle2 = misc.DrawAxes(myEnv,array(T0_rf),0.1)
+        myHandle1 = misc.DrawAxes(myEnv,array(T0_LFTARGET),0.1)
+        myHandle2 = misc.DrawAxes(myEnv,array(T0_RFTARGET),0.1)
         # sys.stdin.readline()
 
         # cogtarg = [-0.05+T0_TORSO[0,3], 0.085+T0_TORSO[1,3], 0]
@@ -158,10 +192,18 @@ def put_feet_on_the_ground(myProblem, myRobot, T0_FACING, lowerLimits, upperLimi
 
         # goalik = myProblem.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 3 maniptm 2 '+trans_to_str(T0_LF)+' maniptm 3 '+trans_to_str(T0_RF)+' maniptm 5 '+trans_to_str(T0_TORSO))
 
-        goalik = myProblem.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 2 maniptm 2 '+trans_to_str(T0_lf)+' maniptm 3 '+trans_to_str(T0_rf))
+        
+        goalik = myProblem.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 2 maniptm 2 '+trans_to_str(T0_LFTARGET)+' maniptm 3 '+trans_to_str(T0_RFTARGET))
+
+        print "goalik"
+        print str2num(goalik)
+        print len(str2num(goalik))
         
         if goalik != '':
             return goalik
+
+    # cleanup the cbirrt problem object
+    del myProblem
 
     return goalik
 
@@ -182,7 +224,7 @@ def trans_to_str(T):
 # numRobots: (int) Starting from the 0th robot, how many of the robots do we care about?
 # numManips: (list) For each robot, starting from the 0th manipulator, how many of the manipulators do we care about?
 # h: (list) handles for objects that we draw on the screen
-def play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv,howLong):
+def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv,howLong,doGeneralIk,footlinknames=''):
     # constraints to check
     relBaseConstOK = True
     collisionConstOK = True
@@ -194,8 +236,9 @@ def play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,r
 
     # print "numRobots: ",str(numRobots)
     # print "numManips: ",str(numManips)
+    [goAhead, activeDOFConfig] = start(T0_starts,T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv,doGeneralIk,footlinknames)
 
-    if(start(T0_starts,candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv)):
+    if(goAhead):
         # Get their relative Transformation matrix
         T0_base = []
         for myRobotIndex in range(numRobots):
@@ -209,12 +252,12 @@ def play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,r
             # Check translation constraints
             if((abs(Trobot0_robot1[0:3,3].transpose()) > relBaseConstraint[0:3]).any()):
                 relBaseConstOK = False
-                return False
+                return [False, '']
 
             # Check rotation constraints
             if(not allclose(Trobot0_robot1[0:3,0:3],rodrigues(relBaseConstraint[3:6]))):
                 relBaseConstOK = False
-                return False
+                return [False, '']
 
         elif(type(relBaseConstraint) == type(array(()) or relBaseConstraint) == type(matrix(()))):
             # if input argument type is a numpy array then we have an exact transformation
@@ -222,7 +265,7 @@ def play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,r
             #print allclose(Trobot0_robot1,relBaseConstraint)
             if(not allclose(Trobot0_robot1,relBaseConstraint)):
                 relBaseConstOK = False
-                return False
+                return [False, '']
 
         # If the solution meets the base constraint:
         if(relBaseConstOK):
@@ -274,7 +317,7 @@ def play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,r
                         # Check collision with self and with the environment
                         if(myEnv.CheckCollision(robots[myRobotIndex]) or robots[myRobotIndex].CheckSelfCollision()):
                             collisionConstOK = False
-                            return False
+                            return [False, '']
 
                 # If you didn't break yet, wait before the next path element for visualization
                 time.sleep(howLong)
@@ -293,18 +336,32 @@ def play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,r
                         print eConfDist
                         if(eConfDist > configurationJumpThreshold):
                             noConfigJump = False
-                            return False
+                            return [False, '']
 
             # If you made it here, 
             # it means no configuration jump, and no collision
-            return True
-
+            # check if the COM is in the support polygon
+            print "checking balance constraint..."
+            # print "Press enter to see the result..."
+            # sys.stdin.readline()
+            myCOM = array(get_robot_com(robots[myRobotIndex]))
+            myCOM[2,3] = 0.0
+            COMHandle = misc.DrawAxes(myEnv,myCOM,0.3)
+            
+            if(check_support(myCOM,robots[myRobotIndex])):
+                return [True, activeDOFConfig]
+            else:
+                print "COM is out of the support polygon"
+                return [False, '']
     else:
         # start() failed
-        return False
+        return [False, '']
     
 
-def start(T0_starts, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv):
+def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv,doGeneralIk,footlinknames=''):
+    # Define this variable so python doesn't complain
+    myIK = ''
+    
     # constraints to check
     masterBaseConstOK = True
     # Move each robot / manipulators
@@ -327,12 +384,17 @@ def start(T0_starts, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv):
             #    print myT
             
             T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
+
             # Finally move the robot base 
             robots[myRobotIndex].SetTransform(T0_newManipPose)
+
+            # print "manip index: ",str(myManipulatorIndex)
+            # sys.stdin.readline()
             
             if(myManipulatorIndex == 0):
                 h.append(misc.DrawAxes(myEnv,T0_newManipPose,0.4))
 
+            
             # Check master base constraint
             # if(myRobotIndex == 0):
             #     if(type(masterBaseConstraint) == type([])):
@@ -348,9 +410,42 @@ def start(T0_starts, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv):
             #             break
             #     elif(type(masterBaseConstraint) == type(array(()))):
             #         pass
+        
+        # Now check if the feet are on the ground
+        #
+        # TODO: We should do this in a robot-agnostic way.
+        # masterBaseConstraint works for mobile manipulators
+        # or for industrial arms, but for humanoids the base
+        # and the feet can be different, so for balance check
+        # we "may" need an extra step. How do we set this flag?
+        # Maybe we should have a "isHumanoid" bool? And try to
+        # put the feet on the ground if(myReachabilityMap.isHumanoid)
+        #
+        currentIk = robots[myRobotIndex].GetActiveDOFValues()
+        if(doGeneralIk):
+            print "trying to put the feet on the ground..."
+            if(footlinknames==''):
+                myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
+            else:
+                myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv, footlinknames)
+
+            if(myIK != ''):
+                # robots[myRobotIndex].SetDOFValues(str2num(myIK), range(len(robots[myRobotIndex].GetJoints())))
+                robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
+            else:
+                masterBaseConstOK = False
                 
+            # robots[myRobotIndex].SetDOFValues(currentIk, range(len(robots[myRobotIndex].GetJoints())))
+            robots[myRobotIndex].SetActiveDOFValues(currentIk)
+            
+                
+            # sys.stdin.readline()
+
         # Check collision with self and with the environment
         if(myEnv.CheckCollision(robots[myRobotIndex]) or robots[myRobotIndex].CheckSelfCollision()):
             collisionConstOK = False
-            return False
-    return True
+        else:
+            collisionConstOK = True
+
+    
+    return [(masterBaseConstOK and collisionConstOK), myIK]

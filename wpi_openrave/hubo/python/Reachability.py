@@ -78,8 +78,21 @@ class ReachabilityMapParams(object):
         # for quick look-up
         self.indices = {}
 
+        # reachability parameters
+        self.n = 0
+        self.m = 0
+        self.maxReachability = 0
+        
+
 class ReachabilityMap(object):
-    def __init__(self, iksolver, robot, manip):
+    def __init__(self, robot, manipname):
+        self.robot = robot
+        self.manip = robot.SetActiveManipulator(manipname) # set the manipulator to leftarm
+        # This is the coordinate system of the map, usually attached to the base of the manipulator.
+        # T0 stands for the world coordinate frame
+        self.T0_base = self.manip.GetBase().GetTransform() 
+        self.armJoints = self.manip.GetArmJoints()
+
         self.handles = []
         self.map = []
         self.indices = {}
@@ -90,31 +103,50 @@ class ReachabilityMap(object):
         if(self.m != 0):
             self.inc2 = ((2*pi)/self.m)
         self.name = "default"
-
-        # This is the coordinate system of the map, usually attached to the base of the manipulator.
-        # T0 stands for the world coordinate frame
-        self.T0_base = manip.GetBase().GetTransform() 
         
         # list of rotation matrices that we will evaluate around a point in space
         self.rm3D = []
         
-        # Rotate around X (Approach from top, bottom and sides)
+        # Approach axis should be defined after manipulator's <direction>
+        directionVector = self.manip.GetDirection()
+
+        # Direction will tell us the order of generating the rotation matrix
+        order = []
+        for axisIdx, axis in enumerate(directionVector):
+            if axis == 0:
+                order.append(axisIdx)
+            else:
+                mainAxis = axisIdx
+        
+        # Rotate around the first available axis (Approach from top, bottom and sides)
         for i in range(self.n):
-            self.rm3D.append(rodrigues([i*self.inc1,0,0]))
+            myList = [0,0,0]
+            myList[order[0]] = i*self.inc1
+            rot = rodrigues(myList)
+            self.rm3D.append(rot)
             
         # Rotate around Y (Approach from the front, back and sides)
+        myList = [0,0,0]
+        myList[order[0]] = pi/2
+        rot1 = rodrigues(myList)
         for i in range(self.n):
+            myList = [0,0,0]
+            myList[order[1]] = i*self.inc1
+            rot2 = rodrigues(myList)
             if(i != 0 and i != (self.n/2)):
-                self.rm3D.append(dot(rodrigues([pi/2,0,0]),rodrigues([0,i*self.inc1,0])))
+                self.rm3D.append(dot(rot1,rot2))
 
         if(self.m != 0):
-            # Rotate around Z of all approach directions
-            aroundZ = []
+            # Rotate aroundDir of all approach directions
+            aroundDir = []
             for rIdx, r in enumerate(self.rm3D):
                 # when i=0, the rotatin matrix is equal to r.
                 # So we skip i=0.
                 for i in range(1,self.m):
-                    aroundZ.append(dot(r,rodrigues([0,0,i*self.inc2])))
+                    myList = [0,0,0]
+                    myList[mainAxis] = i*self.inc2
+                    rot1 = rodrigues(myList)
+                    aroundDir.append(dot(r,rot1))
 
             # Insert rotation around Z axis in between 
             # main approach rotations for a legitimate order.
@@ -128,7 +160,7 @@ class ReachabilityMap(object):
                 # that's why range is between (i*0), and ((i+1)*11)
                 for j in range((rIdx*(self.m-1)),(rIdx+1)*(self.m-1)):
                     # print j
-                    temp.append(aroundZ[j])
+                    temp.append(aroundDir[j])
 
             self.rm3D = deepcopy(temp)
         
@@ -153,10 +185,7 @@ class ReachabilityMap(object):
         self.free_joint_val = 0.0 
         self.free_joint_index = None
 
-        self.solver = iksolver
-        self.robot = robot
-        self.manip = manip
-        self.armJoints = manip.GetArmJoints()
+
 
         self.r = 0
         self.g = 0
@@ -410,6 +439,10 @@ class ReachabilityMap(object):
         params.name = deepcopy(self.name)
         params.indices = deepcopy(self.indices)
 
+        params.n = self.n
+        params.m = self.m
+        params.maxReachability = self.maxReachability
+
         output = open(self.name+'_params.pkl', 'wb')
         pickle.dump(params, output)
         output.close()
@@ -465,7 +498,7 @@ class ReachabilityMap(object):
                 print "tIdx: ",str(tIdx)
                 print t
 
-    def generate(self,env):
+    def generate_old(self,env):
         self.handles.append(misc.DrawAxes(env,self.T0_base,0.4))
         # This is the main loop
         self.xarray = self.frange(self.xmin,self.xmax,self.dx)
@@ -583,6 +616,92 @@ class ReachabilityMap(object):
                             # print "Tbase_req: "
                             # print Tbase_req
                             # sys.stdin.readline()
+
+                    if(s.reachability>0):
+                        for direction in range(s.reachability):
+                            Tbase_s = s.T[direction]
+                            # Transform of the sphere in world coordinate frame
+                            T0_ee = dot(self.T0_base, Tbase_s)
+
+                            if(s.shapeHandle == None):
+                                # Add shapeHandle only once, if it doesn't exist already
+                                s.shapeHandle = env.plot3(points=T0_ee[0:3,3],
+                                                          pointsize=(s.radius*0.5), # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                                          colors=array((self.r,self.g,self.b,self.reachabilitySphereAlphaIncrement*s.reachability)), # This changes the transparency
+                                                          drawstyle=1
+                                                          )
+                            
+                            s.axisHandle.append(misc.DrawAxes(env,dot(self.T0_base,Tbase_s),0.01))
+
+                        # After adding all the handles, add sphere in the reachability map
+                        self.map.append(s)
+                        
+                        # Convert the Tbase_sphere translation
+                        # into string and keep it in the dictionary
+                        myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+                        myIndex = len(self.map)-1
+                        self.indices[myKey] = myIndex
+
+                    current_point_ind += 1
+                    if((current_point_ind%100)==0):
+                        print str(current_point_ind),"/",str(self.totalNumPoints)," ",str(datetime.now())
+                        
+        # Finished generating the map.
+        # Now find neighbors
+        self.find_neighbors()
+
+        # All done. Reset the manipulator.
+        self.manip_reset()
+
+    def generate(self,env):
+        self.handles.append(misc.DrawAxes(env,self.T0_base,0.4))
+        # This is the main loop
+        self.xarray = self.frange(self.xmin,self.xmax,self.dx)
+        self.yarray = self.frange(self.ymin,self.ymax,self.dy)
+        self.zarray = self.frange(self.zmin,self.zmax,self.dz)
+
+        self.totalNumPoints = len(self.xarray)*len(self.yarray)*len(self.zarray)
+
+        current_point_ind = 0
+        for x in self.xarray:
+            for y in self.yarray:
+                for z in self.zarray:
+                    # x, y, z are in manipulator's base coordinate frame
+                    s = ReachabilitySphere()
+                    s.reachability = 0
+                    for rmIdx, rm in enumerate(self.rm3D):
+                        
+
+                        # requested transform in manipulator's base coord frame
+                        Tbase_req = MakeTransform(rm, transpose(matrix([x,y,z]))) 
+
+                        # T0 stands for world coordinate frame
+                        # T0_req: pose of the requested frame in world coordinate frame
+                        T0_req =  dot(self.T0_base,Tbase_req)
+
+                        # Show in qt-viewer where the the manipulator is trying to reach
+                        h = misc.DrawAxes(env,T0_req,0.2)
+                        # sys.stdin.readline()                        
+                             
+
+                        q = self.manip.FindIKSolution(array(T0_req), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+
+                        if(q != None):
+                            self.robot.SetDOFValues(q,self.armJoints)
+                            # manipulator's end effector transform in world coord. frame
+                            T0_ee = self.manip.GetEndEffectorTransform() # End effector in world coordinate frame
+                            Tbase_ee = dot(linalg.inv(self.T0_base),T0_ee) # End effector in manipulator base coordinate frame                                   
+                            
+                            close_enough = True
+                            if(not allclose(Tbase_req.round(2),Tbase_ee.round(2))):
+                                close_enough = False
+                                
+
+                            if(close_enough):
+                                # Transform of the sphere in manipulator's base coordinate frame
+                                s.T.append(Tbase_ee)
+                                s.configs.append(q)
+                                s.reachability += 1
 
                     if(s.reachability>0):
                         for direction in range(s.reachability):
@@ -829,7 +948,7 @@ def my_function2(start,idx,myPattern,rmap,myEnv=None):
                 # sys.stdin.readline()
 
                 TSoI_neighbor = dot(linalg.inv(Tbase_SoI),Tbase_neighbor)
-                if(allclose(TSoI_neighbor,Tp1_p2)):
+                if(allclose(TSoI_neighbor.round(4),Tp1_p2.round(4))):
                     #print "found!"
                     found = True
                     rmap[neighbor].shapeHandle = None
@@ -1228,9 +1347,17 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
 
                         # print "Ti_s2:"
                         # print Ti_s2
+
+                        # print "pTi_j"
+                        # print pTi_j.round(4)
+
+                        # print "Ts1_s2"
+                        # print Ts1_s2.round(4)
+
+                        # sys.stdin.readline()
                         
                         # if there's a match keep the pair
-                        if(allclose(pTi_j,Ts1_s2)):
+                        if(allclose(pTi_j.round(4),Ts1_s2.round(4))):
                             s1.show(myEnv)
                             s2.show(myEnv)
                             reachabilityMaps[0].go_to(s1Idx,t1Idx)
@@ -1269,8 +1396,8 @@ def look_for_candidates(pairs, rm, patterns):
     for m in range(1,len(rm)):
         print "looking for candidates... ",str(datetime.now())
         for pairIdx, pair in enumerate(pairs):
-            # if((pairIdx%20)==0):
-            #     print str(pairIdx),"/",str(len(pairs))," ",str(datetime.now())
+            if((pairIdx%20)==0):
+                print str(pairIdx),"/",str(len(pairs))," ",str(datetime.now())
             # print "Trying: "
             # print str(pair[0].sIdx)," : ",str(pair[0].tIdx)
             # print str(pair[1].sIdx)," : ",str(pair[1].tIdx)
@@ -1290,21 +1417,23 @@ def look_for_candidates(pairs, rm, patterns):
                     path1.extend(steps1)
 
                     if(steps0 != None and steps1 != None):
-                        print "start indices (spheres): ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
+                        # print "start indices (spheres): ",str(pair[0].sIdx),", ",str(pair[1].sIdx)
 
-                        print "start indices (transforms): ",str(pair[0].tIdx),", ",str(pair[1].tIdx)
+                        # print "start indices (transforms): ",str(pair[0].tIdx),", ",str(pair[1].tIdx)
 
-                        print "start transforms: ",str(rm[m-1][pair[0].sIdx].T[pair[0].tIdx]),", ",str(rm[m][pair[1].sIdx].T[pair[1].tIdx])
+                        # print "start transforms: ",str(rm[m-1][pair[0].sIdx].T[pair[0].tIdx]),", ",str(rm[m][pair[1].sIdx].T[pair[1].tIdx])
 
                         # s.stdin.readline()
                         # path is in a list because we might 
                         # have more than one path candidates
                         paths0.append(path0) 
                         paths1.append(path1)
+                        print "found ",str(len(paths0))," candidate(s) so far...",' ',str(datetime.now())
 
         if(paths0 != [] and paths1 != []):
             candidates.append(paths0)
             candidates.append(paths1)
+            
         
     if(candidates != []):
         print "found ",str(len(candidates[0]))," candidates.",' ',str(datetime.now())
