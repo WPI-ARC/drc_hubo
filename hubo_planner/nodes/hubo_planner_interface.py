@@ -26,7 +26,7 @@ class HuboPlannerInterface:
     def __init__(self, path):
 
         self.debug = True
-        self.no_planning = True
+        self.no_planning = False
         rospy.loginfo("Starting Hubo planner interface...")
         self.path = path
         self.current_config = None
@@ -35,7 +35,7 @@ class HuboPlannerInterface:
         path_to_robot = path + '/../openHubo/huboplus/rlhuboplus.robot.xml'
         path_to_wheel = path + '/../../drc_common/models/driving_wheel.robot.xml'
         self.planner = hubo_plus_wheel_turning.HuboPlusWheelTurning( path_to_robot, path_to_wheel )
-        self.planner.SetViewer(False)
+        self.planner.SetViewer(True)
         self.planner.SetStopKeyStrokes(False)
 
         rospy.loginfo("Loaded Hubo CBiRRT wrapper")
@@ -52,10 +52,13 @@ class HuboPlannerInterface:
         # Set wheel location
         wheel_trans = [request.valve_position.position.x, request.valve_position.position.y, request.valve_position.position.z]
         wheel_rot = [request.valve_position.orientation.x, request.valve_position.orientation.y, request.valve_position.orientation.z, request.valve_position.orientation.w]
+        
+        print wheel_trans
+        print wheel_rot
 
         if( True #not self.debug
             ):
-            self.planner.SetWheelPosition( wheel_trans, wheel_rot )
+            self.h = self.planner.SetWheelPosition( wheel_trans, wheel_rot )
         else:
             print wheel_trans
             print wheel_rot
@@ -72,7 +75,8 @@ class HuboPlannerInterface:
             trajectory_files = self.planner.Run()
 
         # Read the trajectories from files
-        if (trajectory_files is None or trajectory_files == []):
+        if ((trajectory_files == None) or (trajectory_files == [])):
+            print "planning failed"
             # Make an error response
             error = None
             return error

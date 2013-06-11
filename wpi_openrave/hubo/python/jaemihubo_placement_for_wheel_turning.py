@@ -404,55 +404,18 @@ while((not success) and (not end)):
             myCOM[2,3] = 0.0
             COMHandle = misc.DrawAxes(env,myCOM,0.3)
             h.pop() # delete the robot base axis we added last
-
-            # currentIk = robots[0].GetDOFValues()
-            # print currentIk
-
-            # # Try to put your feet on the ground
-            # print "trying to put the feet on the ground..."
-            # whereToFace = MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0])))
-            # myIK = put_feet_on_the_ground(probs[0], robots[0], whereToFace, lowerLimits, upperLimits, env)
-
-            # print "myIK"
-            # print myIK
-            
-            # if(myIK != ''):
-            #     print "checking balance constraint..."
-            #     # print "Press enter to see the result..."
-            #     # sys.stdin.readline()
-            #     robots[0].SetDOFValues(str2num(myIK), range(len(robots[0].GetJoints())))
-            #     myCOM = array(get_robot_com(robots[0]))
-            #     myCOM[2,3] = 0.0
-            #     COMHandle = misc.DrawAxes(env,myCOM,0.3)
-                
-            #     if(check_support(myCOM,robots[0])):
-            #         print "This solution is valid"
-            #         print "left hand path [s:t]: "
-            #         for pe in candidates[0][collisionFreeSolutions[nxt]]:
-            #             print str(pe.sIdx),' : ',str(pe.tIdx)
-            #         print "right hand path [s:t]: "
-            #         for pe in candidates[1][collisionFreeSolutions[nxt]]:
-            #             print str(pe.sIdx),' : ',str(pe.tIdx)
-            #         print "Press enter to proceed with the next solution..."
-            #         sys.stdin.readline()
-            #     else:
-            #         print "COM is out of the support polygon"
-                
-                
-
-            # robots[0].SetDOFValues(currentIk, range(len(robots[0].GetJoints())))
-
             if(ask):
                 print "Next [n]"
                 print "Previous [p]"
                 print "Replay [r]"
                 print "Play All [a]"
+                print "Rewind [w]"
                 print "Exit [e]"
                 answer = sys.stdin.readline()
                 answer = answer.strip('\n')
                 if( answer == 'n'):
                     nxt += 1
-                if(nxt == len(collisionFreeSolutions)):
+                if(nxt == len(collisionFreeSolutions[0])):
                     nxt -= 1
                 elif(answer == 'p'):
                     nxt -= 1
@@ -460,14 +423,17 @@ while((not success) and (not end)):
                         nxt += 1
                 elif(answer == 'r'):
                     pass
+                elif(answer == 'w'):
+                    nxt == 0
                 elif(answer == 'a'):
+                    nxt == 0
                     playAll = True
                     ask = False
                 elif(answer.strip('\n') == 'e'):
                     end = True # End the outer while success for loop
                     break
             else:
-                if(playAll and (nxt < len(collisionFreeSolutions[0])-1)):
+                if(playAll and (nxt < (len(collisionFreeSolutions[0])-1))):
                     nxt += 1
                 else:
                     playAll = False

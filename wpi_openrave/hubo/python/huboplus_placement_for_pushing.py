@@ -108,9 +108,6 @@ def get_pairs(pitch, height, dist, env, robot, myRmaps):
     # Try to find a valid candidate that satisfies
     # all the constraints we have (base location, collision, and configuration-jump)
 
-    
-
-
     # Relative transform of initial grasp transforms
     TLH_RH = dot(linalg.inv(T0_LH),T0_RH)
 
@@ -125,7 +122,7 @@ def get_pairs(pitch, height, dist, env, robot, myRmaps):
         return [resp[0], resp[1], [relBaseConstraint], [TLH_RH], T0_LH, T0_RH]
 
 # This changes the height and the pitch angle of the wheel
-def run(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm, T0_LH, T0_RH):
+def run(leftTraj, rightTraj, env, robot, myRmaps, pairs, rm, T0_LH, T0_RH):
 
     # Search for the pattern in the reachability model and get the results
     numRobots = 1
@@ -207,7 +204,7 @@ def run(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm, T0_LH, T
                 # Try to put your feet on the ground
                 print "trying to put the feet on the ground..."
                 whereToFace = MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0])))
-                myIK = put_feet_on_the_ground(myProblem, robot, whereToFace, lowerLimits, upperLimits, env)
+                myIK = put_feet_on_the_ground(robot, whereToFace, env)
 
                 print "myIK"
                 print myIK
@@ -215,6 +212,8 @@ def run(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm, T0_LH, T
                 if(myIK != ''):
                     print "checking balance constraint..."
                     robot.SetDOFValues(str2num(myIK), range(len(robot.GetJoints())))
+                    # Note we could do the following three lines
+                    # in check_support() as well... clean this up.
                     myCOM = array(get_robot_com(robot))
                     myCOM[2,3] = 0.0
                     COMHandle = misc.DrawAxes(env,myCOM,0.3)
@@ -235,8 +234,6 @@ if __name__ == '__main__':
     # Add huboplus
     robot = env.ReadRobotURI('../../../openHubo/huboplus/huboplus.robot.xml')
     env.Add(robot)         
-    
-    lowerLimits, upperLimits = robot.GetDOFLimits()
 
     # Let's keep the rotation of the robot around it's Z-Axis in a variable...
     rotz=[]
@@ -245,16 +242,6 @@ if __name__ == '__main__':
     # Define the transform and apply the transform
     shift_robot0 = MakeTransform(matrix(rodrigues([0,0,rotz[0]])),transpose(matrix([-2.5,0.0,0.95])))
     robot.SetTransform(array(shift_robot0))
-
-    probs_cbirrt = RaveCreateModule(env,'CBiRRT')
-
-    try:
-        env.AddModule(probs_cbirrt,robot.GetName()) # this string should match to <Robot name="" > in robot.xml
-    except openrave_exception, e:
-        print e
-
-    print "Getting Loaded Problems"
-    probs = env.GetLoadedProblems()
 
     # Load the reachability map for left arm
     myRmaps = []
@@ -291,7 +278,7 @@ if __name__ == '__main__':
                     for t in range(len(trajs[0])):
                         leftTraj = trajs[0][t]
                         rightTraj = trajs[1][t]
-                        samples = run(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH)
+                        samples = run(leftTraj, rightTraj, env, robot, myRmaps, pairs, rm, T0_LH, T0_RH)
                         if(samples != []):
                             for n in samples:
                                 # label: 0 for push

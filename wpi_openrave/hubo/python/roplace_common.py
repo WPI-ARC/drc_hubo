@@ -36,14 +36,15 @@ from copy import deepcopy
 # This number would change from manipulator to manipulator
 configurationJumpThreshold = 100.0
 
-
-
 def check_support(T0_COM,myRobot):
+    T0_COMXY = deepcopy(T0_COM)
+    T0_COMXY[2,3] = 0.0
+
     # How strict do we want to be in checking balance?
     # This radius is the distance threshold between the 
     # projection of the COM on the support polygon 
     # and the center of mass of the feet of the robot
-    radius = 0.3
+    radius = 0.15
     
     # center of feet in world coordinates [XYZ only]
     T0_LF = myRobot.GetManipulators()[2].GetEndEffectorTransform()
@@ -53,13 +54,13 @@ def check_support(T0_COM,myRobot):
     for axis in range(3):
         COF.append((T0_LF[axis,3]+T0_RF[axis,3])*0.5)
         # euclidean distance between COF and COM
-        distSumSq += pow((COF[axis]-T0_COM[axis,3]),2)
+        distSumSq += pow((COF[axis]-T0_COMXY[axis,3]),2)
 
     dist = pow(distSumSq,0.5)
     print "COF"
     print COF
-    print "COM"
-    print T0_COM
+    print "COM (PROJECTED ON THE GROUND PLANE)"
+    print T0_COMXY
     print "dist:"
     print dist
     if (dist <= radius):
@@ -319,6 +320,31 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                             collisionConstOK = False
                             return [False, '']
 
+                    # After setting manipulator configurations for this
+                    # robot, check if the center of mass is close enough
+                    # to the center of robot's feet
+                    #
+                    # TODO: This part is very messy and ugly.
+                    # I need to clean it up and make nice function calls.
+                    if(doGeneralIk):
+                        currentIk = robots[myRobotIndex].GetActiveDOFValues()
+                        if(footlinknames==''):
+                            myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
+                        else:
+                            myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv, footlinknames)
+
+                        if(myIK != ''):
+                            robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
+                            print "checking support in play..."
+                            if(not check_support(array(get_robot_com(robots[myRobotIndex])),robots[myRobotIndex])):
+                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                return [False, '']
+                            else:
+                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                        else:
+                            robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                            return [False, '']
+
                 # If you didn't break yet, wait before the next path element for visualization
                 time.sleep(howLong)
 
@@ -337,10 +363,13 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                         if(eConfDist > configurationJumpThreshold):
                             noConfigJump = False
                             return [False, '']
-
+            
             # If you made it here, 
-            # it means no configuration jump, and no collision
-            # check if the COM is in the support polygon
+            # it means no configuration jump, no collision, and
+            # the center of mass was close enough to the center
+            # of robot's feet for all reachability spheres.
+            #
+            # one last time check if the COM is in the support polygon
             print "checking balance constraint..."
             # print "Press enter to see the result..."
             # sys.stdin.readline()
