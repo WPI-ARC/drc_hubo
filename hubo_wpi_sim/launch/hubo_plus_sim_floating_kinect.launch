@@ -13,9 +13,9 @@
   <arg name="root_frame" default="/Body_HNP" />
   <arg name="target_frame" default="/kinect_sim_link" />
   <arg name="node_name" default="generic_floating_kinect_broadcaster" />
-  <arg name="tx" default="0.0" />
+  <arg name="tx" default="-0.2" />
   <arg name="ty" default="0.0" />
-  <arg name="tz" default="0.25" />
+  <arg name="tz" default="0.45" />
   <arg name="rx" default="0.0" />
   <arg name="ry" default="0.0" />
   <arg name="rz" default="0.0" />

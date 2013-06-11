@@ -5,9 +5,9 @@
   <arg name="root_frame" default="base_link" />
   <arg name="target_frame" default="hubo_plus_kinect_sim_link" />
   <arg name="node_name" default="hubo_plus_kinect_sim_broadcaster" />
-  <arg name="tx" default="0.25" />
+  <arg name="tx" default="0.05" />
   <arg name="ty" default="0.0" />
-  <arg name="tz" default="1.12" />
+  <arg name="tz" default="1.32" />
   <arg name="rx" default="0.0" />
   <arg name="ry" default="0.0" />
   <arg name="rz" default="0.0" />
@@ -52,9 +52,9 @@
      </group>
 
   <!-- Spawn the table -->  
-     <node name="spawn_table" pkg="gazebo" type="spawn_model" args="-urdf -file $(find wpi_drc_sim)/descriptions/table.urdf -x 1.0 -model table" respawn="false" output="screen" /> 
+     <node name="spawn_table" pkg="gazebo" type="spawn_model" args="-urdf -file $(find wpi_drc_sim)/descriptions/table.urdf -x 0.78 -z 0.7 -model table" respawn="false" output="screen" /> 
  
   <!-- Spawn the racing wheel. Here we use the argument '-wait table', without it sometimes the racing wheel gets spawned faster than the table, and then it falls on the ground because of the gravity --> 
-     <node name="spawn_driving_wheel" pkg="gazebo" type="spawn_model" args="-urdf -file $(find wpi_drc_sim)/descriptions/driving_wheel_full.urdf -x 1.41 -z 1.0 -Y 3.14159265359 -model wheel -wait table" respawn="false" output="screen" />
+     <node name="spawn_driving_wheel" pkg="gazebo" type="spawn_model" args="-urdf -file $(find wpi_drc_sim)/descriptions/driving_wheel_full.urdf -x 1.19 -z 1.2 -Y 3.14159265359 -model wheel -wait table" respawn="false" output="screen" />
 
 </launch>
