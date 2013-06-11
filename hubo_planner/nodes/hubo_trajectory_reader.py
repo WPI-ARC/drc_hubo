@@ -34,8 +34,8 @@ hubo_body_joint_names = {
 8 : 'LKP' ,  
 9 : 'RAP' ,      
 10 : 'LAP' ,        
-11 : 'RAR_dummy' ,
-12 : 'LAR_dummy' ,
+11 : 'RAR' ,
+12 : 'LAR' ,
 13 : 'RSP' ,
 14 : 'LSP' ,   
 15 : 'RSR' ,        
@@ -64,8 +64,8 @@ hubo_joint_names = {
 8 : 'LKP' ,  
 9 : 'RAP' ,      
 10 : 'LAP' ,        
-11 : 'RAR_dummy' ,
-12 : 'LAR_dummy' ,
+11 : 'RAR' ,
+12 : 'LAR' ,
 13 : 'RSP' ,
 14 : 'LSP' ,   
 15 : 'RSR' ,        
@@ -270,14 +270,14 @@ def read(fname,num_sample=-1):
         
         tc = 0 # time_counter
 
-        deltaT = float(6.0/data_count)
+        deltaT = 0.04 #float(6.0/data_count)
 
         for c in range(start_from,end_at,increment_by):
 
             current_point = JointTrajectoryPoint()
             #l_current_point.time_from_start = rospy.Duration(float(data[c*deltatime_offset]))
             #current_point.time_from_start = rospy.Duration(2.0+tc*deltaT))
-            current_point.time_from_start = rospy.Duration(2.0+tc*deltaT))
+            current_point.time_from_start = rospy.Duration(tc*deltaT)
 
             tc = tc + 1
             # Get the indices for this subset of data

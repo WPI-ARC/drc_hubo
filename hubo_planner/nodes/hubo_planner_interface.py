@@ -63,10 +63,9 @@ class HuboPlannerInterface:
             print wheel_trans
             print wheel_rot
 
-        if( not self.debug ):
-            while (self.current_config is None):
-                rospy.logwarn("Planner is waiting to recieve joint states of the robot!")
-            self.planner_wrapper.SetRobotConfig(self.current_config)
+        while (self.current_config is None):
+            rospy.logwarn("Planner is waiting to recieve joint states of the robot!")
+        self.planner.SetRobotConfiguration(self.current_config)
 
         # Call to CBiRRT if no planning simply read the current files
         if( self.no_planning ):
@@ -78,8 +77,7 @@ class HuboPlannerInterface:
         if ((trajectory_files == None) or (trajectory_files == [])):
             print "planning failed"
             # Make an error response
-            error = None
-            return error
+            return PlanValveTurningResponse(None, ["LABELS"] , "PLAN_FAILED" )
         else:
             return self.BuildResponse(trajectory_files)
 

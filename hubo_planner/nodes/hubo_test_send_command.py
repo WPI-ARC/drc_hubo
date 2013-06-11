@@ -42,13 +42,14 @@ class HuboTestSendCommand:
                 valve_position = self.default_pose
             else:
                 valve_position = valve_pose
-                print "Default pose is: " + str(self.default_pose)
-                print "Provided pose is: " + str(valve_position)
+                print "Default pose is:\n" + str(self.default_pose)
+                print "Provided pose is:\n" + str(valve_position)
 
             response = planner_srv(valve_position)
             self.traj = response.trajectories
             return self.traj
         except rospy.ServiceException, e:
+            self.traj = None
             print "Service call failed: %s"%e
 
 
@@ -58,6 +59,10 @@ class HuboTestSendCommand:
 
 
     def joint_traj_client(self):
+        
+        if (self.traj == [] or self.traj == None):
+            print "No trajectories to execute!"
+            return None
 
         print "create action client..."
 

@@ -78,9 +78,7 @@ class HuboPlusWheelTurning:
     def SetWheelPosition(self,trans,rot):
         print "SetWheelPosition"
         self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
-        h = misc.DrawAxes(self.env,array(self.T_Wheel),0.5)
         self.crankid.SetTransform(array(self.T_Wheel))
-        return h
 
     def SetRobotConfiguration(self,jointValues):
         print "SetRobotConfiguration"
@@ -112,36 +110,40 @@ class HuboPlusWheelTurning:
         values.append( jointValues['LWP'] ) # 24
         values.append( jointValues['HNR'] ) # 25
         values.append( jointValues['HNP'] ) # 26
-        values.append( jointValues['rightIndexKnuckle2'] ) # 27
-        values.append( jointValues['rightIndexKnuckle3'] ) # 28
-        values.append( jointValues['rightIndexKnuckle1'] ) # 29
-        values.append( jointValues['rightMiddleKnuckle2'] ) # 30
-        values.append( jointValues['rightMiddleKnuckle3'] ) # 31
-        values.append( jointValues['rightMiddleKnuckle1'] ) # 32
-        values.append( jointValues['rightRingKnuckle2'] ) # 33
-        values.append( jointValues['rightRingKnuckle3'] ) # 34
-        values.append( jointValues['rightRingKnuckle1'] ) # 35
-        values.append( jointValues['rightPinkyKnuckle2'] ) # 36
-        values.append( jointValues['rightPinkyKnuckle3'] ) # 37
-        values.append( jointValues['rightPinkyKnuckle1'] ) # 38
-        values.append( jointValues['rightThumbKnuckle2'] ) # 39
-        values.append( jointValues['rightThumbKnuckle3'] ) # 40
-        values.append( jointValues['rightThumbKnuckle1'] ) # 41
-        values.append( jointValues['leftIndexKnuckle2'] ) # 42
-        values.append( jointValues['leftIndexKnuckle3'] ) # 43
-        values.append( jointValues['leftIndexKnuckle1'] ) # 44
-        values.append( jointValues['leftMiddleKnuckle2'] ) # 45
-        values.append( jointValues['leftMiddleKnuckle3'] ) # 46
-        values.append( jointValues['leftMiddleKnuckle1'] ) # 47
-        values.append( jointValues['leftRingKnuckle2'] ) # 48
-        values.append( jointValues['leftRingKnuckle3'] ) # 49
-        values.append( jointValues['leftRingKnuckle1'] ) # 50
-        values.append( jointValues['leftPinkyKnuckle2'] ) # 51
-        values.append( jointValues['leftPinkyKnuckle3'] ) # 52
-        values.append( jointValues['leftPinkyKnuckle1'] ) # 53
-        values.append( jointValues['leftThumbKnuckle2'] ) # 54
-        values.append( jointValues['leftThumbKnuckle3'] ) # 55
-        values.append( jointValues['leftThumbKnuckle1'] ) # 56
+
+        for i in range(27,57):
+            values.append(0)
+
+#        values.append( jointValues['rightIndexKnuckle2'] ) # 27
+#        values.append( jointValues['rightIndexKnuckle3'] ) # 28
+#        values.append( jointValues['rightIndexKnuckle1'] ) # 29
+#        values.append( jointValues['rightMiddleKnuckle2'] ) # 30
+#        values.append( jointValues['rightMiddleKnuckle3'] ) # 31
+#        values.append( jointValues['rightMiddleKnuckle1'] ) # 32
+#        values.append( jointValues['rightRingKnuckle2'] ) # 33
+#        values.append( jointValues['rightRingKnuckle3'] ) # 34
+#        values.append( jointValues['rightRingKnuckle1'] ) # 35
+#        values.append( jointValues['rightPinkyKnuckle2'] ) # 36
+#        values.append( jointValues['rightPinkyKnuckle3'] ) # 37
+#        values.append( jointValues['rightPinkyKnuckle1'] ) # 38
+#        values.append( jointValues['rightThumbKnuckle2'] ) # 39
+#        values.append( jointValues['rightThumbKnuckle3'] ) # 40
+#        values.append( jointValues['rightThumbKnuckle1'] ) # 41
+#        values.append( jointValues['leftIndexKnuckle2'] ) # 42
+#        values.append( jointValues['leftIndexKnuckle3'] ) # 43
+#        values.append( jointValues['leftIndexKnuckle1'] ) # 44
+#        values.append( jointValues['leftMiddleKnuckle2'] ) # 45
+#        values.append( jointValues['leftMiddleKnuckle3'] ) # 46
+#        values.append( jointValues['leftMiddleKnuckle1'] ) # 47
+#        values.append( jointValues['leftRingKnuckle2'] ) # 48
+#        values.append( jointValues['leftRingKnuckle3'] ) # 49
+#        values.append( jointValues['leftRingKnuckle1'] ) # 50
+#        values.append( jointValues['leftPinkyKnuckle2'] ) # 51
+#        values.append( jointValues['leftPinkyKnuckle3'] ) # 52
+#        values.append( jointValues['leftPinkyKnuckle1'] ) # 53
+#        values.append( jointValues['leftThumbKnuckle2'] ) # 54
+#        values.append( jointValues['leftThumbKnuckle3'] ) # 55
+#        values.append( jointValues['leftThumbKnuckle1'] ) # 56
         self.robotid.SetDOFValues( values )
               
     def Run(self):
@@ -169,7 +171,7 @@ class HuboPlusWheelTurning:
         fastsmoothingitrs = 20;
 
         # Start the Viewer and draws the world frame
-        if( self.ShowUserInterface and not self.ViewerStarted ):
+        if self.ShowUserInterface and not self.ViewerStarted :
             cam_rot = dot(xyz_rotation([3*pi/2,0,0]),xyz_rotation([0,-pi/2,0]))
             cam_rot = dot(cam_rot,xyz_rotation([-pi/10,0,0])) # inclination of the camera
             T_cam = MakeTransform(cam_rot,transpose(matrix([2.0, 0.00, 01.4])))
@@ -188,8 +190,20 @@ class HuboPlusWheelTurning:
 
         # Move the wheel infront of the robot
         if self.T_Wheel is None:
-            self.crankid.SetTransform(array(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.09, 0.9])))))
-        
+            self.T_Wheel = MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.0851953, 0.85])))
+            self.crankid.SetTransform(array(self.T_Wheel))
+  
+        # Draw wheel position
+        if self.ShowUserInterface :
+            print self.robotid.GetJoints()[11].GetAnchor()
+            T_RightFoot = self.robotid.GetLinks()[0].GetTransform()
+            T_Torso = self.robotid.GetLinks()[8].GetTransform()
+            handles.append( misc.DrawAxes(self.env,self.T_Wheel,0.5) )  
+            handles.append( misc.DrawAxes(self.env,T_Torso,0.5) ) 
+            handles.append( misc.DrawAxes(self.env,T_RightFoot,0.5) ) 
+            print T_Torso
+            print T_RightFoot
+
         manips = self.robotid.GetManipulators()
         crankmanip = self.crankid.GetManipulators()
         
@@ -202,12 +216,15 @@ class HuboPlusWheelTurning:
 
         # Keep Active Joint Indices
         # Note that 0 is the driving wheel
-        activedofs = [0]
+        #activedofs = [0]
+        activedofs = []
         for m in manips:
+            # print m.GetArmIndices()
             activedofs.extend(m.GetArmIndices())
 
         # Sort Active Joint Indices
         activedofs.sort()
+        #print activedofs
 
         # Set Elbows and Thumbs Joint Values
         self.robotid.SetDOFValues([-0.95,-0.95,1,1],[19,20,41,56]) 
@@ -267,8 +284,10 @@ class HuboPlusWheelTurning:
 
         # Center of Gravity Target
         cogtarg = [-0.05, 0.085, 0]
-        cogtm = MakeTransform(rodrigues([0,0,0]),transpose(matrix(cogtarg)))
-        handles.append(misc.DrawAxes(self.env,cogtm,1))
+        #if self.ShowUserInterface :
+            #cogtm = MakeTransform(rodrigues([0,0,0]),transpose(matrix(cogtarg)))
+            #handles.append(misc.DrawAxes(self.env,cogtm,1))
+
         # Right Hand Joints 
         # Open - Closed Values
         rhanddofs = range(27,42)

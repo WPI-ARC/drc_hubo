@@ -41,7 +41,7 @@ class ValveService:
 
     def service_handler(self, request):
         rospy.loginfo("Received a valve turning request")
-        self.compute_proper_correction(request.valve.pose)
+        #self.compute_proper_correction(request.valve.pose)
         # Get the valve pose and turn it into a useful format
         raw_posestamped = request.valve
         useful_pose = self.convert_pose(raw_posestamped)
@@ -64,7 +64,6 @@ class ValveService:
         print "Correct rotation correction is: " + str(rcor)
 
     def convert_pose(self, raw_posestamped):
-        print "Got a valve pose at:\n" + str(raw_posestamped)
         [trans,rot] = self.listener.lookupTransform("/Body_RAR", raw_posestamped.header.frame_id, rospy.Time(0))
         cur_valve_frame_pose = PoseFromTransform(TransformFromComponents(trans,rot))
         cur_valve_pose = raw_posestamped.pose
@@ -76,7 +75,7 @@ class ValveService:
         rot2 = quaternion_about_axis(math.pi / 2.0, (1,0,0))
         rfull = NormalizeQuaternion(ComposeQuaternions(rot1, rot2))
         rcomputed = [0.39215845565791163, -0.38620829332267054, -0.59065001832988195, 0.59007411032149337]
-        correction = PoseFromTransform(TransformFromComponents([0.0,0.0,0.10],rcomputed))
+        correction = PoseFromTransform(TransformFromComponents([0.0,0.0,0.11],rcomputed))
         corrected_pose = ComposePoses(rviz_pose, correction)
         return corrected_pose
 

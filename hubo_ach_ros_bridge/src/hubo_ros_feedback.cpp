@@ -53,7 +53,6 @@ Copyright (c) 2012, Daniel M. Lofaro
 
 // Global variables
 ach_channel_t chan_hubo_state;
-ach_channel_t chan_hubo_ref_filter;
 
 ros::Publisher g_hubo_state_pub;
 ros::Publisher g_hubo_clock_pub;
@@ -65,9 +64,9 @@ int hubo_debug = 0;
 char *joint_names[] = {"HPY", "not in urdf NKY/HNY", "HNR", "HNP", "LSP", "LSR", "LSY", "LEP", "LWY", "not in urdf LWR", "LWP", "RSP", "RSR", "RSY", "REP", "RWY", "not in urdf RWR", "RWP", "not in ach1", "LHY", "LHR", "LHP", "LKP", "LAP", "LAR", "not in ach2", "RHY", "RHR", "RHP", "RKP", "RAP", "RAR", "RF1", "RF2", "RF3", "RF4", "RF5", "LF1", "LF2", "LF3", "LF4", "LF5", "unknown1", "unknown2", "unknown3", "unknown4", "unknown5", "unknown6", "unknown7", "unknown8"};
 
 //Convert HUBO-ACH state to an ROS HuboState message
-bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_reference)
+bool ACHtoHuboState(struct hubo_state * robot_state)
 {
-    if (robot_state != NULL && robot_reference != NULL)
+    if (robot_state != NULL)
     {
         //Publish clock info
         rosgraph_msgs::Clock clock_state;
@@ -83,10 +82,10 @@ bool ACHtoHuboState(struct hubo_state * robot_state, struct hubo_ref * robot_ref
                 //Copy an individual joint
                 hubo_robot_msgs::JointControllerState joint_state;
                 joint_state.joint_name = std::string(joint_names[i]);
-                joint_state.set_point = robot_reference->ref[i];
+                joint_state.set_point = robot_state->joint[i].ref;
                 joint_state.process_value = robot_state->joint[i].pos;
                 joint_state.process_value_dot = robot_state->joint[i].vel;
-                joint_state.error = robot_reference->ref[i] - robot_state->joint[i].pos;
+                joint_state.error = robot_state->joint[i].ref - robot_state->joint[i].pos;
                 joint_state.time_step = NAN;
                 joint_state.command = NAN;
                 joint_state.p = NAN;
@@ -125,14 +124,9 @@ int main(int argc, char **argv)
     //initialize HUBO-ACH feedback channel
     int r = ach_open(&chan_hubo_state, HUBO_CHAN_STATE_NAME , NULL);
     assert(ACH_OK == r);
-    //initialize HUBO-ACH reference channel
-    r = ach_open(&chan_hubo_ref_filter, HUBO_CHAN_REF_NAME , NULL);
-    assert(ACH_OK == r);
     //initialize HUBO-ACH message structs
     struct hubo_state H_state;
     memset(&H_state, 0, sizeof(H_state));
-    struct hubo_ref H_ref_filter;
-    memset(&H_ref_filter, 0, sizeof(H_ref_filter));
     size_t fs;
     ROS_INFO("HUBO-ACH channels loaded");
     //initialize ROS node
@@ -161,18 +155,7 @@ int main(int argc, char **argv)
             assert(sizeof(H_state) == fs);
         }
 
-        //Get latest reference from HUBO-ACH
-        r = ach_get(&chan_hubo_ref_filter, &H_ref_filter, sizeof(H_ref_filter), &fs, NULL, ACH_O_LAST);
-        if(ACH_OK != r)
-        {
-            ROS_ERROR("ach_get chan_hubo_ref_filter not ok! r=%i\n", r);
-        }
-        else
-        {
-            //ROS_INFO("fs : %d, sizeof(H_filter) : %d\n",fs,sizeof(H_ref_filter));
-            assert(sizeof(H_ref_filter) == fs);
-        }
-        if(ACHtoHuboState(&H_state, &H_ref_filter))
+        if(ACHtoHuboState(&H_state))
         {
             ;
         }
