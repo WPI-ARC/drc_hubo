@@ -54,15 +54,15 @@ rlhuboplusLeftRm = ReachabilityMap("./rlhuboplus_leftArm_ik_solver",rlhuboplus,r
 rlhuboplusRightRm = ReachabilityMap("./rlhuboplus_rightArm_ik_solver",rlhuboplus,rlhuboplus.GetManipulators()[1])
 
 print "loading"
-drchuboLeftRm.load("drchubo_left")
-drchuboRightRm.load("drchubo_right")
-rlhuboplusLeftRm.load("rlhuboplus_left")
-rlhuboplusRightRm.load("rlhuboplus_right")
+#drchuboLeftRm.load("drchubo_left")
+#drchuboRightRm.load("drchubo_right")
+rlhuboplusLeftRm.load("huboplus_left_n16_m12")
+rlhuboplusRightRm.load("huboplus_right_n16_m12")
 
 env.SetViewer('qtcoin')
 
-drchuboLeftRm.show(env)
-drchuboRightRm.show(env)
+#drchuboLeftRm.show(env)
+#drchuboRightRm.show(env)
 rlhuboplusLeftRm.show(env)
 rlhuboplusRightRm.show(env)
 

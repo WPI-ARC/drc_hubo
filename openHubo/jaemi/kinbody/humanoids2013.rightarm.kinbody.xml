@@ -3,6 +3,10 @@
 <KinBody name="rightArm" makejoinedlinksadjacent="true">
     <modelsdir>../models</modelsdir>
     <Body name="Torso" type="dynamic">
+      <Mass type="custom">
+	<total>7.957477863</total>
+	<inertia>0.083564229 -0.000067976 0.002493728 -0.000067976 0.052235277 -0.001207207 0.002493728 -0.001207207 0.075754072</inertia>
+      </Mass>
     </Body>
 
     <Body name="Body_RSP" type="dynamic">
@@ -226,6 +230,9 @@
 
     <Body name="rightPalmDummy" type="dynamic">
         <offsetfrom>rightUJoint</offsetfrom> 
+	<Mass type="custom">
+	  <total>0.000001</total>
+	</Mass>
     </Body>
 
     <Joint name="RWP" type="hinge">

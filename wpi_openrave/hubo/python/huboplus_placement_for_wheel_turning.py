@@ -49,9 +49,9 @@ traj0.append(Tstart0)
 
 # traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05])))))
 
-#traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.1])))))
+#traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.05])))))
 
-# traj0.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.1])))))
+#traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.1])))))
 
 # Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.15]))))
 # Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
@@ -68,15 +68,15 @@ Tstart1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0
 
 traj1.append(Tstart1)
 
-# traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
+#traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
 
-# traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
+#traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.1])))))
 
 # Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.15]))))
 
 # Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.05]))))
 
-Tgoal1 = array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05]))))
+Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.05]))))
 
 traj1.append(Tgoal1)
 
@@ -112,13 +112,8 @@ for p in myPatterns:
 
 # 3. Add drchubo
 robots = []
-robots.append(env.ReadRobotURI('../../../openHubo/huboplus/huboplus.robot.xml'))
+robots.append(env.ReadRobotURI('../../../openHubo/huboplus/huboplus2.robot.xml'))
 env.Add(robots[0])         
-
-lowerLimits, upperLimits = robots[0].GetDOFLimits()
-# print lowerLimits
-# print upperLimits
-# sys.stdin.readline()
 
 # Let's keep the rotation of the robot around it's Z-Axis in a variable...
 rotz=[]
@@ -140,7 +135,7 @@ elif(version == 1):
     gB = 0.6 # ground color
 
     ge = 5.0 # ground extension
-    wheelHeight = 1.1 #random.random()
+    wheelHeight = 0.9 #random.random()
     wheelPitch = 1.0 # pi*random.random()
     h.append(env.drawtrimesh(points=array(((0,0,0),(ge,0,0),(0,ge,0))),
                              indices=None,
@@ -178,17 +173,6 @@ elif(version == 1):
         # Returns End Effector Transform in World Coordinates
         Tlink = manips[i].GetEndEffectorTransform()
         Tee.append(Tlink)
-
-    probs_cbirrt = RaveCreateModule(env,'CBiRRT')
-
-    try:
-        env.AddModule(probs_cbirrt,robots[0].GetName()) # this string should match to <Robot name="" > in robot.xml
-    except openrave_exception, e:
-        print e
-
-    print "Getting Loaded Problems"
-    probs = env.GetLoadedProblems()
-
     
 wheelOffset = matrix([0,0,wheelHeight])
 wheelRotation = matrix(rodrigues([wheelPitch,0,0]))
@@ -202,9 +186,12 @@ wheel.SetTransform(array(T0_wheelBase))
 # 4. Load the reachability map for drchubo left arm
 # Robot 1
 myRmaps = []
-rm = ReachabilityMap("./rlhuboplus_leftArm_ik_solver",robots[0],robots[0].GetManipulators()[0])
+rm = ReachabilityMap("./huboplus_leftArm_ik_solver",robots[0],robots[0].GetManipulators()[0])
 print "Loading reachability map for left arm..."
-rm.load("rlhuboplus_left_m12")
+rm.load("huboplus_left_n16_m12")
+rm.n = 16
+rm.m = 12
+rm.maxReachability = 12*16
 # print "map size before crop: ",str(len(rm.map))
 # rm.crop([-1.0,1.0,-1.0,0.2,0.0,1.0])
 # print "map size after crop: ",str(len(rm.map))
@@ -218,9 +205,12 @@ print "Left arm Reachability Map loaded.."
 # sys.stdin.readline()
 
 # Do the same for Robot 2
-rm2 = ReachabilityMap("./rlhuboplus_rightArm_ik_solver",robots[0],robots[0].GetManipulators()[1])
+rm2 = ReachabilityMap("./huboplus_rightArm_ik_solver",robots[0],robots[0].GetManipulators()[1])
 print "Loading reachability map for right arm..."
-rm2.load("rlhuboplus_right_m12")
+rm2.load("huboplus_right_n16_m12")
+rm2.m = 12
+rm2.n = 16
+rm2.maxReachability = 12*16
 # rm2.print_rm3D()
 # sys.stdin.readline()
 # rm2.print_all_transforms()
@@ -253,7 +243,7 @@ TwheelEndEffector_start0 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transp
 
 TwheelEndEffector_start0 = dot(TwheelEndEffector_start0, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.15, 0.0]))))
+TwheelEndEffector_start0 = dot(TwheelEndEffector_start0,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.2, 0.0]))))
 
 T0_start0 = dot(T0_wheelEndEffector, TwheelEndEffector_start0)
 h.append(misc.DrawAxes(env, T0_start0, 0.4))
@@ -262,7 +252,7 @@ TwheelEndEffector_start1 = MakeTransform(matrix(rodrigues([-pi/2, 0, 0])),transp
 
 TwheelEndEffector_start1 = dot(TwheelEndEffector_start1, MakeTransform(matrix(rodrigues([0, 0, -pi/2])),transpose(matrix([0.0, 0.0, 0.0]))))
 
-TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.15, 0.0]))))
+TwheelEndEffector_start1 = dot(TwheelEndEffector_start1,MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -0.2, 0.0]))))
 
 T0_start1 = dot(T0_wheelEndEffector, TwheelEndEffector_start1)
 
@@ -321,6 +311,8 @@ end = False
 print "Ready to search... ",str(datetime.now())
 # sys.stdin.readline()
 
+whereToFace = MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0])))
+
 while((not success) and (not end)):
     iters += 1
     myStatus = ""  
@@ -346,14 +338,22 @@ while((not success) and (not end)):
     for c in range(howMany):
         print "trying ",str(c)," of ",str(howMany)," candidates."
 
-        
-
-        allGood = play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0)
+        allGood = play(T0_starts, whereToFace, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0,True)
         h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
         if(allGood):
             collisionFreeSolutions.append(c)
+            print "This solution is valid"
+            print "left hand path [s:t]: "
+            for pe in candidates[0][collisionFreeSolutions[-1]]:
+                print str(pe.sIdx),' : ',str(pe.tIdx)
+            print "right hand path [s:t]: "
+            for pe in candidates[1][collisionFreeSolutions[-1]]:
+                print str(pe.sIdx),' : ',str(pe.tIdx)
+            print "Press enter to proceed with the next solution..."
+            sys.stdin.readline()
+
             success = True
             findAPathEnds = time.time()
             print "Success! All constraints met."
@@ -366,13 +366,9 @@ while((not success) and (not end)):
             print str(iters)
         else:
             print "Constraint(s) not met ."
-            #print "Collision OK?: "
-            #print collisionConstOK
-            #print "Base Constraint OK?:"
-            #print relBaseConstOK
 
     # Went through all candidates      
-    print "Found ",str(len(collisionFreeSolutions))," valid solutions in ",str(howMany)," candidates."
+    print "Found ",str(len(collisionFreeSolutions))," collision-free solutions in ",str(howMany)," candidates."
     
     if (len(collisionFreeSolutions) > 0) :
         # Have we found at least 1 valid path?
@@ -385,45 +381,11 @@ while((not success) and (not end)):
         playAll = False
         while(True):
             print "Playing valid solution #: ",str(nxt)
-            play(T0_starts, relBaseConstraint,candidates,numRobots,numManips,collisionFreeSolutions[nxt],myRmaps,robots,h,env,0.3)
+            play(T0_starts, whereToFace, relBaseConstraint,candidates,numRobots,numManips,collisionFreeSolutions[nxt],myRmaps,robots,h,env,0.3,False)
+            myCOM = array(get_robot_com(robots[0]))
+            myCOM[2,3] = 0.0
+            COMHandle = misc.DrawAxes(env,myCOM,0.3)
             h.pop() # delete the robot base axis we added last
-
-            currentIk = robots[0].GetDOFValues()
-            print currentIk
-
-            # Try to put your feet on the ground
-            print "trying to put the feet on the ground..."
-            whereToFace = MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0])))
-            myIK = put_feet_on_the_ground(probs[0], robots[0], whereToFace, lowerLimits, upperLimits, env)
-
-            print "myIK"
-            print myIK
-            
-            if(myIK != ''):
-                print "checking balance constraint..."
-                # print "Press enter to see the result..."
-                # sys.stdin.readline()
-                robots[0].SetDOFValues(str2num(myIK), range(len(robots[0].GetJoints())))
-                myCOM = array(get_robot_com(robots[0]))
-                myCOM[2,3] = 0.0
-                COMHandle = misc.DrawAxes(env,myCOM,0.3)
-                
-                if(check_support(myCOM,robots[0])):
-                    print "This solution is valid"
-                    print "left hand path [s:t]: "
-                    for pe in candidates[0][collisionFreeSolutions[nxt]]:
-                        print str(pe.sIdx),' : ',str(pe.tIdx)
-                    print "right hand path [s:t]: "
-                    for pe in candidates[1][collisionFreeSolutions[nxt]]:
-                        print str(pe.sIdx),' : ',str(pe.tIdx)
-                    print "Press enter to proceed with the next solution..."
-                    sys.stdin.readline()
-                else:
-                    print "COM is out of the support polygon"
-                
-                
-
-            robots[0].SetDOFValues(currentIk, range(len(robots[0].GetJoints())))
 
             if(ask):
                 print "Next [n]"
@@ -457,13 +419,6 @@ while((not success) and (not end)):
                     ask = True
 
     # if we found a successful path at this point, we will exit
-    
-# 6. Add an object in the environment to a random location
-
-# 7. Use the object location and define where Tstart_left and Tstart_right is on the object
-
-# 8. Find the relative transform between Tstart_left and Tstart_right.
-#    We assume that this relative transform will remain constant throughout the path.
 
 env.Destroy()
 RaveDestroy()
