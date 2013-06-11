@@ -23,6 +23,14 @@ class HuboTestSendCommand:
     def __init__(self):
         self.traj = None
         self.hand_pub = rospy.Publisher("hand_command", Bool)
+        self.default_pose = Pose()
+        self.default_pose.position.x = 0.18
+        self.default_pose.position.y = 0.09
+        self.default_pose.position.z = 0.9
+        self.default_pose.orientation.x = 0.5 
+        self.default_pose.orientation.y = 0.5
+        self.default_pose.orientation.z = 0.5 
+        self.default_pose.orientation.w = 0.5
 
     def call_to_planner(self, valve_pose=None):
 
@@ -31,16 +39,11 @@ class HuboTestSendCommand:
             planner_srv = rospy.ServiceProxy('hubo_planner/PlanningQuery', PlanValveTurning)
             valve_position = None
             if (valve_pose == None):
-                valve_position = Pose()
-                valve_position.position.x = 0.18
-                valve_position.position.y = 0.09
-                valve_position.position.z = 0.9
-                valve_position.orientation.x = 0.5 
-                valve_position.orientation.y = 0.5
-                valve_position.orientation.z = 0.5 
-                valve_position.orientation.w = 0.5
+                valve_position = self.default_pose
             else:
                 valve_position = valve_pose
+                print "Default pose is: " + str(self.default_pose)
+                print "Provided pose is: " + str(valve_position)
 
             response = planner_srv(valve_position)
             self.traj = response.trajectories
@@ -60,7 +63,7 @@ class HuboTestSendCommand:
 
         # Creates the SimpleActionClient, passing the type of the action
         # (JointTrajectoryAction) to the constructor.
-        client = actionlib.SimpleActionClient('joint_trajectory_action', hubo_robot_msgs.msg.JointTrajectoryAction )
+        client = actionlib.SimpleActionClient('/hubo_fullbody_controller/joint_trajectory_action', hubo_robot_msgs.msg.JointTrajectoryAction )
 
         print "waiting for action server..."
 
@@ -79,7 +82,7 @@ class HuboTestSendCommand:
         t0 = self.traj[0]
         t0.header.stamp = rospy.Time.now()
         t0_goal.trajectory = t0
-        client.send_goal( goal )
+        client.send_goal( t0_goal )
         client.wait_for_result()
         res = client.get_result()
         print "end execution of trajectory 0"
@@ -90,7 +93,7 @@ class HuboTestSendCommand:
         t1 = self.traj[1]
         t1.header.stamp = rospy.Time.now()
         t1_goal.trajectory = t1
-        client.send_goal( goal )
+        client.send_goal( t1_goal )
         client.wait_for_result()
         res = client.get_result()
         print "end execution of trajectory 1"
@@ -101,7 +104,7 @@ class HuboTestSendCommand:
         t2 = self.traj[2]
         t2.header.stamp = rospy.Time.now()
         t2_goal.trajectory = t2
-        client.send_goal( goal )
+        client.send_goal( t2_goal )
         client.wait_for_result()
         res = client.get_result()
         print "end execution of trajectory 2"
@@ -112,7 +115,7 @@ class HuboTestSendCommand:
         t3 = self.traj[3]
         t3.header.stamp = rospy.Time.now()
         t3_goal.trajectory = t3
-        client.send_goal( goal )
+        client.send_goal( t3_goal )
         client.wait_for_result()
         res = client.get_result()
         print "end execution of trajectory 3"
@@ -123,7 +126,7 @@ class HuboTestSendCommand:
         t4 = self.traj[4]
         t4.header.stamp = rospy.Time.now()
         t4_goal.trajectory = t4
-        client.send_goal( goal )
+        client.send_goal( t4_goal )
         client.wait_for_result()
         res = client.get_result()
         print "end execution of trajectory 4"

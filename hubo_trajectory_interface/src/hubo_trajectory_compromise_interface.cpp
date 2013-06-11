@@ -437,6 +437,7 @@ void trajectoryCB( const trajectory_msgs::JointTrajectory& traj )
  */
 void publishLoop()
 {
+    ROS_INFO("publishLoop");
     ach_status_t r;
     r = ach_open( &chan_hubo_ctrl_state_pub,  CTRL_CHAN_STATE, NULL );
     if (r != ACH_OK)
@@ -447,6 +448,8 @@ void publishLoop()
 
     hubo_ctrl_state_t H_ctrl_state;
     memset(&H_ctrl_state, 0, sizeof(H_ctrl_state));
+
+    //ROS_INFO("should enter pub loop");
 
     // Loop until node shutdown
     while (ros::ok())
@@ -528,6 +531,7 @@ void publishLoop()
 }
 
 void trajectoryStatusLoop()
+
 {
     ach_status_t r;
     size_t fs;
@@ -547,10 +551,10 @@ void trajectoryStatusLoop()
         {
             ROS_ERROR("Hubo output size error! [sending loop] with %s", ach_result_to_string(r) );
         }
-        else if( H_output.status == TRAJ_COMPLETE && g_trajectory_chunks.empty() )
+        else if( g_running && H_output.status == TRAJ_COMPLETE && g_trajectory_chunks.empty() )
         {
             ROS_INFO( "trajectory completed, reset trajectory channel" );
-            resetTrajectoryChannel();
+            //resetTrajectoryChannel();
             g_running = false;
         }
         else if( H_output.status == TRAJ_COMPLETE && g_trajectory_chunks.size() > 0 )

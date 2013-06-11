@@ -32,7 +32,7 @@ hubo_fullbody_controller:
     constraints:
       goal_time: 0.6
       HPY:
-        goal: 0.02
+        goal: 0.50
       HNR:
         goal: 0.02
       HNP:

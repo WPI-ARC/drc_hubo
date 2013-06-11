@@ -78,7 +78,9 @@ class HuboPlusWheelTurning:
     def SetWheelPosition(self,trans,rot):
         print "SetWheelPosition"
         self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
+        h = misc.DrawAxes(self.env,array(self.T_Wheel),0.5)
         self.crankid.SetTransform(array(self.T_Wheel))
+        return h
 
     def SetRobotConfiguration(self,jointValues):
         print "SetRobotConfiguration"
@@ -280,7 +282,7 @@ class HuboPlusWheelTurning:
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
-        footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 polytrans -0.015 0 0 '
+        footlinknames = ' Body_RAR Body_LAR polyscale 0.5 0.5 0 polytrans -0.015 0 0 '
         #footlinknames = ' Body_RAR Body_LAR polyscale 0.7 0.5 0 polytrans -0.015 0 0 '
         #footlinknames = ' Body_RAR Body_LAR polyscale 1.0 1.0 0 polytrans 0 0 0 '
 
