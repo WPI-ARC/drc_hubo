@@ -11,6 +11,7 @@ from random import *
 from copy import *
 from datetime import datetime
 from math import *
+import RotationalTrajSphereDiscretizer
 
 def frange(start,stop,inc):
     i=start

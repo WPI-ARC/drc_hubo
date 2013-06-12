@@ -53,12 +53,6 @@ traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.
 
 traj0.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.1])))))
 
-# traj0.append(array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.1])))))
-
-# Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.15]))))
-# Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,0.05]))))
-
-
 Tgoal0 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,-0.05,0.1]))))
 
 traj0.append(Tgoal0)
@@ -73,10 +67,6 @@ traj1.append(Tstart1)
 traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.05])))))
 
 traj1.append(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,-0.1])))))
-
-# Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.1]))))
-
-# Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.0,-0.05]))))
 
 Tgoal1 = array(MakeTransform(matrix(rodrigues([pi/4,0,0])),transpose(matrix([0.0,0.05,-0.1]))))
 
@@ -360,13 +350,13 @@ while((not success) and (not end)):
     for c in range(howMany):
         print "trying ",str(c)," of ",str(howMany)," candidates."
 
-        [allGood, activeDOFConfig] = play(T0_starts, whereToFace, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0,True,' leftFootBase rightFootBase ')
+        [allGood, activeDOFConfigStr] = play(T0_starts, whereToFace, relBaseConstraint,candidates,numRobots,numManips,c,myRmaps,robots,h,env,0.0,True,' leftFootBase rightFootBase ')
         h.pop() # delete the robot base axis we added last
 
         # We went through all our constraints. Is the candidate valid?
         if(allGood):
             collisionFreeSolutions[0].append(c)
-            collisionFreeSolutions[1].append(activeDOFConfig)
+            collisionFreeSolutions[1].append(activeDOFConfigStr)
             success = True
             findAPathEnds = time.time()
             print "Success! All constraints met."
@@ -400,10 +390,48 @@ while((not success) and (not end)):
             print "Playing valid solution #: ",str(nxt)
             robots[0].SetActiveDOFValues(str2num(collisionFreeSolutions[1][nxt]))
             play(T0_starts, whereToFace, relBaseConstraint,candidates,numRobots,numManips,collisionFreeSolutions[0][nxt],myRmaps,robots,h,env,0.3,False,' leftFootBase rightFootBase ')
+
             myCOM = array(get_robot_com(robots[0]))
             myCOM[2,3] = 0.0
             COMHandle = misc.DrawAxes(env,myCOM,0.3)
             h.pop() # delete the robot base axis we added last
+
+            # Finally plan a trajectory from startik to goalik
+            startikStr =  collisionFreeSolutions[1][nxt]
+            go_to_startik(robots[0], startikStr)
+
+            temp1 = MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0])))
+            temp2 = MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0])))
+            CTee = wheel.GetManipulators()[0].GetEndEffectorTransform()
+
+            TSRLeft = [dot(dot(CTee,temp1),temp2),
+                       dot(linalg.inv(dot(dot(CTee,temp1),temp2)),T0_start0),
+                       matrix([0,0,0,0,0,0,0,pi,0,0,0,0])]
+
+            tilt_angle_rad = acos(dot(linalg.inv(wheel.GetManipulators()[0].GetEndEffectorTransform),wheel.GetLinks()[0].GetTransform())[1,1])
+
+            TSRRight = [MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0]))),
+                        dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),T0_start1),
+                        matrix([0,0,0,0,0,0,0,0,0,0,0,0])]
+
+            TSRChainStringTurning = get_tsr_chain_string(robots[0], TSRLeft, TSRRight, wheel, 'crank', 'crank', 0)            
+
+            rotAng = pi/4
+
+            T0_LH2 = dot(dot(dot(dot(CTee,temp1),temp2),MakeTransform(rodrigues([rotAng,0,0]),transpose(matrix([0,0,0])))),dot(linalg.inv(dot(dot(CTee,temp1),temp2)),T0_start0))
+ 
+            T0_RH2 = dot(wheel.GetManipulators()[0].GetTransform(),dot(MakeTransform(rodrigues([0,0,rotAng]),transpose(matrix([0,0,0]))),dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),T0_start1)))
+
+            goalikStr = get_rot_goalik(robots[0], candidates, collisionFreeSolutions[0][nxt], T0_LH2, T0_RH2)
+            
+            myTraj = plan(env, robots[0], wheel, startikStr, goalikStr, ' leftFootBase rightFootBase ', TSRChainStringTurning)
+            
+            if(myTraj != None):
+                execute(robots[0], myTraj)
+                # This is where we save the successfull data sample.
+            else:
+                print "Planning failed."
+
             if(ask):
                 print "Next [n]"
                 print "Previous [p]"

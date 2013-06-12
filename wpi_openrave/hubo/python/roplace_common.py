@@ -32,9 +32,127 @@ from TSR import *
 
 from copy import deepcopy
 
+from math import *
+
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
 configurationJumpThreshold = 100.0
+
+def execute(myRobot, myTraj):
+    myRobot.GetController().SetPath(myTraj)
+    myRobot.WaitForController(0)
+    myRobot.GetController().Reset(0)
+
+def go_to_startik(myRobot, startik):
+    myRobot.SetActiveDOFValues(str2num(startik))
+
+def get_lin_goalik(myRobot,candidates, c):
+    # This function calculates the goalik by moving
+    # the robot to the last solution in
+    myIK = myRobot.GetActiveDOFValues()
+    return Serialize1DMatrix(matrix(myIK))
+
+def get_rot_goalik(myRobot, candidates, c, T0_LH2, T0_RH2):
+    # This function calculates the goalik using the rotAngle
+    # and the initial hand transforms instead of using the last
+    # reachability sphere's transform. This is required because
+    # of the discretization that the reachbility map is imposing
+    # on trajectories.
+
+    # T0_LH1
+    myRmaps[0].go_to(candidates[0][c][0].sIdx,candidates[0][c][0].tIdx)
+
+    # T0_RH1
+    myRmaps[1].go_to(candidates[1][c][0].sIdx,candidates[1][c][0].tIdx)
+    
+    myManip = myRobot.SetActiveManipulator('leftArmManip')
+    qL = myManip.FindIKSolution(array(T0_LH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+    LJ = myManip.GetArmJoints()
+    myRobot.SetDOFValues(qL,LJ)
+
+    myManip = myRobot.SetActiveManipulator('rightArmManip')
+    qR = myManip.FindIKSolution(array(T0_RH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+    RJ = myManip.GetArmJoints()
+    myRobot.SetDOFValues(qR,RJ)
+
+    myIK = myRobot.GetActiveDOFValues()
+    return Serialize1DMatrix(matrix(myIK))
+
+# This function returns the TSRChain String assuming that
+# the robot is currently in goal configuration
+def get_tsr_chain_string(myRobot, TSRLeft, TSRRight, myObject, mimicObjectKinBody, mimicObjectLink, mimicObjectJoint=None):
+
+    T0_LH = TSRLeft[0] # left hand's transform on wheel in world coordinates
+    TObj_LH = TSRLeft[1] # Left hand's transform in object's coordinates
+    Bw0L = TSRLeft[2] # How much freedom do we want to give to the left hand
+
+    T0_RH = TSRRight[0] # Right hand's transform in world coordinates
+    TObj_RH = TSRRight[1] # Right hand's transform in object's coordinates
+    Bw0R = TSRRight[2] # How much freedom do we want to give to the right hand
+
+    # Define Task Space Regions
+    # Left Hand
+    TSRString0 = SerializeTSR(0,'NULL',T0_LH,TObj_LH,Bw0L)
+
+    # Right Hand
+    TSRString1 = SerializeTSR(1, mimicObjectKinbody+' '+mimicObjectLink, T0_RH, TObj_RH, Bw0R)
+    # Left Foot
+    TSRString2 = SerializeTSR(2,'NULL',myRobotGetManipulators()[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+    # Head
+    TSRString3 = SerializeTSR(3,'NULL',myRobotGetManipulators()[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+
+    if(mimicObjectJoint != None):
+        # For rotational trajectories
+        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,mimicObjectLink,matrix([mimicObjectJoint]))+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring3,'NULL',[])
+    else:
+        # For linear trajectories
+        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring3,'NULL',[])
+    
+    return TSRChainString
+
+def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString):
+
+    TSRChainMimicDOF = 1
+    
+    fastsmoothingitrs = 20
+
+    myRobotProblem = RaveCreateModule(myEnv,'CBiRRT')
+    myObjectProblem = RaveCreateModule(myEnv,'CBiRRT')
+
+    try:
+        myEnv.AddModule(myRobotProblem,myRobot.GetName()) # this string should match to kinematic body
+        myEnv.AddModule(myObjectProblem,myObject.GetName())
+    except openrave_exception, e:
+        print e
+
+    # Get a trajectory from goalik to grasp configuration
+    jointgoalsStr = deepcopy(goalikStr)
+    for i in range(TSRChainMimicDOF):
+        jointgoals += ' 0'
+
+    jointgoalsNum = str2num(jointgoalsStr)
+
+    try:
+        answer = myRobotProblem.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
+        print "RunCBiRRT answer: ",str(answer)
+    except openrave_exception, e:
+        print "Cannot send command RunCBiRRT: "
+        print e
+
+    # cleanup the cbirrt problem object
+    myEnv.Remove(myRobotProblem)
+    myEnv.Remove(myObjectProblem)
+    del myRobotProblem
+    del myObjectProblem
+
+    try:
+        os.rename("cmovetraj.txt","turningTraj.txt")
+    except OSError, e:
+        # No file cmovetraj
+        print e
+
+    traj = RaveCreateTrajectory(myEnv,'').deserialize(open('turningTraj.txt','r').read()) 
+    return traj
 
 def check_support(T0_COM,myRobot):
     T0_COMXY = deepcopy(T0_COM)
@@ -204,6 +322,7 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
             return goalik
 
     # cleanup the cbirrt problem object
+    myEnv.Remove(myProblem)
     del myProblem
 
     return goalik

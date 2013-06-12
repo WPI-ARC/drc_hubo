@@ -38,24 +38,37 @@ currentMx = None
 currentMy = None
 prevMx = None
 prevMy = None
-r = 0.1
-myDiscretizedXY=[]
+r = 0.2
+myDiscretizedXYR=[]
 
-for i in frange(0,2*pi,0.01):
-    x = round(cos(i)*r,2)
-    y = round(sin(i)*r,2)
+start = 0.0
+finish = pi/4
+sphereDiam = 0.05
+rotInc = pi/4
+
+transforms=[[],[]] # 0: leftArm, 1: rightArm
+
+for i in frange(start,finish,0.01):
     
-    currentMx = 0.0+round(x/0.05) # adding a 0.0 prevents getting -0.0
-    currentMy = 0.0+round(y/0.05)
+    x = round(cos(i)*r,6)
+    y = round(sin(i)*r,6)    
+    
+    currentMx = 0.0+round(x/sphereDiam) # adding a 0.0 prevents getting -0.0
+    currentMy = 0.0+round(y/sphereDiam)
     
     if((currentMx != prevMx) or (currentMy != prevMy)):
-        myDiscretizedXY.append([currentMx, currentMy])
+        myDiscretizedXYR.append([currentMx, currentMy, i])
     
     prevMx = currentMx
     prevMy = currentMy
 
-print len(myDiscretizedXY)    
-for xy in myDiscretizedXY:
-    print xy
+if(start == 0.0 and finish == 2*pi):
+    myDiscretizedXYR.pop()
+
+print len(myDiscretizedXYR)
+
+for xyr in myDiscretizedXYR:
+    #print xyr
+    print [round(xyr[0]*sphereDiam,2), round(xyr[1]*sphereDiam,2), round(xyr[2]/rotInc)]
         
 
