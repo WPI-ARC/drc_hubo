@@ -36,15 +36,22 @@ from math import *
 
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
-configurationJumpThreshold = 100.0
+configurationJumpThreshold = 3.0
 
-def execute(myRobot, myTraj):
+def execute(myRobot, myObject, myTraj):
+    # close hands
     myRobot.GetController().SetPath(myTraj)
+    myObject.GetController().SetPath(myTraj)
     myRobot.WaitForController(0)
+    myObject.WaitForController(0)
     myRobot.GetController().Reset(0)
+    myObject.GetController().Reset(0)
+    # open hands
 
 def go_to_startik(myRobot, startik):
+    print "Went to startik"
     myRobot.SetActiveDOFValues(str2num(startik))
+    sys.stdin.readline()
 
 def get_lin_goalik(myRobot,candidates, c):
     # This function calculates the goalik by moving
@@ -52,7 +59,7 @@ def get_lin_goalik(myRobot,candidates, c):
     myIK = myRobot.GetActiveDOFValues()
     return Serialize1DMatrix(matrix(myIK))
 
-def get_rot_goalik(myRobot, candidates, c, T0_LH2, T0_RH2):
+def get_rot_goalik(myRobot, myRmaps, candidates, c, T0_LH2, T0_RH2):
     # This function calculates the goalik using the rotAngle
     # and the initial hand transforms instead of using the last
     # reachability sphere's transform. This is required because
@@ -95,26 +102,26 @@ def get_tsr_chain_string(myRobot, TSRLeft, TSRRight, myObject, mimicObjectKinBod
     TSRString0 = SerializeTSR(0,'NULL',T0_LH,TObj_LH,Bw0L)
 
     # Right Hand
-    TSRString1 = SerializeTSR(1, mimicObjectKinbody+' '+mimicObjectLink, T0_RH, TObj_RH, Bw0R)
+    TSRString1 = SerializeTSR(1, mimicObjectKinBody+' '+mimicObjectLink, T0_RH, TObj_RH, Bw0R)
     # Left Foot
-    TSRString2 = SerializeTSR(2,'NULL',myRobotGetManipulators()[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+    TSRString2 = SerializeTSR(2,'NULL',myRobot.GetManipulators()[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
     # Head
-    TSRString3 = SerializeTSR(3,'NULL',myRobotGetManipulators()[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+    TSRString3 = SerializeTSR(3,'NULL',myRobot.GetManipulators()[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
 
     if(mimicObjectJoint != None):
         # For rotational trajectories
-        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,mimicObjectLink,matrix([mimicObjectJoint]))+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring3,'NULL',[])
+        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,mimicObjectLink,matrix([mimicObjectJoint]))+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
     else:
         # For linear trajectories
-        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRstring3,'NULL',[])
+        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
     
-    return TSRChainString
+    return TSRChainStringTurning
 
 def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString):
 
     TSRChainMimicDOF = 1
     
-    fastsmoothingitrs = 20
+    fastsmoothingitrs = 150
 
     myRobotProblem = RaveCreateModule(myEnv,'CBiRRT')
     myObjectProblem = RaveCreateModule(myEnv,'CBiRRT')
@@ -128,12 +135,26 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
     # Get a trajectory from goalik to grasp configuration
     jointgoalsStr = deepcopy(goalikStr)
     for i in range(TSRChainMimicDOF):
-        jointgoals += ' 0'
+        jointgoalsStr += ' 0'
 
     jointgoalsNum = str2num(jointgoalsStr)
 
+    print "STARTIK"
+    myRobot.SetActiveDOFValues(str2num(startikStr))
+    sys.stdin.readline()
+    
+    print "GOALIK"
+    myRobot.SetActiveDOFValues(str2num(goalikStr))
+    #myObject.SetDOFValues([pi/4],[0])
+    sys.stdin.readline()
+    
+    print "BACK TO STARTIK"
+    myRobot.SetActiveDOFValues(str2num(startikStr))
+    print "PRESS ENTER TO PLAN"
+    sys.stdin.readline()
+
     try:
-        answer = myRobotProblem.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
+        answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 5 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
         print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
@@ -147,12 +168,14 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
 
     try:
         os.rename("cmovetraj.txt","turningTraj.txt")
+        traj = RaveCreateTrajectory(myEnv,'').deserialize(open('turningTraj.txt','r').read()) 
+        return traj
     except OSError, e:
         # No file cmovetraj
         print e
+        return None
 
-    traj = RaveCreateTrajectory(myEnv,'').deserialize(open('turningTraj.txt','r').read()) 
-    return traj
+
 
 def check_support(T0_COM,myRobot):
     T0_COMXY = deepcopy(T0_COM)
@@ -438,7 +461,7 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                         if(myEnv.CheckCollision(robots[myRobotIndex]) or robots[myRobotIndex].CheckSelfCollision()):
                             collisionConstOK = False
                             return [False, '']
-
+                    
                     # After setting manipulator configurations for this
                     # robot, check if the center of mass is close enough
                     # to the center of robot's feet
@@ -451,7 +474,7 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                             myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
                         else:
                             myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv, footlinknames)
-
+                            
                         if(myIK != ''):
                             robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
                             print "checking support in play..."

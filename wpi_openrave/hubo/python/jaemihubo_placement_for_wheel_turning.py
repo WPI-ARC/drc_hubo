@@ -36,7 +36,7 @@ from roplace_common import *
 # This changes the height and the pitch angle of the wheel
 version = 1
 
-RaveSetDebugLevel(5)
+RaveSetDebugLevel(DebugLevel.Verbose)
 
 env = Environment()
 env.SetViewer('qtcoin')
@@ -398,6 +398,7 @@ while((not success) and (not end)):
 
             # Finally plan a trajectory from startik to goalik
             startikStr =  collisionFreeSolutions[1][nxt]
+            wheel.SetDOFValues([0],[0])
             go_to_startik(robots[0], startikStr)
 
             temp1 = MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0])))
@@ -408,7 +409,7 @@ while((not success) and (not end)):
                        dot(linalg.inv(dot(dot(CTee,temp1),temp2)),T0_start0),
                        matrix([0,0,0,0,0,0,0,pi,0,0,0,0])]
 
-            tilt_angle_rad = acos(dot(linalg.inv(wheel.GetManipulators()[0].GetEndEffectorTransform),wheel.GetLinks()[0].GetTransform())[1,1])
+            tilt_angle_rad = acos(dot(linalg.inv(wheel.GetManipulators()[0].GetEndEffectorTransform()),wheel.GetLinks()[0].GetTransform())[1,1])
 
             TSRRight = [MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0]))),
                         dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),T0_start1),
@@ -422,12 +423,22 @@ while((not success) and (not end)):
  
             T0_RH2 = dot(wheel.GetManipulators()[0].GetTransform(),dot(MakeTransform(rodrigues([0,0,rotAng]),transpose(matrix([0,0,0]))),dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),T0_start1)))
 
-            goalikStr = get_rot_goalik(robots[0], candidates, collisionFreeSolutions[0][nxt], T0_LH2, T0_RH2)
+            goalikStr = get_rot_goalik(robots[0], myRmaps, candidates, collisionFreeSolutions[0][nxt], T0_LH2, T0_RH2)
+
             
             myTraj = plan(env, robots[0], wheel, startikStr, goalikStr, ' leftFootBase rightFootBase ', TSRChainStringTurning)
             
             if(myTraj != None):
-                execute(robots[0], myTraj)
+                print "press enter to reset configs"
+                sys.stdin.readline()
+
+                wheel.SetDOFValues([0],[0])
+                go_to_startik(robots[0], startikStr)
+
+                print "press enter to play the trajectory"
+                sys.stdin.readline()
+
+                execute(robots[0], wheel, myTraj)
                 # This is where we save the successfull data sample.
             else:
                 print "Planning failed."
@@ -438,6 +449,7 @@ while((not success) and (not end)):
                 print "Replay [r]"
                 print "Play All [a]"
                 print "Rewind [w]"
+                print "Play the Trajectory [t]"
                 print "Exit [e]"
                 answer = sys.stdin.readline()
                 answer = answer.strip('\n')
@@ -451,6 +463,12 @@ while((not success) and (not end)):
                         nxt += 1
                 elif(answer == 'r'):
                     pass
+                elif(answer == 't'):
+                    if(myTraj != None):
+                        execute(robots[0], wheel, myTraj)
+            # This is where we save the successfull data sample.
+                    else:
+                        print "Planning failed."
                 elif(answer == 'w'):
                     nxt == 0
                 elif(answer == 'a'):
