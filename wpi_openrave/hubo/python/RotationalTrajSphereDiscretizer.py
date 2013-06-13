@@ -73,7 +73,8 @@ def get_discrete_xyr(r=0.2, start=0.0, finish=2*pi, inc=0.01):
 
 if __name__ == '__main__':
     # [0]: this script's name
-    # [1]: r
+    # [1]: radius of rotation for hands (this would depend on the object size)
+
     # [2]: start angle in rads.
     # [3]: finish angle in rads
     if(len(sys.argv)==5):

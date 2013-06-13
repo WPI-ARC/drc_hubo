@@ -36,7 +36,7 @@ from math import *
 
 # if ||qA-qB|| > threshold then consider this diff as a configuration jump
 # This number would change from manipulator to manipulator
-configurationJumpThreshold = 3.0
+configurationJumpThreshold = 100.0
 
 def execute(myRobot, myObject, myTraj):
     # close hands

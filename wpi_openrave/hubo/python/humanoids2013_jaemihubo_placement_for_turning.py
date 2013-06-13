@@ -35,7 +35,7 @@ from roplace_common import *
 import TrajectoryGenerator
 from bens_logger import *
 h = []
-def get_pairs(pitch, height, dist, env, robot, myRmaps):
+def get_pairs(TLH_RH, env, robot, myRmaps):
 
     h.append(misc.DrawAxes(env,array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))),1.0))
 
@@ -69,22 +69,6 @@ def get_pairs(pitch, height, dist, env, robot, myRmaps):
     h.append(env.drawtrimesh(points=array(((ge,0,0),(0,-ge,0),(ge,-ge,0))),
                              indices=None,
                              colors=array(((gR,gG,gB),(gR,gG,gB),(gR,gG,gB)))))
-    Tee = []
-    manips = robot.GetManipulators()
-    for i in range(len(manips)):
-        # Returns End Effector Transform in World Coordinates
-        Tlink = manips[i].GetEndEffectorTransform()
-        Tee.append(Tlink)
-
-    # Where do we want the end effectors (hands) to start from in world coordinates?
-    T0_LIFT = MakeTransform(matrix(rodrigues([0, pitch, 0])),transpose(matrix([0.0, 0.0, height])))
-    TLIFT_LH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, 0.0, 0.0])))
-    T0_LH = dot(T0_LIFT, TLIFT_LH)
-    h.append(misc.DrawAxes(env, T0_LH, 0.4))
-
-    TLIFT_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
-    T0_RH = dot(T0_LIFT, TLIFT_RH)
-    h.append(misc.DrawAxes(env, T0_RH, 0.4))
 
     # Define robot base constraint(s)
     # a) Bounds <type 'list'>
@@ -107,12 +91,6 @@ def get_pairs(pitch, height, dist, env, robot, myRmaps):
     # Try to find a valid candidate that satisfies
     # all the constraints we have (base location, collision, and configuration-jump)
 
-    
-
-
-    # Relative transform of initial grasp transforms
-    TLH_RH = dot(linalg.inv(T0_LH),T0_RH)
-
     print "Ready to find sisters... ",str(datetime.now())
 
     resp = find_sister_pairs(myRmaps,[relBaseConstraint],[TLH_RH],env)
@@ -121,20 +99,11 @@ def get_pairs(pitch, height, dist, env, robot, myRmaps):
     if resp == None:
         return resp
     else:
-        return [resp[0], resp[1], [relBaseConstraint], [TLH_RH], T0_LH, T0_RH]
+        return [resp[0], resp[1], [relBaseConstraint]]
 
-# This changes the height and the pitch angle of the wheel
-def run(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm, T0_LH, T0_RH):
 
-    # Search for the pattern in the reachability model and get the results
-    numRobots = 1
-
-    # Keep the number of manipulators of the robots 
-    # that are going to be involved in search() 
-    # The length of this list should be the same with 
-    # the number of robots involved.
-    numManips = [2]
-
+def get_candidates(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm):
+    
     T0_p = MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))
     
     myPatterns = []
@@ -164,68 +133,84 @@ def run(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm, T0_LH, T
         p.hide("all")
         # sys.stdin.readline()
 
+    
+    candidates = None
+    print "Ready to look for candidates... ",str(datetime.now())
+    candidates = look_for_candidates(pairs, rm, myPatterns)
+    return candidates
+    
+# This changes the height and the pitch angle of the wheel
+def run(candidates, leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, rm, T0_LH, T0_RH, relBaseConstraint):
+
+    mySamples = []
+
+    # Search for the pattern in the reachability model and get the results
+    numRobots = 1
+
+    # Keep the number of manipulators of the robots 
+    # that are going to be involved in search() 
+    # The length of this list should be the same with 
+    # the number of robots involved.
+    numManips = [2]
+
     T0_starts = []
     T0_starts.append(array(T0_LH))
     T0_starts.append(array(T0_RH))
 
     whereToFace = MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0])))
 
-    mySamples = []
-    candidates = None
-    print "Ready to look for candidates... ",str(datetime.now())
-    candidates = look_for_candidates(pairs, rm, myPatterns)
-    if(candidates != None):
-        # find how many candidates search() function found.
-        # candidates[0] is the list of candidate paths for the 0th robot
-        howMany = len(candidates[0])
-        collisionFreeSolutions = [[],[]]
-        valids = []
-        for c in range(howMany):
-            print "trying ",str(c)," of ",str(howMany)," candidates."
-            [allGood, activeDOFConfigStr] = play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, c ,myRmaps,[robot], h, env, 0.0, True, ' leftFootBase rightFootBase ')
+    # find how many candidates search() function found.
+    # candidates[0] is the list of candidate paths for the 0th robot
+    howMany = len(candidates[0])
+    collisionFreeSolutions = [[],[]]
+    valids = []
+    
+    for c in range(howMany):
+        print "trying ",str(c)," of ",str(howMany)," candidates."
+        [allGood, activeDOFConfigStr] = play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, c ,myRmaps,[robot], h, env, 0.0, True, ' leftFootBase rightFootBase ')
 
+        h.pop() # delete the robot base axis we added last
+        # We went through all our constraints. Is the candidate valid?
+        if(allGood):
+            collisionFreeSolutions[0].append(c)
+            collisionFreeSolutions[1].append(activeDOFConfigStr)
+            findAPathEnds = time.time()
+            print "Success! Collision and configuration constraints met."
+        else:
+            print "Constraint(s) not met ."
+
+    # Went through all candidates
+    print "Found ",str(len(collisionFreeSolutions[0]))," collision-free solutions in ",str(howMany)," candidates."
+
+    if (len(collisionFreeSolutions[0]) > 0) :
+        # Have we found at least 1 collision free path?
+        for colFreeSolIdx, solIdx in enumerate(collisionFreeSolutions[0]):
+            print "Playing valid solution #: ",str(colFreeSolIdx)
+            play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, solIdx, myRmaps,[robot], h, env, 0.3, False, ' leftFootBase rightFootBase ')
             h.pop() # delete the robot base axis we added last
-            # We went through all our constraints. Is the candidate valid?
-            if(allGood):
-                collisionFreeSolutions[0].append(c)
-                collisionFreeSolutions[1].append(activeDOFConfigStr)
-                findAPathEnds = time.time()
-                print "Success! Collision and configuration constraints met."
-            else:
-                print "Constraint(s) not met ."
 
-        # Went through all candidates
-        print "Found ",str(len(collisionFreeSolutions[0]))," collision-free solutions in ",str(howMany)," candidates."
+            currentIk = robot.GetDOFValues()
 
-        if (len(collisionFreeSolutions[0]) > 0) :
-            # Have we found at least 1 collision free path?
-            for colFreeSolIdx, solIdx in enumerate(collisionFreeSolutions[0]):
-                print "Playing valid solution #: ",str(colFreeSolIdx)
-                play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, solIdx, myRmaps,[robot], h, env, 0.3, False, ' leftFootBase rightFootBase ')
-                h.pop() # delete the robot base axis we added last
+            # Try to put your feet on the ground
+            print "trying to put the feet on the ground..."
+            myIK = put_feet_on_the_ground(myProblem, robot, whereToFace, lowerLimits, upperLimits, env)
 
-                currentIk = robot.GetDOFValues()
+            print "myIK"
+            print myIK
 
-                # Try to put your feet on the ground
-                print "trying to put the feet on the ground..."
-                myIK = put_feet_on_the_ground(myProblem, robot, whereToFace, lowerLimits, upperLimits, env)
+            if(myIK != ''):
+                print "checking balance constraint..."
+                robot.SetDOFValues(str2num(myIK), range(len(robot.GetJoints())))
+                myCOM = array(get_robot_com(robot))
+                myCOM[2,3] = 0.0
+                COMHandle = misc.DrawAxes(env,myCOM,0.3)
 
-                print "myIK"
-                print myIK
+                if(check_support(myCOM,robot)):    
+                    mySamples.append([candidates[0][solIdx],candidates[1][solIdx]])
+                else:
+                    print "COM is out of the support polygon"
 
-                if(myIK != ''):
-                    print "checking balance constraint..."
-                    robot.SetDOFValues(str2num(myIK), range(len(robot.GetJoints())))
-                    myCOM = array(get_robot_com(robot))
-                    myCOM[2,3] = 0.0
-                    COMHandle = misc.DrawAxes(env,myCOM,0.3)
-
-                    if(check_support(myCOM,robot)):    
-                        mySamples.append([candidates[0][solIdx],candidates[1][solIdx]])
-                    else:
-                        print "COM is out of the support polygon"
-
-                robot.SetDOFValues(currentIk, range(len(robot.GetJoints())))
+            robot.SetDOFValues(currentIk, range(len(robot.GetJoints())))
         
     return mySamples
 
@@ -248,6 +233,9 @@ if __name__ == '__main__':
     wheelRotation = matrix(rodrigues([0,0,pi/2]))
     T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
     wheel.SetTransform(array(T0_wheelBase))
+
+    # Angle between the wheel's end effector (wheel) and the base (rotation shaft)
+    tilt_angle_rad = acos(dot(linalg.inv(wheel.GetManipulators()[0].GetEndEffectorTransform()),wheel.GetLinks()[0].GetTransform())[1,1])
      
     lowerLimits, upperLimits = robot.GetDOFLimits()
 
@@ -283,6 +271,8 @@ if __name__ == '__main__':
     rm2.load("jaemi_right_n8_m12_awesome")
     print "Reachability map loaded for right arm."
 
+    initialWheelTransform = wheel.GetTransform()
+
     myRmaps.append(rm2)
     minRotAngle = pi/8
     maxRotAngle = pi/4
@@ -290,46 +280,64 @@ if __name__ == '__main__':
     delta2 = None
     myLogger = BensLogger(arg_note=str(datetime.now()),arg_name='humanods2013_jaemiPlanning_turning_samples')
     myLogger.header(['label','pitch','height','traj_length','dist_left_right','left_start_sphere_ind','left_start_sphere_x','left_start_sphere_y','left_start_sphere_z','right_start_sphere_ind','right_start_sphere_x','right_start_sphere_y','right_start_sphere_z'])
-    for pitch in TrajectoryGenerator.frange(0,pi/2,pi/6):
-        for height in TrajectoryGenerator.frange(0.5,1.0,0.25):
-            for dist in TrajectoryGenerator.frange(0.1,0.3,0.1):
-                wheelOffset = matrix([-0.5*dist,0.0,height])
-                wheelRotation = matrix(rodrigues([pitch,0,0]))
-                T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
-                wheel.SetTransform(dot(wheel.GetTransform(),array(T0_wheelBase)))
 
-                trajs = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,maxRotAngle,delta1,delta2,dist)
-                #print trajs
-                resp = get_pairs(pitch, height, dist, env, robot, myRmaps)
-                if(resp != None):
-                    pairs = resp[0]
-                    rm = resp[1]
-                    [relBaseConstraint] = resp[2]
-                    [TLH_RH] = resp[3]
-                    T0_LH = resp[4]
-                    T0_RH = resp[5]
-                    for t in range(len(trajs[0])):
-                        print "trying trajs: ",str(t)
-                        sys.stdin.readline()
-                        leftTraj = trajs[0][t]
-                        rightTraj = trajs[1][t]
-                        samples = run(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH)
-                        if(samples != []):
-                            for n in samples:
-                                # label: 0 for lift, 1 for push, 2 for rotate
-                                # feature1: pitch angle of the object
-                                # feature2: height of the object from the ground
-                                # feature3: length of the trajectory
-                                # feature4: distance between hands
-                                # feature5: left reachability sphere index
-                                # feature6: left reachability sphere X
-                                # feature7: left reachability sphere Y
-                                # feature8: left reachability sphere Z
-                                # feature9: right reachability sphere index
-                                # feature10: right reachability sphere X
-                                # feature11: right reachability sphere Y
-                                # feature12: right reachability sphere Z
-                                myLogger.save([0, pitch, height, minTrajLength+(t*delta1), dist, n[0][0].sIdx, T0_LH[0,3], T0_LH[1,3], T0_LH[2,3], n[1][0].sIdx], T0_RH[0,3], T0_RH[1,3], T0_RH[2,3])
+    for dist in TrajectoryGenerator.frange(0.1,0.5,0.1):        
+        TLH_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
+        trajs = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,maxRotAngle,delta1,delta2,dist)
+        #print trajs
+        resp = get_pairs(TLH_RH, env, robot, myRmaps)
+        if(resp != None):
+            pairs = resp[0]
+            rm = resp[1]
+            [relBaseConstraint] = resp[2]
+            for t in range(len(trajs[0])):
+                leftTraj = trajs[0][t]
+                rightTraj = trajs[1][t]
+                candidates = get_candidates(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm)
+                if(candidates != None):
+                    for pitch in TrajectoryGenerator.frange(-pi/2,pi/2,pi/6):
+                        for height in TrajectoryGenerator.frange(0.5,1.2,0.1):
+                            # when the rotation around it's X axis is zero,
+                            # the wheel is facing to the ground. 
+                            # We add pi/2 to make it's zero the same with the hands
+                            # Also when we say "SetTransform" it sets the transform
+                            # of the base of the wheel, not the handle.
+                            # There's a difference of 23 degrees between the handle 
+                            # and the base, that's why we substract the tilt angle
+                            wheelOffset = matrix([-0.5*dist,0.0,height])
+                            wheelRotation = matrix(rodrigues([pitch+(pi/2)-tilt_angle_rad,0,0]))
+                            T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
+                            wheel.SetTransform(dot(initialWheelTransform,array(T0_wheelBase)))
+
+                            # Where do we want the end effectors (hands) to start from in world coordinates?
+                            T0_OBJ = MakeTransform(matrix(rodrigues([0, pitch, 0])),transpose(matrix([0.0, -dist*0.5, height])))
+                            # T0_OBJ = wheel.GetManipulators()[0].GetEndEffectorTransform()
+
+                            TOBJ_LH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, dist*0.5, 0.0])))
+                            T0_LH = dot(T0_OBJ, TOBJ_LH)
+                            h.append(misc.DrawAxes(env, T0_LH, 0.4))
+
+                            TOBJ_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist*0.5, 0.0])))
+                            T0_RH = dot(T0_OBJ, TOBJ_RH)
+                            h.append(misc.DrawAxes(env, T0_RH, 0.4))
+                            
+                            samples = run(candidates, leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH, relBaseConstraint)
+                            if(samples != []):
+                                for n in samples:
+                                    # label: 0 for lift, 1 for push, 2 for rotate
+                                    # feature1: pitch angle of the object
+                                    # feature2: height of the object from the ground
+                                    # feature3: length of the trajectory
+                                    # feature4: distance between hands
+                                    # feature5: left reachability sphere index
+                                    # feature6: left reachability sphere X
+                                    # feature7: left reachability sphere Y
+                                    # feature8: left reachability sphere Z
+                                    # feature9: right reachability sphere index
+                                    # feature10: right reachability sphere X
+                                    # feature11: right reachability sphere Y
+                                    # feature12: right reachability sphere Z
+                                    myLogger.save([0, pitch, height, minTrajLength+(t*delta1), dist, n[0][0].sIdx, T0_LH[0,3], T0_LH[1,3], T0_LH[2,3], n[1][0].sIdx], T0_RH[0,3], T0_RH[1,3], T0_RH[2,3])
     
     env.Destroy()
     RaveDestroy()
