@@ -34,6 +34,10 @@ from TSR import *
 from roplace_common import *
 import TrajectoryGenerator
 from bens_logger import *
+
+# To save screen-shots
+import scipy.misc
+
 h = []
 
 def go_to_start_config_and_pose(myRobot, myRmaps, sol, T0_starts):
@@ -318,8 +322,8 @@ if __name__ == '__main__':
                 rightTraj = trajs[1][t]
                 candidates = get_candidates(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm)
                 if(candidates != None):
-                    for pitch in TrajectoryGenerator.frange(-pi/2,pi/2,pi/6):
-                        for height in TrajectoryGenerator.frange(0.5,1.2,0.1):
+                    for height in TrajectoryGenerator.frange(0.5,1.2,0.1):
+                        for pitch in TrajectoryGenerator.frange(-pi/2,pi/2,pi/36):
                             # when the rotation around it's X axis is zero,
                             # the wheel is facing to the ground. 
                             # We add pi/2 to make it's zero the same with the hands
@@ -346,23 +350,27 @@ if __name__ == '__main__':
                             
                             samples = run(candidates, leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH, relBaseConstraint)
                             if(samples != []):
-                                for n in samples:
+                                for nIdx, n in enumerate(samples):
                                     go_to_start_config_and_pose(robot,myRmaps,n,[T0_LH, T0_RH])
                                     # Take a screenshot for the record
-                                    scipy.misc.imsave(str(datetime.now())+'_turning_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(n)+'_.jpg', v.GetCameraImage(1024,768,v.GetCameraTransform(),[1024,1024,512,384]))                           
+                                    viewer = env.GetViewer()
+                                    viewer.SendCommand('SetFiguresInCamera 1') 
+                                    scipy.misc.imsave(str(datetime.now())+'_turning_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(nIdx)+'_.jpg', viewer.GetCameraImage(1024,768,viewer.GetCameraTransform(),[1024,1024,512,384]))                           
+                                    del viewer
+                                    
                                     myLogger.save([0, # label: 0 for lift, 1 for push, 2 for rotate
                                                    pitch, # feature1: pitch angle of the object
                                                    height, # feature2: height of the object from the ground
-                                                   minRotAngle+(t*delta1), # feature3: length of the trajectory
+                                                   round(minRotAngle+(t*delta1),3), # feature3: length of the trajectory
                                                    dist, # feature4: distance between hands
                                                    n[0][0].sIdx, # feature5: left reachability sphere index
-                                                   myRmaps[0].map[n[0][0].sIdx].T[0][0,3], # feature6: left reachability sphere X (in manip base coords.)
-                                                   myRmaps[0].map[n[0][0].sIdx].T[0][1,3], # feature7: left reachability sphere Y (in manip base coords.)
-                                                   myRmaps[0].map[n[0][0].sIdx].T[0][2,3], # # feature8: left reachability sphere Z
+                                                   round(myRmaps[0].map[n[0][0].sIdx].T[0][0,3],2), # feature6: left reachability sphere X (in manip base coords.)
+                                                   round(myRmaps[0].map[n[0][0].sIdx].T[0][1,3],2), # feature7: left reachability sphere Y (in manip base coords.)
+                                                   round(myRmaps[0].map[n[0][0].sIdx].T[0][2,3],2), # # feature8: left reachability sphere Z
                                                    n[1][0].sIdx, # feature9: right reachability sphere index
-                                                   myRmaps[1].map[n[1][0].sIdx].T[0][0,3], # feature10: right reachability sphere X
-                                                   myRmaps[1].map[n[1][0].sIdx].T[0][1,3], # feature11: right reachability sphere Y
-                                                   myRmaps[1].map[n[1][0].sIdx].T[0][2,3]]) # feature12: right reachability sphere Z
+                                                   round(myRmaps[1].map[n[1][0].sIdx].T[0][0,3],2), # feature10: right reachability sphere X
+                                                   round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), # feature11: right reachability sphere Y
+                                                   round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2)]) # feature12: right reachability sphere Z
                                     
                                     sys.stdin.readline()
     

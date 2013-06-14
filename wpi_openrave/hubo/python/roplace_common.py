@@ -288,6 +288,8 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
     T0_COM = get_robot_com(myRobot)
     T0_LF = myRobot.GetManipulators()[2].GetEndEffectorTransform()
     T0_RF = myRobot.GetManipulators()[3].GetEndEffectorTransform()
+    T0_TORSO = myRobot.GetLinks()[6].GetTransform()
+    T0_TORSOXY = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_TORSO[0,3],T0_TORSO[1,3],0]))))
 
     for x in range(21):
         # x is on the X-Axis of roboground and facing wherever we want it to
@@ -300,12 +302,14 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
         # get the torso frame and rotate it back to being flat
         # around x and y but don't touch the orientation around z.
         T0_COMXY = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_COM[0,3],T0_COM[1,3],0]))))
-        TCOMXY_LFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([(0.1+x*0.01),TCOM_LF[1,3],0.0]))))
-        TCOMXY_RFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([(0.1+x*0.01),TCOM_RF[1,3],0.0]))))
+        TCOMXY_LFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),TCOM_LF[1,3],0.0]))))
+        TCOMXY_RFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),TCOM_RF[1,3],0.0]))))
         
         # Now we know where to face and where the feet should be
         T0_LFTARGET = dot(T0_COMXY,TCOMXY_LFTARGET)
+        # T0_LFTARGET = dot(T0_TORSOXY,array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),0.1,0.0])))))
         T0_RFTARGET = dot(T0_COMXY,TCOMXY_RFTARGET)
+        # T0_RFTARGET = dot(T0_TORSOXY,array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),-0.1,0.0])))))
     
     # old code - delete if the code above works
     # 
