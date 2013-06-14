@@ -35,13 +35,27 @@ from roplace_common import *
 import TrajectoryGenerator
 from bens_logger import *
 h = []
+
+def go_to_start_config_and_pose(myRobot, myRmaps, sol, T0_starts):
+    for myManipulatorIndex in range(2):
+         # Find where to move the base
+        startSphereIndex = sol[myManipulatorIndex][0].sIdx
+        startTransformIndex = sol[myManipulatorIndex][0].tIdx
+        myRmaps[myManipulatorIndex].go_to(startSphereIndex,startTransformIndex)
+        Tbase_start = myRmaps[myManipulatorIndex].map[startSphereIndex].T[startTransformIndex]
+        T0_newManipPose = dot(T0_starts[myManipulatorIndex],linalg.inv(Tbase_start))
+        myRobot.SetTransform(array(T0_newManipPose))
+    
+    startConfigStr = sol[2]
+    myRobot.SetActiveDOFValues(str2num(startConfigStr))
+
 def get_pairs(TLH_RH, env, robot, myRmaps):
 
-    h.append(misc.DrawAxes(env,array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))),1.0))
+    # h.append(misc.DrawAxes(env,array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))),1.0))
 
-    gR = 0.6 # ground color
-    gG = 0.6 # ground color
-    gB = 0.6 # ground color
+    gR = 0.0 # ground color
+    gG = 0.0 # ground color
+    gB = 0.0 # ground color
 
     ge = 5.0 # ground extension
 
@@ -167,13 +181,13 @@ def run(candidates, leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, 
     
     for c in range(howMany):
         print "trying ",str(c)," of ",str(howMany)," candidates."
-        [allGood, activeDOFConfigStr] = play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, c ,myRmaps,[robot], h, env, 0.0, True, ' leftFootBase rightFootBase ')
+        [allGood, activeDOFStartConfigStr] = play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, c ,myRmaps,[robot], h, env, 0.0, True, ' leftFootBase rightFootBase ')
 
         h.pop() # delete the robot base axis we added last
         # We went through all our constraints. Is the candidate valid?
         if(allGood):
             collisionFreeSolutions[0].append(c)
-            collisionFreeSolutions[1].append(activeDOFConfigStr)
+            collisionFreeSolutions[1].append(activeDOFStartConfigStr)
             findAPathEnds = time.time()
             print "Success! Collision and configuration constraints met."
         else:
@@ -183,34 +197,43 @@ def run(candidates, leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, 
     print "Found ",str(len(collisionFreeSolutions[0]))," collision-free solutions in ",str(howMany)," candidates."
 
     if (len(collisionFreeSolutions[0]) > 0) :
+        print "FOUND COLLISION FREE SOLUTIONS!!! WHOOHOO!!!! WILL PLAY RESULTS!!!"
+        sys.stdin.readline()
+        
         # Have we found at least 1 collision free path?
         for colFreeSolIdx, solIdx in enumerate(collisionFreeSolutions[0]):
-            print "Playing valid solution #: ",str(colFreeSolIdx)
-            play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, solIdx, myRmaps,[robot], h, env, 0.3, False, ' leftFootBase rightFootBase ')
-            h.pop() # delete the robot base axis we added last
+            mySamples.append([candidates[0][solIdx],candidates[1][solIdx],collisionFreeSolutions[1][colFreeSolIdx]])
 
-            currentIk = robot.GetDOFValues()
+            # print "Playing valid solution #: ",str(colFreeSolIdx)
+            # play(T0_starts, whereToFace, relBaseConstraint, candidates, numRobots, numManips, solIdx, myRmaps,[robot], h, env, 0.3, False, ' leftFootBase rightFootBase ')
+            # h.pop() # delete the robot base axis we added last
 
-            # Try to put your feet on the ground
-            print "trying to put the feet on the ground..."
-            myIK = put_feet_on_the_ground(myProblem, robot, whereToFace, lowerLimits, upperLimits, env)
+            
 
-            print "myIK"
-            print myIK
+            # currentIk = robot.GetDOFValues()
 
-            if(myIK != ''):
-                print "checking balance constraint..."
-                robot.SetDOFValues(str2num(myIK), range(len(robot.GetJoints())))
-                myCOM = array(get_robot_com(robot))
-                myCOM[2,3] = 0.0
-                COMHandle = misc.DrawAxes(env,myCOM,0.3)
+            # # Try to put your feet on the ground
+            # print "trying to put the feet on the ground..."
+            # myIK = put_feet_on_the_ground(robot, whereToFace, env)
 
-                if(check_support(myCOM,robot)):    
-                    mySamples.append([candidates[0][solIdx],candidates[1][solIdx]])
-                else:
-                    print "COM is out of the support polygon"
+            # print "myIK"
+            # print myIK
 
-            robot.SetDOFValues(currentIk, range(len(robot.GetJoints())))
+            # if(myIK != ''):
+            #     print "checking balance constraint..."
+            #     robot.SetDOFValues(str2num(myIK), range(len(robot.GetJoints())))
+            #     myCOM = array(get_robot_com(robot))
+            #     myCOM[2,3] = 0.0
+            #     COMHandle = misc.DrawAxes(env,myCOM,0.3)
+
+            #     if(check_support(myCOM,robot)):
+            #         print "FOUND A SOLUTION WHOOHOO!!!!"
+            #         sys.stdin.readline()
+                    
+            #     else:
+            #         print "COM is out of the support polygon"
+
+            # robot.SetDOFValues(currentIk, range(len(robot.GetJoints())))
         
     return mySamples
 
@@ -315,29 +338,33 @@ if __name__ == '__main__':
 
                             TOBJ_LH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, dist*0.5, 0.0])))
                             T0_LH = dot(T0_OBJ, TOBJ_LH)
-                            h.append(misc.DrawAxes(env, T0_LH, 0.4))
+                            # h.append(misc.DrawAxes(env, T0_LH, 0.4))
 
                             TOBJ_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist*0.5, 0.0])))
                             T0_RH = dot(T0_OBJ, TOBJ_RH)
-                            h.append(misc.DrawAxes(env, T0_RH, 0.4))
+                            # h.append(misc.DrawAxes(env, T0_RH, 0.4))
                             
                             samples = run(candidates, leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH, relBaseConstraint)
                             if(samples != []):
                                 for n in samples:
-                                    # label: 0 for lift, 1 for push, 2 for rotate
-                                    # feature1: pitch angle of the object
-                                    # feature2: height of the object from the ground
-                                    # feature3: length of the trajectory
-                                    # feature4: distance between hands
-                                    # feature5: left reachability sphere index
-                                    # feature6: left reachability sphere X
-                                    # feature7: left reachability sphere Y
-                                    # feature8: left reachability sphere Z
-                                    # feature9: right reachability sphere index
-                                    # feature10: right reachability sphere X
-                                    # feature11: right reachability sphere Y
-                                    # feature12: right reachability sphere Z
-                                    myLogger.save([0, pitch, height, minTrajLength+(t*delta1), dist, n[0][0].sIdx, T0_LH[0,3], T0_LH[1,3], T0_LH[2,3], n[1][0].sIdx], T0_RH[0,3], T0_RH[1,3], T0_RH[2,3])
+                                    go_to_start_config_and_pose(robot,myRmaps,n,[T0_LH, T0_RH])
+                                    # Take a screenshot for the record
+                                    scipy.misc.imsave(str(datetime.now())+'_turning_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(n)+'_.jpg', v.GetCameraImage(1024,768,v.GetCameraTransform(),[1024,1024,512,384]))                           
+                                    myLogger.save([0, # label: 0 for lift, 1 for push, 2 for rotate
+                                                   pitch, # feature1: pitch angle of the object
+                                                   height, # feature2: height of the object from the ground
+                                                   minRotAngle+(t*delta1), # feature3: length of the trajectory
+                                                   dist, # feature4: distance between hands
+                                                   n[0][0].sIdx, # feature5: left reachability sphere index
+                                                   myRmaps[0].map[n[0][0].sIdx].T[0][0,3], # feature6: left reachability sphere X (in manip base coords.)
+                                                   myRmaps[0].map[n[0][0].sIdx].T[0][1,3], # feature7: left reachability sphere Y (in manip base coords.)
+                                                   myRmaps[0].map[n[0][0].sIdx].T[0][2,3], # # feature8: left reachability sphere Z
+                                                   n[1][0].sIdx, # feature9: right reachability sphere index
+                                                   myRmaps[1].map[n[1][0].sIdx].T[0][0,3], # feature10: right reachability sphere X
+                                                   myRmaps[1].map[n[1][0].sIdx].T[0][1,3], # feature11: right reachability sphere Y
+                                                   myRmaps[1].map[n[1][0].sIdx].T[0][2,3]]) # feature12: right reachability sphere Z
+                                    
+                                    sys.stdin.readline()
     
     env.Destroy()
     RaveDestroy()

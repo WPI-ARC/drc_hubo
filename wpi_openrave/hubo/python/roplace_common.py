@@ -379,7 +379,7 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
 
     # print "numRobots: ",str(numRobots)
     # print "numManips: ",str(numManips)
-    [goAhead, activeDOFConfig] = start(T0_starts,T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv,doGeneralIk,footlinknames)
+    [goAhead, activeDOFStartConfig] = start(T0_starts,T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,h,myEnv,doGeneralIk,footlinknames)
 
     if(goAhead):
         # Get their relative Transformation matrix
@@ -482,6 +482,8 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                                 robots[myRobotIndex].SetActiveDOFValues(currentIk)
                                 return [False, '']
                             else:
+                                print "in balance - path element: ",str(pElementIndex)
+                                #sys.stdin.readline()
                                 robots[myRobotIndex].SetActiveDOFValues(currentIk)
                         else:
                             robots[myRobotIndex].SetActiveDOFValues(currentIk)
@@ -510,20 +512,24 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
             # it means no configuration jump, no collision, and
             # the center of mass was close enough to the center
             # of robot's feet for all reachability spheres.
-            #
-            # one last time check if the COM is in the support polygon
-            print "checking balance constraint..."
-            # print "Press enter to see the result..."
+            return [True, activeDOFStartConfig]
+
+            # #
+            # # one last time check if the COM is in the support polygon
+            # print "checking balance constraint..."
+            # # print "Press enter to see the result..."
+            # # sys.stdin.readline()
+            # myCOM = array(get_robot_com(robots[myRobotIndex]))
+            # myCOM[2,3] = 0.0
+            # COMHandle = misc.DrawAxes(myEnv,myCOM,0.3)
+            # print "if you made it here it means no config jump"
+            # print "no collision and the com mas in support poly."
             # sys.stdin.readline()
-            myCOM = array(get_robot_com(robots[myRobotIndex]))
-            myCOM[2,3] = 0.0
-            COMHandle = misc.DrawAxes(myEnv,myCOM,0.3)
-            
-            if(check_support(myCOM,robots[myRobotIndex])):
-                return [True, activeDOFConfig]
-            else:
-                print "COM is out of the support polygon"
-                return [False, '']
+            # if(check_support(myCOM,robots[myRobotIndex])):
+            #     return [True, activeDOFConfig]
+            # else:
+            #     print "COM is out of the support polygon"
+            #     return [False, '']
     else:
         # start() failed
         return [False, '']
