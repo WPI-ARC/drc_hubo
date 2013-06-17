@@ -159,6 +159,7 @@
     <effector>leftPalmShell</effector>
     <direction>0 -1 0</direction>
     <iksolver> ikfastsolvers/humanoids2013.jaemiHubo.ikfast60.Transform6D.x86_64.10_11_13_14_15_16_f12.so </iksolver>
+    <iksolver> ikfastsolvers/humanoids2013.jaemiHubo.ikfast61.Transform6D.i686.10_11_13_14_15_16_f12.so </iksolver>
   </Manipulator>
   
   <Manipulator name="rightArmManip">
@@ -168,6 +169,7 @@
     <gripperjoints>rightIndexKnuckle1 rightIndexKnuckle2 rightIndexKnuckle3 rightThumbKnuckle1 rightThumbKnuckle2 rightThumbKnuckle3</gripperjoints>
     <closingdirection>0 1 1 0 1 1</closingdirection>
     <iksolver> ikfastsolvers/humanoids2013.jaemiHubo.ikfast60.Transform6D.x86_64.17_18_20_21_22_23_f19.so </iksolver>
+    <iksolver> ikfastsolvers/humanoids2013.jaemiHubo.ikfast61.Transform6D.i686.17_18_20_21_22_23_f19.so </iksolver>
   </Manipulator>
   
   <Manipulator name="leftFootManip">

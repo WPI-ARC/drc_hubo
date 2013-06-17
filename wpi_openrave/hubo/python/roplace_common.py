@@ -38,6 +38,9 @@ from math import *
 # This number would change from manipulator to manipulator
 configurationJumpThreshold = 100.0
 
+# Activates some prints and keyboard inputs
+debug = False
+
 def execute(myRobot, myObject, myTraj):
     # close hands
     myRobot.GetController().SetPath(myTraj)
@@ -49,9 +52,11 @@ def execute(myRobot, myObject, myTraj):
     # open hands
 
 def go_to_startik(myRobot, startik):
-    print "Went to startik"
+    # print "Went to startik"
     myRobot.SetActiveDOFValues(str2num(startik))
-    sys.stdin.readline()
+    time.sleep(0.05)
+    if(debug):
+        sys.stdin.readline()
 
 def get_lin_goalik(myRobot,candidates, c):
     # This function calculates the goalik by moving
@@ -59,7 +64,7 @@ def get_lin_goalik(myRobot,candidates, c):
     myIK = myRobot.GetActiveDOFValues()
     return Serialize1DMatrix(matrix(myIK))
 
-def get_rot_goalik(myRobot, myRmaps, candidates, c, T0_LH2, T0_RH2):
+def get_rot_goalik(myRobot, T0_LH2, T0_RH2):
     # This function calculates the goalik using the rotAngle
     # and the initial hand transforms instead of using the last
     # reachability sphere's transform. This is required because
@@ -67,23 +72,27 @@ def get_rot_goalik(myRobot, myRmaps, candidates, c, T0_LH2, T0_RH2):
     # on trajectories.
 
     # T0_LH1
-    myRmaps[0].go_to(candidates[0][c][0].sIdx,candidates[0][c][0].tIdx)
+    # myRmaps[0].go_to(candidates[0][c][0].sIdx,candidates[0][c][0].tIdx)
 
     # T0_RH1
-    myRmaps[1].go_to(candidates[1][c][0].sIdx,candidates[1][c][0].tIdx)
+    # myRmaps[1].go_to(candidates[1][c][0].sIdx,candidates[1][c][0].tIdx)
     
     myManip = myRobot.SetActiveManipulator('leftArmManip')
     qL = myManip.FindIKSolution(array(T0_LH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
-    LJ = myManip.GetArmJoints()
-    myRobot.SetDOFValues(qL,LJ)
+    if(qL != None):
+        LJ = myManip.GetArmJoints()
+        myRobot.SetDOFValues(qL,LJ)
 
-    myManip = myRobot.SetActiveManipulator('rightArmManip')
-    qR = myManip.FindIKSolution(array(T0_RH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
-    RJ = myManip.GetArmJoints()
-    myRobot.SetDOFValues(qR,RJ)
+        myManip = myRobot.SetActiveManipulator('rightArmManip')
+        qR = myManip.FindIKSolution(array(T0_RH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+        if(qR != None):
+            RJ = myManip.GetArmJoints()
+            myRobot.SetDOFValues(qR,RJ)
 
-    myIK = myRobot.GetActiveDOFValues()
-    return Serialize1DMatrix(matrix(myIK))
+            myIK = myRobot.GetActiveDOFValues()
+            return Serialize1DMatrix(matrix(myIK))
+        
+    return None
 
 # This function returns the TSRChain String assuming that
 # the robot is currently in goal configuration
@@ -117,7 +126,7 @@ def get_tsr_chain_string(myRobot, TSRLeft, TSRRight, myObject, mimicObjectKinBod
     
     return TSRChainStringTurning
 
-def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString):
+def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString, trajName):
 
     TSRChainMimicDOF = 1
     
@@ -139,23 +148,29 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
 
     jointgoalsNum = str2num(jointgoalsStr)
 
-    print "STARTIK"
-    myRobot.SetActiveDOFValues(str2num(startikStr))
-    sys.stdin.readline()
+    # print "STARTIK"
+    # myRobot.SetActiveDOFValues(str2num(startikStr))
+    # time.sleep(0.1)
+    # if(debug):
+    #     sys.stdin.readline()
     
-    print "GOALIK"
-    myRobot.SetActiveDOFValues(str2num(goalikStr))
-    #myObject.SetDOFValues([pi/4],[0])
-    sys.stdin.readline()
+    # print "GOALIK"
+    # myRobot.SetActiveDOFValues(str2num(goalikStr))
+    # time.sleep(0.1)
+    # #myObject.SetDOFValues([pi/4],[0])
+    # if(debug):
+    #     sys.stdin.readline()
     
-    print "BACK TO STARTIK"
-    myRobot.SetActiveDOFValues(str2num(startikStr))
-    print "PRESS ENTER TO PLAN"
-    sys.stdin.readline()
+    # print "BACK TO STARTIK"
+    # myRobot.SetActiveDOFValues(str2num(startikStr))
+    # time.sleep(0.1)
+    # if(debug):
+    #     print "PRESS ENTER TO PLAN"
+    #     sys.stdin.readline()
 
     try:
         answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 5 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
-        print "RunCBiRRT answer: ",str(answer)
+        # print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
         print e
@@ -165,19 +180,25 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
     myEnv.Remove(myObjectProblem)
     del myRobotProblem
     del myObjectProblem
-
-    try:
-        os.rename("cmovetraj.txt","turningTraj.txt")
-        traj = RaveCreateTrajectory(myEnv,'').deserialize(open('turningTraj.txt','r').read()) 
-        return traj
-    except OSError, e:
-        # No file cmovetraj
-        print e
+    
+    if(str(answer) == '1'):
+        try:
+            os.rename("cmovetraj.txt", trajName)
+            traj = RaveCreateTrajectory(myEnv,'').deserialize(open(trajName,'r').read()) 
+            return traj
+        except OSError, e:
+            # No file cmovetraj
+            print e
+            return None
+    else:
         return None
 
 
 
 def check_support(T0_COM,myRobot):
+
+    # TODO: Check support with cbirrt
+
     T0_COMXY = deepcopy(T0_COM)
     T0_COMXY[2,3] = 0.0
 
@@ -185,7 +206,7 @@ def check_support(T0_COM,myRobot):
     # This radius is the distance threshold between the 
     # projection of the COM on the support polygon 
     # and the center of mass of the feet of the robot
-    radius = 0.15
+    radius = 0.1
     
     # center of feet in world coordinates [XYZ only]
     T0_LF = myRobot.GetManipulators()[2].GetEndEffectorTransform()
@@ -198,17 +219,17 @@ def check_support(T0_COM,myRobot):
         distSumSq += pow((COF[axis]-T0_COMXY[axis,3]),2)
 
     dist = pow(distSumSq,0.5)
-    print "COF"
-    print COF
-    print "COM (PROJECTED ON THE GROUND PLANE)"
-    print T0_COMXY
-    print "dist:"
-    print dist
+    # print "COF"
+    # print COF
+    # print "COM (PROJECTED ON THE GROUND PLANE)"
+    # print T0_COMXY
+    # print "dist:"
+    # print dist
     if (dist <= radius):
-        print "in balance"
+        # print "in balance"
         return True
     else:
-        print "not in balance"
+        # print "not in balance"
         return False
     
 
@@ -277,10 +298,10 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
     for i in range(howManyJoints):
         j = round(myRobot.GetDOFValues([i]),2)
         if( (nonzero(lowerLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
-            print "setting joint ",str(i)," to positive zero"
+            # print "setting joint ",str(i)," to positive zero"
             myRobot.SetDOFValues([0.000001],[i])
         elif( (nonzero(upperLimits[i])[0].size == 0) and (nonzero(j)[0].size == 0) ):
-            print "setting joint ",str(i)," to negative zero"
+            # print "setting joint ",str(i)," to negative zero"
             myRobot.SetDOFValues([-0.000001],[i])
 
 
@@ -302,8 +323,10 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
         # get the torso frame and rotate it back to being flat
         # around x and y but don't touch the orientation around z.
         T0_COMXY = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_COM[0,3],T0_COM[1,3],0]))))
-        TCOMXY_LFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),TCOM_LF[1,3],0.0]))))
-        TCOMXY_RFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),TCOM_RF[1,3],0.0]))))
+        #TCOMXY_LFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),TCOM_LF[1,3],0.0]))))
+        TCOMXY_LFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),0.09,0.0]))))
+        #TCOMXY_RFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),TCOM_RF[1,3],0.0]))))
+        TCOMXY_RFTARGET = array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([((-0.1)+x*0.01),-0.09,0.0]))))
         
         # Now we know where to face and where the feet should be
         T0_LFTARGET = dot(T0_COMXY,TCOMXY_LFTARGET)
@@ -326,7 +349,7 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
     #     # T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3]-(0.1+x*0.01),T0_COM[1,3],0]))))
     #     T0_rf = array(MakeTransform(T0_FACING[0:3,0:3],transpose(matrix([T0_RF[0,3],T0_COM[1,3]-(0.1+x*0.01),0]))))
 
-        print "this is where the feet should go."
+        # print "this is where the feet should go."
         myHandle1 = misc.DrawAxes(myEnv,array(T0_LFTARGET),0.1)
         myHandle2 = misc.DrawAxes(myEnv,array(T0_RFTARGET),0.1)
         # sys.stdin.readline()
@@ -341,12 +364,17 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
         
         goalik = myProblem.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' nummanips 2 maniptm 2 '+trans_to_str(T0_LFTARGET)+' maniptm 3 '+trans_to_str(T0_RFTARGET))
 
-        print "goalik"
-        print str2num(goalik)
-        print len(str2num(goalik))
+        # print "goalik"
+        # print str2num(goalik)
+        # print len(str2num(goalik))
         
-        if goalik != '':
+        if (goalik != '' and 
+            (not myEnv.CheckCollision(myRobot)) and 
+            (not myRobot.CheckSelfCollision()) 
+            ):
             return goalik
+        else:
+            goalik = ''
 
     # cleanup the cbirrt problem object
     myEnv.Remove(myProblem)
@@ -481,12 +509,12 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                             
                         if(myIK != ''):
                             robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
-                            print "checking support in play..."
+                            # print "checking support in play..."
                             if(not check_support(array(get_robot_com(robots[myRobotIndex])),robots[myRobotIndex])):
                                 robots[myRobotIndex].SetActiveDOFValues(currentIk)
                                 return [False, '']
                             else:
-                                print "in balance - path element: ",str(pElementIndex)
+                                # print "in balance - path element: ",str(pElementIndex)
                                 #sys.stdin.readline()
                                 robots[myRobotIndex].SetActiveDOFValues(currentIk)
                         else:
@@ -497,7 +525,7 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                 time.sleep(howLong)
 
             for manipIdx, manipConfs in enumerate(pathConfigs):
-                print "for manip ",str(manipIdx)
+                # print "for manip ",str(manipIdx)
                 for confIdx, conf in enumerate(manipConfs):
                     if(confIdx > 0):
                         qdiff = absolute(subtract(conf,manipConfs[confIdx-1]))
@@ -506,8 +534,8 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                         for j in range(len(qdiff)):
                             configDistSq += pow(qdiff[j],2)
                         eConfDist = pow(configDistSq,0.5)
-                        print "euclidean configuration distance:"
-                        print eConfDist
+                        # print "euclidean configuration distance:"
+                        # print eConfDist
                         if(eConfDist > configurationJumpThreshold):
                             noConfigJump = False
                             return [False, '']
@@ -552,7 +580,7 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
             startSphereIndex = candidates[myManipulatorIndex][c][0].sIdx
             startTransformIndex = candidates[myManipulatorIndex][c][0].tIdx
             # Set the manipulator to its configuration (we will check for collision)
-            print "for manipulator: ",str(myManipulatorIndex)
+            # print "for manipulator: ",str(myManipulatorIndex)
             # print "go_to: start_sphere_index: "
             # print startSphereIndex
             # print "go_to: start_transform_index: "
@@ -604,7 +632,7 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
         #
         currentIk = robots[myRobotIndex].GetActiveDOFValues()
         if(doGeneralIk):
-            print "trying to put the feet on the ground..."
+            # print "trying to put the feet on the ground..."
             if(footlinknames==''):
                 myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
             else:
