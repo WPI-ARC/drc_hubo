@@ -41,6 +41,58 @@ configurationJumpThreshold = 100.0
 # Activates some prints and keyboard inputs
 debug = False
 
+def pattern_exists(s1, s2, myPatterns, myRmaps):
+    # try to grow the search patterns out of s1 and s2
+    # if successful return the path elements
+    pass
+    
+def pair_exists(s, myPatterns, myRmaps):
+    # find the sister of s
+    # see if there is the transform we want
+    # between s and its sister.
+    
+    pass
+
+def rank_reachability_spheres(s):
+    # this function returns a list of sphere indices
+    # based on their ranking of potential success
+    # as a candidate initial reachability sphere
+    #
+    # For now let's start with the 1st order
+    # neighbors of the sphere, but we may need
+    # to do something more complicated, and expand
+    # to 2nd or 3rd order neighbors later on...
+    return s.neighbors
+    
+
+def find_nearest_reachability_sphere(x, y, z, sList):
+    print "Test point:"
+    print x
+    print y
+    print z
+
+    minDist = 1000.0 # some big number
+    minIdx = None # to be assigned when found
+
+    for sIdx, s in enumerate(sList): # remember rmap is a list of reachability spheres
+        euclideanDistance = pow(pow(s.T[0][0,3]-x,2)+pow(s.T[0][1,3]-y,2)+pow(s.T[0][2,3]-z,2),0.5)
+        if(euclideanDistance < minDist):
+            found_x = s.T[0][0,3]
+            found_y = s.T[0][1,3]
+            found_z = s.T[0][2,3]
+            minDist = euclideanDistance
+            minIdx = sIdx
+            
+    print "Closest reachability sphere is at:"
+    print found_x
+    print found_y
+    print found_z
+
+    print "Euclidean distance in between:"
+    print minDist
+
+    return minIdx
+
 def execute(myRobot, myObject, myTraj):
     # close hands
     myRobot.GetController().SetPath(myTraj)
@@ -128,18 +180,18 @@ def get_tsr_chain_string(myRobot, TSRLeft, TSRRight, myObject, mimicObjectKinBod
 
 def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString, trajName):
 
-    TSRChainMimicDOF = 1
-    
-    fastsmoothingitrs = 150
-
     myRobotProblem = RaveCreateModule(myEnv,'CBiRRT')
     myObjectProblem = RaveCreateModule(myEnv,'CBiRRT')
-
+    
     try:
         myEnv.AddModule(myRobotProblem,myRobot.GetName()) # this string should match to kinematic body
         myEnv.AddModule(myObjectProblem,myObject.GetName())
     except openrave_exception, e:
         print e
+
+    TSRChainMimicDOF = 1
+    
+    fastsmoothingitrs = 150
 
     # Get a trajectory from goalik to grasp configuration
     jointgoalsStr = deepcopy(goalikStr)
@@ -170,7 +222,7 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
 
     try:
         answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 5 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
-        # print "RunCBiRRT answer: ",str(answer)
+        print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
         print e
@@ -180,16 +232,19 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
     myEnv.Remove(myObjectProblem)
     del myRobotProblem
     del myObjectProblem
+    time.sleep(0.1)
+
     
     if(str(answer) == '1'):
-        try:
-            os.rename("cmovetraj.txt", trajName)
-            traj = RaveCreateTrajectory(myEnv,'').deserialize(open(trajName,'r').read()) 
-            return traj
-        except OSError, e:
-            # No file cmovetraj
-            print e
-            return None
+        return 'something'
+        # try:
+        #     os.rename("cmovetraj.txt", trajName)
+        #     traj = RaveCreateTrajectory(myEnv,'').deserialize(open(trajName,'r').read()) 
+        #     return traj
+        # except OSError, e:
+        #     # No file cmovetraj: [Errno 2] No such file or directory
+        #     print e
+        #     return None
     else:
         return None
 

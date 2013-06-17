@@ -1384,6 +1384,146 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
     else:
         return None
 
+def find_sister_pair(reachabilityMaps, mapTs, patternTs, myEnv, myIndex):
+    # Get a deep copy of the maps, we don't want to
+    # mess with the originals
+    rm = []
+    rmT = []
+    pT = []
+    howMany = 1000000
+
+    for idx, m in enumerate(reachabilityMaps):
+        rm.append(deepcopy(m.map))
+        if idx > 0:
+            rmT.append(deepcopy(mapTs[idx-1]))
+            pT.append(deepcopy(patternTs[idx-1]))
+
+    for m in range(1,len(rm)):
+        # Transform of map_i+1 with reference to map_i
+        Ti_j= rmT[m-1]
+
+        newIndices = {}
+        # Convert all reachability spheres of map_i+1
+        # into map_i's base tranform
+        for sIdx, s in enumerate(rm[m]):
+            for tIdx, Tj_s in enumerate(s.T):
+                Ti_s = array(dot(Ti_j,Tj_s)) # dot() returns a matrix
+                s.T[tIdx] = Ti_s
+            myKey = str(round(s.T[0][0,3],2)),",",str(round(s.T[0][1,3],2)),",",str(round(s.T[0][2,3],2))
+            newIndices[myKey] = sIdx
+
+        # TO-DO
+        # Cut out the parts of the reachability maps that are unwanted.
+        # The definition of "unwanted" depends on:
+        #  i) the search pattern, and,
+        # ii) the reachability maps.
+        # TO-DO
+
+        # Show all reachability spheres
+        for sIdx, s in enumerate(rm[m-1]):
+            # robot on the left
+            # print "robot0"
+            # print type(s.T[0])
+            s.color = array((0,0,1,0.5))
+            s.show(myEnv)
+
+        for sIdx, s in enumerate(rm[m]):
+            # robot on the right
+            # print "robot1"
+            # print type(s.T[0])
+            s.color = array((1,0,0,0.5))
+            s.show(myEnv)
+            
+
+        for sIdx, s in enumerate(rm[m-1]):
+            s.hide()
+
+        for sIdx, s in enumerate(rm[m]):
+            s.hide()
+
+        # Now map_i+1's reachability spheres are
+        # all defined in map_i's base transform
+
+        # Transform of pattern_i+1 with reference to pattern_i
+        # relative transforms of the start points
+        pTi_j = patternTs[m-1]
+
+        sisters={}
+        print "finding sister sphere... ",str(datetime.now())
+        
+        s1Idx = myIndex
+        s1 = rm[m-1][myIndex]
+        
+        
+        current = []
+        for t1Idx, Ti_s1 in enumerate(s1.T):
+            Ts1_sister = dot(Ti_s1,pTi_j)
+            myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
+            sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
+            if(sisterKey in newIndices):
+                # print sisterKey
+                sisterIndex = newIndices[sisterKey]
+                # currentSisters.append(sisterIndex)
+                # currentTransforms.append(t1Idx)
+                current.append([sisterIndex, t1Idx])
+                # print "Found a sister for ",str(s1Idx)
+                rm[m-1][s1Idx].show(myEnv)
+                rm[m][sisterIndex].show(myEnv)
+                # print sisterIndex
+                # print t1Idx
+                # sys.stdin.readline()
+                rm[m-1][s1Idx].hide()
+                rm[m][sisterIndex].hide()
+                    
+        sisters[s1Idx] = current
+
+        pD2 = pow(pTi_j[0,3],2)+pow(pTi_j[1,3],2)+pow(pTi_j[2,3],2)
+        pD = round(pow(pD2,0.5),2)
+
+        pairs = []
+        print "looking for pairs...",' ',str(datetime.now())
+        for s1Idx in sisters:
+            if len(pairs) >= howMany :
+                break
+            for couple in sisters[s1Idx]:
+                s2Idx = couple[0]
+                t1Idx = couple[1]
+                s1 = rm[m-1][s1Idx]
+                s2 = rm[m][s2Idx]
+                Ti_s1 = s1.T[t1Idx]
+                sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
+                if(sD == pD):
+                    for t2Idx, Ti_s2 in enumerate(s2.T):
+                        myh = misc.DrawAxes(myEnv,Ti_s1,0.3)
+                        myh1 = misc.DrawAxes(myEnv,Ti_s2,0.3)
+                        Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
+                        
+                        # if there's a match keep the pair
+                        if(allclose(pTi_j.round(4),Ts1_s2.round(4))):
+                            s1.show(myEnv)
+                            s2.show(myEnv)
+                            reachabilityMaps[0].go_to(s1Idx,t1Idx)
+                            reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
+                            reachabilityMaps[1].go_to(s2Idx,t2Idx)
+                            reachabilityMaps[1].robot.SetTransform(array(Ti_j))
+                            # sys.stdin.readline()
+                            s1.hide()
+                            s2.hide()
+                            transformsMatch = False
+                            adjusteds1Idx = s1Idx#+s1Init
+                            adjusteds2Idx = s2Idx#+s2Init
+                            pair1 = PathElement(adjusteds1Idx,t1Idx)
+                            pair2 = PathElement(adjusteds2Idx,t2Idx)
+                            pairs.append([pair1,pair2])
+
+                                
+        print "found ",str(len(pairs))," pair(s). ",str(datetime.now())
+        
+    if(pairs != []):
+        return [pairs, rm]
+    else:
+        return None
+
 # Do search over multiple maps considering the boundaries
 def look_for_candidates(pairs, rm, patterns): 
     p = []
