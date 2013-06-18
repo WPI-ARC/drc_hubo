@@ -178,7 +178,7 @@ def get_tsr_chain_string(myRobot, TSRLeft, TSRRight, myObject, mimicObjectKinBod
     
     return TSRChainStringTurning
 
-def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString, trajName):
+def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString, trajName, returnTraj=False):
 
     myRobotProblem = RaveCreateModule(myEnv,'CBiRRT')
     myObjectProblem = RaveCreateModule(myEnv,'CBiRRT')
@@ -236,15 +236,17 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
 
     
     if(str(answer) == '1'):
-        return 'something'
-        # try:
-        #     os.rename("cmovetraj.txt", trajName)
-        #     traj = RaveCreateTrajectory(myEnv,'').deserialize(open(trajName,'r').read()) 
-        #     return traj
-        # except OSError, e:
-        #     # No file cmovetraj: [Errno 2] No such file or directory
-        #     print e
-        #     return None
+        if(returnTraj):
+            try:
+                os.rename("cmovetraj.txt", trajName)
+                traj = RaveCreateTrajectory(myEnv,'').deserialize(open(trajName,'r').read()) 
+                return traj
+            except OSError, e:
+                # No file cmovetraj: [Errno 2] No such file or directory
+                print e
+                return None
+        else:
+            return True
     else:
         return None
 
