@@ -331,7 +331,7 @@ if __name__ == '__main__':
 
     for dist in TrajectoryGenerator.frange(0.1,0.5,0.1):        
         TLH_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
-        trajs = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,maxRotAngle,delta1,delta2,dist)
+        trajs = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,maxRotAngle,delta1,delta2,(dist*0.5))
         #print trajs
         resp = get_pairs(TLH_RH, env, robot, myRmaps)
         if(resp != None):
@@ -343,8 +343,8 @@ if __name__ == '__main__':
                 rightTraj = trajs[1][t]
                 candidates = get_candidates(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm)
                 if(candidates != None):
-                    for height in TrajectoryGenerator.frange(0.7,1.2,0.1):
-                        for pitch in TrajectoryGenerator.frange(-pi/2,pi/2,pi/36):
+                    for height in TrajectoryGenerator.frange(0.5,1.5,0.1):
+                        for pitch in TrajectoryGenerator.frange(-pi/2,pi/2,pi/6):
                             # when the rotation around it's X axis is zero,
                             # the wheel is facing to the ground. 
                             # We add pi/2 to make it's zero the same with the hands

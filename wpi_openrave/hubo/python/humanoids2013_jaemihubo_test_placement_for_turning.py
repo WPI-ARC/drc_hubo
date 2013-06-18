@@ -340,7 +340,7 @@ if __name__ == '__main__':
             pitch = test_pitch
 
             TLH_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
-            traj = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,test_traj_length,delta1,delta2,dist)
+            traj = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,test_traj_length,delta1,delta2,(dist*0.5))
 
             [nearestSphereIdx, minDist] = find_nearest_reachability_sphere(test_x, test_y, test_z, myRmaps[0].map)
             tryTheseSpheres = [nearestSphereIdx]
