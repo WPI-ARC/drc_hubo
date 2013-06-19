@@ -426,7 +426,7 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
         # print len(str2num(goalik))
         
         if (goalik != '' and 
-            (not myEnv.CheckCollision(myRobot)) and 
+           ( not myEnv.CheckCollision(myRobot)) and 
             (not myRobot.CheckSelfCollision()) 
             ):
 
@@ -563,11 +563,11 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                     # TODO: This part is very messy and ugly.
                     # I need to clean it up and make nice function calls.
                     if(doGeneralIk):
-                        robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
+                        # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
                         # Bend the knees to avoid singularity issues
                         robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
                         robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
-                        # currentIk = robots[myRobotIndex].GetActiveDOFValues()
+                        currentIk = robots[myRobotIndex].GetActiveDOFValues()
                         if(footlinknames==''):
                             myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
                         else:
@@ -577,8 +577,8 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                             robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
                             # print "checking support in play..."
                             if(not check_support(array(get_robot_com(robots[myRobotIndex])),robots[myRobotIndex])):
-                                #robots[myRobotIndex].SetActiveDOFValues(currentIk)
-                                robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
+                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
                                 # Bend the knees to avoid singularity issues
                                 robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
                                 robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
@@ -586,14 +586,14 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                             else:
                                 # print "in balance - path element: ",str(pElementIndex)
                                 #sys.stdin.readline()
-                                # robots[myRobotIndex].SetActiveDOFValues(currentIk)
-                                robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
+                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
                                 # Bend the knees to avoid singularity issues
                                 robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
                                 robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                         else:
-                            # robots[myRobotIndex].SetActiveDOFValues(currentIk)
-                            robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
+                            robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                            # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
                             # Bend the knees to avoid singularity issues
                             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
                             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
@@ -708,9 +708,9 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
         # Maybe we should have a "isHumanoid" bool? And try to
         # put the feet on the ground if(myReachabilityMap.isHumanoid)
         #
-        # currentIk = robots[myRobotIndex].GetActiveDOFValues()
+        currentIk = robots[myRobotIndex].GetActiveDOFValues()
         if(doGeneralIk):
-            robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
+            
             # Bend the knees to avoid singularity issues
             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
@@ -727,8 +727,9 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
                 masterBaseConstOK = False
                 
             # robots[myRobotIndex].SetDOFValues(currentIk, range(len(robots[myRobotIndex].GetJoints())))
-            # robots[myRobotIndex].SetActiveDOFValues(currentIk)
-            robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
+            robots[myRobotIndex].SetActiveDOFValues(currentIk)
+
+            # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
             # Bend the knees to avoid singularity issues
             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
