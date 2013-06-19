@@ -10,7 +10,7 @@ fastsmoothingitrs = 20;
 robottype = 1; %set which robot you are using here
 
 if(robottype == 1)
-    robotname = 'drchubo/drchubo-urdf/robots/drchubo';
+    robotname = 'drchubo/robots/drchubo';
 elseif(robottype == 2) 
     robotname = 'jaemi/rljaemiHubo';
 end
