@@ -41,6 +41,37 @@ configurationJumpThreshold = 100.0
 # Activates some prints and keyboard inputs
 debug = False
 
+def get_ranked_neighbors(sIdx, myRmap):
+    aNeighbors = myRmap.map[sIdx].neighbors
+    bNeighbors = []
+    cNeighbors = []    
+    rankedNeighborsDict = {}
+    rankedNeighborsDict[sIdx] = 0 # This is the main sphere, it's rank is zero.
+
+    sortedKeys = [sIdx]
+
+    for b in aNeighbors:
+        if (not (b in rankedNeighborsDict)):
+            rankedNeighborsDict[b] = 1 # closest neighbors
+            sortedKeys.append(b)
+
+        bNeighbors.extend(myRmap.map[b].neighbors)
+
+    for c in bNeighbors:
+        if (not (c in rankedNeighborsDict)):
+            rankedNeighborsDict[c] = 2 # middle-dist neighbors
+            sortedKeys.append(c)
+    
+        cNeighbors.extend(myRmap.map[c].neighbors)
+
+    for d in cNeighbors:
+        if (not (d in rankedNeighborsDict)):
+            rankedNeighborsDict[d] = 3 # farthest neighbors
+            sortedKeys.append(d)
+
+    return [sortedKeys, rankedNeighborsDict]
+    
+
 def pattern_exists(s1, s2, myPatterns, myRmaps):
     # try to grow the search patterns out of s1 and s2
     # if successful return the path elements

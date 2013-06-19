@@ -306,7 +306,9 @@ if __name__ == '__main__':
                      'right_start_sphere_x',
                      'right_start_sphere_y',
                      'right_start_sphere_z',
-                     'resultId'])
+                     'resultId',
+                     'iterationToResult',
+                     'timeToResult'])
 
     resultCount = 0
 
@@ -346,13 +348,24 @@ if __name__ == '__main__':
             traj = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', test_traj_length,test_traj_length,1.0,None,(dist*0.5))
 
             [nearestSphereIdx, minDist] = find_nearest_reachability_sphere(test_x, test_y, test_z, myRmaps[0].map)
-            tryTheseSpheres = [nearestSphereIdx]
-            tryTheseSpheres.extend(myRmaps[0].map[nearestSphereIdx].neighbors)
+
+            # Note: tryTheseSpheres is a dictionary
+            [sortedKeys, tryTheseSpheres] = get_ranked_neighbors(nearestSphereIdx, myRmaps[0])
+
+            # tryTheseSpheres = [nearestSphereIdx]
+            # tryTheseSpheres.extend(myRmaps[0].map[nearestSphereIdx].neighbors)
 
             stopTrying = False # This is for breaking out of trying the neighbors
 
-            for rank, sIdx in enumerate(tryTheseSpheres):
+            iterationCount = 0
+            startTime = time.time()
+
+            for sIdx in sortedKeys:
                 
+                iterationCount += 1
+                # Note sIdx is a key (sphere index) and rank is a value between 0 and 3 (depending on its distance from the main sphere of interest) 
+                rank = tryTheseSpheres[sIdx]
+
                 resp = get_pair(TLH_RH, env, robot, myRmaps, sIdx)
 
                 if(resp != None):
@@ -448,12 +461,9 @@ if __name__ == '__main__':
                                                 viewer.SendCommand('SetFiguresInCamera 1') 
                                                 scipy.misc.imsave(myPathStr+'/'+str(datetime.now())+'_turning_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(nIdx)+'_.jpg', viewer.GetCameraImage(1024,768,viewer.GetCameraTransform(),[1024,1024,512,384]))                           
                                                 del viewer
-                                            print "here"
-
-                                            if(rank == 0):
-                                                sphereRank = 1
-                                            else:
-                                                sphereRank = 2
+                                            
+                                            endTime = time.time()
+                                            durationInSecs = endTime - startTime
 
                                             myLogger.save([5, # label: 0 for lift, 1 for push, 2 for rotate, 3 for lift test, 4 for push test, 5 for rotate test
                                                            pitch,  
@@ -466,7 +476,7 @@ if __name__ == '__main__':
                                                            round(minDist,3),
                                                            nearestSphereIdx,
                                                            n[0][0].sIdx, 
-                                                           sphereRank,
+                                                           rank,
                                                            round(myRmaps[0].map[n[0][0].sIdx].T[0][0,3],2), 
                                                            round(myRmaps[0].map[n[0][0].sIdx].T[0][1,3],2), 
                                                            round(myRmaps[0].map[n[0][0].sIdx].T[0][2,3],2), 
@@ -474,7 +484,9 @@ if __name__ == '__main__':
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][0,3],2), 
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), 
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), 
-                                                           resultCount])
+                                                           resultCount,
+                                                           iterationCount,
+                                                           durationInSecs])
             
                                             if(debug):
                                                 print "press enter to execute the trajectory"
