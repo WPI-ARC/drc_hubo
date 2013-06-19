@@ -42,7 +42,7 @@ import csv
 
 h = []
 
-viewerOn = False
+viewerOn = True
 
 saveImg = False
 
@@ -135,28 +135,12 @@ def get_candidates(leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, r
     # 2. Create a search pattern from the trajectory for the first manipulator
     myPattern = SearchPattern(leftTraj)
     myPattern.T0_p = T0_p
-    myPattern.setColor(array((0,0,1,0.5))) 
-    myPattern.show(env)
-    # sys.stdin.readline()
-    myPattern.hide("all")
     myPatterns.append(myPattern)
 
     # 3. Create a search pattern from the trajectory for the second manipulator
     myPattern = SearchPattern(rightTraj)
     myPattern.T0_p = T0_p
-    myPattern.setColor(array((1,0,0,0.5))) 
-    myPattern.show(env)
-    # sys.stdin.readline()
-    myPattern.hide("all")
     myPatterns.append(myPattern)
-
-    for p in myPatterns:
-        p.hide("spheres")
-        #sys.stdin.readline()
-
-    for p in myPatterns:
-        p.hide("all")
-        # sys.stdin.readline()
 
     
     candidates = None
@@ -218,12 +202,15 @@ def run(candidates, leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, 
     return mySamples
 
 if __name__ == '__main__':
+    purpose = 'test'
+    # purpose = 'validation'
+
     # Activates some prints and keyboard inputs
     debug = False
     
     # directory where we keep the data files
     myInitTimeStr = str(datetime.now())
-    myPathStr = './humanoids2013_data/turning_test_'+myInitTimeStr
+    myPathStr = './humanoids2013_data/turning_'+purpose+'_'+myInitTimeStr
     os.mkdir(myPathStr)
 
     RaveSetDebugLevel(DebugLevel.Debug)
@@ -288,18 +275,18 @@ if __name__ == '__main__':
     rm2.load("jaemi_right_n8_m12_awesome")
     print "Reachability map loaded for right arm."
 
-    initialWheelTransform = wheel.GetTransform()
-
-    purpose = 'validation'
-    purpose = 'test'
-    
+    initialWheelTransform = wheel.GetTransform()    
 
     myRmaps.append(rm2)
     minRotAngle = pi/8
     maxRotAngle = pi/4
     delta1 = pi/8
     delta2 = None
+
     myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_results')
+
+    myLogger.open('a')
+
     myLogger.header(['label',
                      'test_pitch',
                      'test_height',
@@ -323,31 +310,49 @@ if __name__ == '__main__':
 
     resultCount = 0
 
-    with open('humanoids2013_turning_test_points.csv', 'rb') as csvfile:
+    robot.SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+    # Bend the knees
+    robot.SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+    robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+
+    with open('humanoids2013_turning_'+purpose+'_points.csv', 'rb') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='|')
         for r, data in enumerate(reader):
             
-            test_pitch = data[0]
-            test_height = data[1]
-            test_traj_length = data[2]
-            test_dist = data[3]
-            test_x = data[4]
-            test_y = data[5]
-            test_z = data[6]
+            test_pitch = float(data[0])
+            test_height = float(data[1])
+            test_traj_length = float(data[2])
+            # We should find the closest distance to this value that is a multiple of 0.05
+            fdist = float(data[3])
+            fdistRem = round(fmod(fdist,0.05),2)
+
+            if(fdistRem > 0.25):
+                test_dist = round(0.05 + round(fdist-fdistRem,2))
+            else:
+                test_dist = round(fdist-fdistRem,2)
+
+            test_x = float(data[4])
+            test_y = float(data[5])
+            test_z = float(data[6])
 
             dist = test_dist
             height = test_height
             pitch = test_pitch
 
             TLH_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
-            traj = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', minRotAngle,test_traj_length,delta1,delta2,(dist*0.5))
+
+            # With the following input variables, trajectory generator should generate 
+            # only 1 trajectory of length test_traj_length
+            traj = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', test_traj_length,test_traj_length,1.0,None,(dist*0.5))
 
             [nearestSphereIdx, minDist] = find_nearest_reachability_sphere(test_x, test_y, test_z, myRmaps[0].map)
             tryTheseSpheres = [nearestSphereIdx]
-            tryTheseSpheres.extend(myRmaps[0].map[neareastSphereIdx].neighbors)
+            tryTheseSpheres.extend(myRmaps[0].map[nearestSphereIdx].neighbors)
+
+            stopTrying = False # This is for breaking out of trying the neighbors
 
             for rank, sIdx in enumerate(tryTheseSpheres):
-
+                
                 resp = get_pair(TLH_RH, env, robot, myRmaps, sIdx)
 
                 if(resp != None):
@@ -355,8 +360,8 @@ if __name__ == '__main__':
                     rm = resp[1]
                     [relBaseConstraint] = resp[2]
                     for t in range(len(traj[0])):
-                        print "t"
-                        print t
+                        # print "t"
+                        # print t
                         leftTraj = traj[0][t]
                         rightTraj = traj[1][t]
 
@@ -397,7 +402,7 @@ if __name__ == '__main__':
 
                                     CTee = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-                                    rotAng = minRotAngle+(t*delta1)
+                                    rotAng = test_traj_length
 
                                     T0_LH2 = dot(dot(dot(dot(CTee,temp1),temp2),MakeTransform(rodrigues([rotAng,0,0]),transpose(matrix([0,0,0])))),dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[0].GetTransform()))
 
@@ -431,7 +436,7 @@ if __name__ == '__main__':
                                         # print startikStr
                                         # print robot.GetActiveDOFValues()
                                         time.sleep(0.1)
-                                        myTraj = plan(env, robot, wheel, startikStr, rotationGoalIK, ' leftFootBase rightFootBase ', TSRChainStringTurning, trajName)
+                                        myTraj = plan(env, robot, wheel, startikStr, rotationGoalIK, ' leftFootBase rightFootBase ', TSRChainStringTurning, trajName, False)
 
                                         if(myTraj != None):
                                             print "planning done."
@@ -453,12 +458,12 @@ if __name__ == '__main__':
                                             myLogger.save([5, # label: 0 for lift, 1 for push, 2 for rotate, 3 for lift test, 4 for push test, 5 for rotate test
                                                            pitch,  
                                                            height, 
-                                                           test_traj_lengt, 
+                                                           test_traj_length, 
                                                            dist, 
                                                            test_x,
                                                            test_y,
                                                            test_z,
-                                                           minDist,
+                                                           round(minDist,3),
                                                            nearestSphereIdx,
                                                            n[0][0].sIdx, 
                                                            sphereRank,
@@ -470,16 +475,26 @@ if __name__ == '__main__':
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), 
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), 
                                                            resultCount])
-                                            
+            
                                             if(debug):
                                                 print "press enter to execute the trajectory"
                                                 sys.stdin.readline()
                                            
                                             wheel.SetDOFValues([0],[0])
-                                            go_to_startik(robot, startikStr)
-                                            execute(robot, wheel, myTraj)
+                                            robot.SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                                            # Bend the knees
+                                            robot.SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                                            robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+                                            # go_to_startik(robot, startikStr)
+                                            # execute(robot, wheel, myTraj)
+                                            stopTrying = True
                                         else:
                                             print "planning failed."
+                                            wheel.SetDOFValues([0],[0])
+                                            robot.SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                                            # Bend the knees
+                                            robot.SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                                            robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                                         if(debug):
                                             print "press enter to see the next solution."
                                             sys.stdin.readline()
@@ -488,8 +503,17 @@ if __name__ == '__main__':
                                     else:
                                         startikStr = n[2]
                                         wheel.SetDOFValues([0],[0])
-                                        go_to_startik(robot, startikStr)
+                                        robot.SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                                        # Bend the knees
+                                        robot.SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                                        robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+                                        # go_to_startik(robot, startikStr)
+
+                if(stopTrying):
+                    break
+                
     print resultCount
+    myLogger.close()
     try:
         env.Remove(probs_cbirrt)
         del probs_cbirrt

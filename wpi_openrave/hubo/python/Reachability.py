@@ -1248,29 +1248,29 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
         # TO-DO
 
         # Show all reachability spheres
-        for sIdx, s in enumerate(rm[m-1]):
-            # robot on the left
-            # print "robot0"
-            # print type(s.T[0])
-            s.color = array((0,0,1,0.5))
-            s.show(myEnv)
+        # for sIdx, s in enumerate(rm[m-1]):
+        #     # robot on the left
+        #     # print "robot0"
+        #     # print type(s.T[0])
+        #     s.color = array((0,0,1,0.5))
+        #     s.show(myEnv)
 
-        for sIdx, s in enumerate(rm[m]):
-            # robot on the right
-            # print "robot1"
-            # print type(s.T[0])
-            s.color = array((1,0,0,0.5))
-            s.show(myEnv)
+        # for sIdx, s in enumerate(rm[m]):
+        #     # robot on the right
+        #     # print "robot1"
+        #     # print type(s.T[0])
+        #     s.color = array((1,0,0,0.5))
+        #     s.show(myEnv)
             
-        # Wait
-        # print "Press Enter to continue..."
-        # sys.stdin.readline()
+        # # Wait
+        # # print "Press Enter to continue..."
+        # # sys.stdin.readline()
 
-        for sIdx, s in enumerate(rm[m-1]):
-            s.hide()
+        # for sIdx, s in enumerate(rm[m-1]):
+        #     s.hide()
 
-        for sIdx, s in enumerate(rm[m]):
-            s.hide()
+        # for sIdx, s in enumerate(rm[m]):
+        #     s.hide()
 
         # Now map_i+1's reachability spheres are
         # all defined in map_i's base transform
@@ -1293,7 +1293,7 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
             current = []
             for t1Idx, Ti_s1 in enumerate(s1.T):
                 Ts1_sister = dot(Ti_s1,pTi_j)
-                myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
+                # myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
                 sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
                 if(sisterKey in newIndices):
                     # print sisterKey
@@ -1302,13 +1302,13 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
                     # currentTransforms.append(t1Idx)
                     current.append([sisterIndex, t1Idx])
                     # print "Found a sister for ",str(s1Idx)
-                    rm[m-1][s1Idx].show(myEnv)
-                    rm[m][sisterIndex].show(myEnv)
+                    # rm[m-1][s1Idx].show(myEnv)
+                    # rm[m][sisterIndex].show(myEnv)
                     # print sisterIndex
                     # print t1Idx
                     # sys.stdin.readline()
-                    rm[m-1][s1Idx].hide()
-                    rm[m][sisterIndex].hide()
+                    # rm[m-1][s1Idx].hide()
+                    # rm[m][sisterIndex].hide()
                     
 
             #if(currentSisters != []): --> raises key error. To fix.
@@ -1332,8 +1332,8 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
                 sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
                 if(sD == pD):
                     for t2Idx, Ti_s2 in enumerate(s2.T):
-                        myh = misc.DrawAxes(myEnv,Ti_s1,0.3)
-                        myh1 = misc.DrawAxes(myEnv,Ti_s2,0.3)
+                        # myh = misc.DrawAxes(myEnv,Ti_s1,0.3)
+                        # myh1 = misc.DrawAxes(myEnv,Ti_s2,0.3)
                         Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
 
                         # print "left manip Tee:"
@@ -1358,15 +1358,15 @@ def find_sister_pairs(reachabilityMaps, mapTs, patternTs, myEnv):
                         
                         # if there's a match keep the pair
                         if(allclose(pTi_j.round(4),Ts1_s2.round(4))):
-                            s1.show(myEnv)
-                            s2.show(myEnv)
+                            # s1.show(myEnv)
+                            # s2.show(myEnv)
                             reachabilityMaps[0].go_to(s1Idx,t1Idx)
                             reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
                             reachabilityMaps[1].go_to(s2Idx,t2Idx)
                             reachabilityMaps[1].robot.SetTransform(array(Ti_j))
                             # sys.stdin.readline()
-                            s1.hide()
-                            s2.hide()
+                            # s1.hide()
+                            # s2.hide()
                             transformsMatch = False
                             adjusteds1Idx = s1Idx#+s1Init
                             adjusteds2Idx = s2Idx#+s2Init
@@ -1420,19 +1420,19 @@ def find_sister_pair(reachabilityMaps, mapTs, patternTs, myEnv, myIndex):
         # TO-DO
 
         # Show all reachability spheres
-        for sIdx, s in enumerate(rm[m-1]):
-            # robot on the left
-            # print "robot0"
-            # print type(s.T[0])
-            s.color = array((0,0,1,0.5))
-            s.show(myEnv)
+        # for sIdx, s in enumerate(rm[m-1]):
+        #     # robot on the left
+        #     # print "robot0"
+        #     # print type(s.T[0])
+        #     s.color = array((0,0,1,0.5))
+        #     s.show(myEnv)
 
-        for sIdx, s in enumerate(rm[m]):
-            # robot on the right
-            # print "robot1"
-            # print type(s.T[0])
-            s.color = array((1,0,0,0.5))
-            s.show(myEnv)
+        # for sIdx, s in enumerate(rm[m]):
+        #     # robot on the right
+        #     # print "robot1"
+        #     # print type(s.T[0])
+        #     s.color = array((1,0,0,0.5))
+        #     s.show(myEnv)
             
 
         for sIdx, s in enumerate(rm[m-1]):
@@ -1458,7 +1458,7 @@ def find_sister_pair(reachabilityMaps, mapTs, patternTs, myEnv, myIndex):
         current = []
         for t1Idx, Ti_s1 in enumerate(s1.T):
             Ts1_sister = dot(Ti_s1,pTi_j)
-            myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
+            # myh = misc.DrawAxes(myEnv,Ts1_sister,0.3)
             sisterKey = str(round(Ts1_sister[0,3],2)),",",str(round(Ts1_sister[1,3],2)),",",str(round(Ts1_sister[2,3],2))
             if(sisterKey in newIndices):
                 # print sisterKey
@@ -1467,13 +1467,13 @@ def find_sister_pair(reachabilityMaps, mapTs, patternTs, myEnv, myIndex):
                 # currentTransforms.append(t1Idx)
                 current.append([sisterIndex, t1Idx])
                 # print "Found a sister for ",str(s1Idx)
-                rm[m-1][s1Idx].show(myEnv)
-                rm[m][sisterIndex].show(myEnv)
+                # rm[m-1][s1Idx].show(myEnv)
+                # rm[m][sisterIndex].show(myEnv)
                 # print sisterIndex
                 # print t1Idx
                 # sys.stdin.readline()
-                rm[m-1][s1Idx].hide()
-                rm[m][sisterIndex].hide()
+                # rm[m-1][s1Idx].hide()
+                # rm[m][sisterIndex].hide()
                     
         sisters[s1Idx] = current
 
@@ -1494,21 +1494,21 @@ def find_sister_pair(reachabilityMaps, mapTs, patternTs, myEnv, myIndex):
                 sD = round(euclidean_distance(s1.T[0],s2.T[0]),2)
                 if(sD == pD):
                     for t2Idx, Ti_s2 in enumerate(s2.T):
-                        myh = misc.DrawAxes(myEnv,Ti_s1,0.3)
-                        myh1 = misc.DrawAxes(myEnv,Ti_s2,0.3)
+                        # myh = misc.DrawAxes(myEnv,Ti_s1,0.3)
+                        # myh1 = misc.DrawAxes(myEnv,Ti_s2,0.3)
                         Ts1_s2 = dot(linalg.inv(Ti_s1),Ti_s2)
                         
                         # if there's a match keep the pair
                         if(allclose(pTi_j.round(4),Ts1_s2.round(4))):
-                            s1.show(myEnv)
-                            s2.show(myEnv)
+                            # s1.show(myEnv)
+                            # s2.show(myEnv)
                             reachabilityMaps[0].go_to(s1Idx,t1Idx)
                             reachabilityMaps[0].robot.SetTransform(array(MakeTransform(matrix(rodrigues([0,0,0])),transpose(matrix([0.0,0.0,0.0])))))
                             reachabilityMaps[1].go_to(s2Idx,t2Idx)
                             reachabilityMaps[1].robot.SetTransform(array(Ti_j))
                             # sys.stdin.readline()
-                            s1.hide()
-                            s2.hide()
+                            # s1.hide()
+                            # s2.hide()
                             transformsMatch = False
                             adjusteds1Idx = s1Idx#+s1Init
                             adjusteds2Idx = s2Idx#+s2Init

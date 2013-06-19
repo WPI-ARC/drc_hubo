@@ -91,7 +91,7 @@ def find_nearest_reachability_sphere(x, y, z, sList):
     print "Euclidean distance in between:"
     print minDist
 
-    return minIdx
+    return [minIdx, minDist]
 
 def execute(myRobot, myObject, myTraj):
     # close hands
@@ -429,6 +429,11 @@ def put_feet_on_the_ground(myRobot, T0_FACING, myEnv, footlinknames=' Body_RAR B
             (not myEnv.CheckCollision(myRobot)) and 
             (not myRobot.CheckSelfCollision()) 
             ):
+
+            # cleanup the cbirrt problem object
+            myEnv.Remove(myProblem)
+            del myProblem
+
             return goalik
         else:
             goalik = ''
@@ -464,7 +469,7 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
     
     # Get the length of the candidate path
     # First index stands for the robot index, and the second index stands for the candidate path index. We're calling find_random_candidates() function with an argument of 1. Thus there will be only one candidate returned. Let's find it's length.
-    pathLength = len(candidates[0][c]) 
+    pathLength = min(len(candidates[0][c]), len(candidates[1][c]))
 
     # print "numRobots: ",str(numRobots)
     # print "numManips: ",str(numManips)
@@ -558,7 +563,11 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                     # TODO: This part is very messy and ugly.
                     # I need to clean it up and make nice function calls.
                     if(doGeneralIk):
-                        currentIk = robots[myRobotIndex].GetActiveDOFValues()
+                        robots[myRobotIndex].SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                        # Bend the knees to avoid singularity issues
+                        robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                        robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+                        # currentIk = robots[myRobotIndex].GetActiveDOFValues()
                         if(footlinknames==''):
                             myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
                         else:
@@ -568,14 +577,26 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                             robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
                             # print "checking support in play..."
                             if(not check_support(array(get_robot_com(robots[myRobotIndex])),robots[myRobotIndex])):
-                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                #robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                robots[myRobotIndex].SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                                # Bend the knees to avoid singularity issues
+                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                                 return [False, '']
                             else:
                                 # print "in balance - path element: ",str(pElementIndex)
                                 #sys.stdin.readline()
-                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                # robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                                robots[myRobotIndex].SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                                # Bend the knees to avoid singularity issues
+                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                         else:
-                            robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                            # robots[myRobotIndex].SetActiveDOFValues(currentIk)
+                            robots[myRobotIndex].SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+                            # Bend the knees to avoid singularity issues
+                            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+                            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                             return [False, '']
 
                 # If you didn't break yet, wait before the next path element for visualization
@@ -687,8 +708,12 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
         # Maybe we should have a "isHumanoid" bool? And try to
         # put the feet on the ground if(myReachabilityMap.isHumanoid)
         #
-        currentIk = robots[myRobotIndex].GetActiveDOFValues()
+        # currentIk = robots[myRobotIndex].GetActiveDOFValues()
         if(doGeneralIk):
+            robots[myRobotIndex].SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+            # Bend the knees to avoid singularity issues
+            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
             # print "trying to put the feet on the ground..."
             if(footlinknames==''):
                 myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
@@ -702,7 +727,11 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
                 masterBaseConstOK = False
                 
             # robots[myRobotIndex].SetDOFValues(currentIk, range(len(robots[myRobotIndex].GetJoints())))
-            robots[myRobotIndex].SetActiveDOFValues(currentIk)
+            # robots[myRobotIndex].SetActiveDOFValues(currentIk)
+            robots[myRobotIndex].SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
+            # Bend the knees to avoid singularity issues
+            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
+            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
             
                 
             # sys.stdin.readline()
