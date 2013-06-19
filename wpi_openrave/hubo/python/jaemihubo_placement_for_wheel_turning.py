@@ -33,6 +33,8 @@ from TSR import *
 # robot-placement common functions
 from roplace_common import *
 
+
+
 # This changes the height and the pitch angle of the wheel
 version = 1
 
@@ -107,7 +109,7 @@ robots = []
 robots.append(env.ReadRobotURI('../../../openHubo/jaemi/humanoids2013.jaemiHubo.planning.robot.xml'))
 env.Add(robots[0])         
 
-robots[0].SetActiveDOFs(range(6,66))
+robots[0].SetActiveDOFs(range(6,36))
 
 lowerLimits, upperLimits = robots[0].GetDOFLimits()
 # print lowerLimits
@@ -423,10 +425,12 @@ while((not success) and (not end)):
  
             T0_RH2 = dot(wheel.GetManipulators()[0].GetTransform(),dot(MakeTransform(rodrigues([0,0,rotAng]),transpose(matrix([0,0,0]))),dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),T0_start1)))
 
-            goalikStr = get_rot_goalik(robots[0], myRmaps, candidates, collisionFreeSolutions[0][nxt], T0_LH2, T0_RH2)
+            goalikStr = get_rot_goalik(robots[0], T0_LH2, T0_RH2)            
 
-            
-            myTraj = plan(env, robots[0], wheel, startikStr, goalikStr, ' leftFootBase rightFootBase ', TSRChainStringTurning)
+            wheel.SetDOFValues([0],[0])
+            go_to_startik(robots[0], startikStr)
+
+            myTraj = plan(env, robots[0], wheel, startikStr, goalikStr, ' leftFootBase rightFootBase ', TSRChainStringTurning, 'wheelTurning.txt')
             
             if(myTraj != None):
                 print "press enter to reset configs"

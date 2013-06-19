@@ -233,7 +233,7 @@
         <Body>leftPalmDummy</Body>
         <offsetfrom>leftPalmDummy</offsetfrom>
         <axis>0 1 0</axis>
-        <limitsdeg>-30 30</limitsdeg>
+        <limitsdeg>-90 90</limitsdeg>
     </Joint>
     <adjacent>leftUJoint leftPalmDummy</adjacent>
     <adjacent>Body_LWY leftPalmDummy</adjacent>

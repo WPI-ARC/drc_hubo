@@ -292,7 +292,7 @@
         <offsetfrom>rightAnklePitch</offsetfrom>
         <anchor>-0.019150497 -0.042957865 -0.009380757</anchor>
         <axis>0 1 0</axis>
-        <limitsdeg>-100 100</limitsdeg>
+        <limitsdeg>-70 80</limitsdeg>
     </Joint>
     <adjacent>rightKneeLower rightAnklePitch</adjacent>
 
@@ -324,5 +324,5 @@
         <limitsdeg>-30 30</limitsdeg>
     </Joint>
     <adjacent>rightAnklePitch rightFoot</adjacent>
-    <adjacent>rightKneeLower rightFoot</adjacent>
+    <!--adjacent>rightKneeLower rightFoot</adjacent-->
 </KinBody>
