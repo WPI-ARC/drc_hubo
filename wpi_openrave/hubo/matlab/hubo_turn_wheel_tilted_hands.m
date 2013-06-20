@@ -17,7 +17,7 @@ end
 
 
 robotid = orEnvCreateRobot('Hubo',['../../../openHubo/' robotname '.robot.xml']);
-crankid = orEnvCreateRobot('crank','../../models/driving_wheel.robot.xml');
+crankid = orEnvCreateRobot('crank','../../../../drc_common/models/driving_wheel.robot.xml');
 
 if(robottype == 1)    
     %orBodySetTransform(crankid,[reshape(rodrigues([0 0 pi/2])*rodrigues([pi/2 0 0]),1,9)';[0.2 0.09 0.9]']) % Note that when mounted on our foldable table the height of the wheel is 0.8128

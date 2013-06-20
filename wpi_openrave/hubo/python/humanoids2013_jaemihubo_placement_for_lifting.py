@@ -237,7 +237,7 @@ if __name__ == '__main__':
     robot = env.ReadRobotURI('../../../openHubo/jaemi/humanoids2013.jaemiHubo.planning.robot.xml')
     env.Add(robot)         
 
-    robots[0].SetActiveDOFs(range(6,66))
+    robot.SetActiveDOFs(range(6,66))
 
     lowerLimits, upperLimits = robot.GetDOFLimits()
 
