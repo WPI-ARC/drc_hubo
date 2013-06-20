@@ -40,11 +40,17 @@ configurationJumpThreshold = 100.0
 
 # Activates some prints and keyboard inputs
 debug = False
-
+    
 def get_ranked_neighbors(sIdx, myRmap):
-    aNeighbors = myRmap.map[sIdx].neighbors
-    bNeighbors = []
-    cNeighbors = []    
+
+    # TODO: Write a nice recursive function instead of this mess.
+
+    aNeighbors = myRmap.map[sIdx].neighbors # up to 27 spheres
+    bNeighbors = [] # up to 125 spheres   
+    cNeighbors = [] # up to 343 spheres   
+    dNeighbors = [] # up to 729 spheres   
+    eNeighbors = [] # up to 1331 spheres
+    # fNeighbors = [] # up to 2197 spheres
     rankedNeighborsDict = {}
     rankedNeighborsDict[sIdx] = 0 # This is the main sphere, it's rank is zero.
 
@@ -59,15 +65,45 @@ def get_ranked_neighbors(sIdx, myRmap):
 
     for c in bNeighbors:
         if (not (c in rankedNeighborsDict)):
-            rankedNeighborsDict[c] = 2 # middle-dist neighbors
+            rankedNeighborsDict[c] = 2 
             sortedKeys.append(c)
     
         cNeighbors.extend(myRmap.map[c].neighbors)
 
     for d in cNeighbors:
         if (not (d in rankedNeighborsDict)):
-            rankedNeighborsDict[d] = 3 # farthest neighbors
+            rankedNeighborsDict[d] = 3 
             sortedKeys.append(d)
+
+        dNeighbors.extend(myRmap.map[d].neighbors)
+
+    for e in dNeighbors:
+        if (not (e in rankedNeighborsDict)):
+            rankedNeighborsDict[e] = 4 
+            sortedKeys.append(e)
+
+        eNeighbors.extend(myRmap.map[e].neighbors)
+
+    for f in eNeighbors:
+        if (not (f in rankedNeighborsDict)):
+            rankedNeighborsDict[f] = 5 # farthest neighbors
+            sortedKeys.append(f)
+
+    print "length of rankedNeighborsDict"
+    print len(rankedNeighborsDict)
+    
+    print "length of sortedKeys"
+    print len(sortedKeys)
+
+    sys.stdin.readline()
+
+    print "rankedNeighborsDict"
+    print rankedNeighborsDict
+    sys.stdin.readline()
+
+    print "sortedKeys"
+    print sortedKeys
+    sys.stdin.readline()
 
     return [sortedKeys, rankedNeighborsDict]
     
@@ -222,7 +258,7 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
 
     TSRChainMimicDOF = 1
     
-    fastsmoothingitrs = 150
+    fastsmoothingitrs = 1
 
     # Get a trajectory from goalik to grasp configuration
     jointgoalsStr = deepcopy(goalikStr)
@@ -252,7 +288,7 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
     #     sys.stdin.readline()
 
     try:
-        answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 5 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
+        answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 3 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
         print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "
@@ -594,40 +630,23 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
                     # TODO: This part is very messy and ugly.
                     # I need to clean it up and make nice function calls.
                     if(doGeneralIk):
-                        # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
-                        # Bend the knees to avoid singularity issues
-                        robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
-                        robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
-                        currentIk = robots[myRobotIndex].GetActiveDOFValues()
                         if(footlinknames==''):
                             myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
                         else:
                             myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv, footlinknames)
                             
                         if(myIK != ''):
+                            # if successful, show it
                             robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
+
                             # print "checking support in play..."
                             if(not check_support(array(get_robot_com(robots[myRobotIndex])),robots[myRobotIndex])):
-                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
-                                # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
-                                # Bend the knees to avoid singularity issues
-                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
-                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                                 return [False, '']
                             else:
+                                pass
                                 # print "in balance - path element: ",str(pElementIndex)
                                 #sys.stdin.readline()
-                                robots[myRobotIndex].SetActiveDOFValues(currentIk)
-                                # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
-                                # Bend the knees to avoid singularity issues
-                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
-                                robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                         else:
-                            robots[myRobotIndex].SetActiveDOFValues(currentIk)
-                            # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
-                            # Bend the knees to avoid singularity issues
-                            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
-                            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                             return [False, '']
 
                 # If you didn't break yet, wait before the next path element for visualization
@@ -655,22 +674,6 @@ def play(T0_starts, T0_FACING, relBaseConstraint,candidates,numRobots,numManips,
             # of robot's feet for all reachability spheres.
             return [True, activeDOFStartConfig]
 
-            # #
-            # # one last time check if the COM is in the support polygon
-            # print "checking balance constraint..."
-            # # print "Press enter to see the result..."
-            # # sys.stdin.readline()
-            # myCOM = array(get_robot_com(robots[myRobotIndex]))
-            # myCOM[2,3] = 0.0
-            # COMHandle = misc.DrawAxes(myEnv,myCOM,0.3)
-            # print "if you made it here it means no config jump"
-            # print "no collision and the com mas in support poly."
-            # sys.stdin.readline()
-            # if(check_support(myCOM,robots[myRobotIndex])):
-            #     return [True, activeDOFConfig]
-            # else:
-            #     print "COM is out of the support polygon"
-            #     return [False, '']
     else:
         # start() failed
         return [False, '']
@@ -739,12 +742,16 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
         # Maybe we should have a "isHumanoid" bool? And try to
         # put the feet on the ground if(myReachabilityMap.isHumanoid)
         #
-        currentIk = robots[myRobotIndex].GetActiveDOFValues()
         if(doGeneralIk):
-            
-            # Bend the knees to avoid singularity issues
+            # Reset the head and the legs to zero
+            robots[myRobotIndex].SetDOFValues([0.0, 0.0, 0.0, 0.0],[6,7,8,9])
+            robots[myRobotIndex].SetDOFValues([0.0, 0.0, 0.0],[24,25,29])
+            robots[myRobotIndex].SetDOFValues([0.0, 0.0, 0.0],[30,31,35])
+
+            # Bend the knees to avoid singularity issues when solving GeneralIK
             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
             robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+
             # print "trying to put the feet on the ground..."
             if(footlinknames==''):
                 myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv)
@@ -752,21 +759,10 @@ def start(T0_starts, T0_FACING, candidates,numRobots,numManips,c,myRmaps,robots,
                 myIK = put_feet_on_the_ground(robots[myRobotIndex], T0_FACING, myEnv, footlinknames)
 
             if(myIK != ''):
-                # robots[myRobotIndex].SetDOFValues(str2num(myIK), range(len(robots[myRobotIndex].GetJoints())))
+                # if found a solution show it.
                 robots[myRobotIndex].SetActiveDOFValues(str2num(myIK))
             else:
                 masterBaseConstOK = False
-                
-            # robots[myRobotIndex].SetDOFValues(currentIk, range(len(robots[myRobotIndex].GetJoints())))
-            robots[myRobotIndex].SetActiveDOFValues(currentIk)
-
-            # robots[myRobotIndex].SetActiveDOFValues(zeros(robots[myRobotIndex].GetActiveDOF()).tolist())
-            # Bend the knees to avoid singularity issues
-            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
-            robots[myRobotIndex].SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
-            
-                
-            # sys.stdin.readline()
 
         # Check collision with self and with the environment
         if(myEnv.CheckCollision(robots[myRobotIndex]) or robots[myRobotIndex].CheckSelfCollision()):

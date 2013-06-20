@@ -202,8 +202,15 @@ def run(candidates, leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, 
     return mySamples
 
 if __name__ == '__main__':
-    purpose = 'test'
-    # purpose = 'validation'
+    
+    # Call this script from the terminal using the following command:
+    # 
+    # $ python humanoids2013_jaemihubo_test_placement_for_turning test 
+    # $ python humanoids2013_jaemihubo_test_placement_for_turning validation
+    #
+    # 'validation' uses validation data and saves the results under data/timestamp-validation directory
+    # 'test' uses test data and saves the results under dasta/timestamp-test directory
+    purpose = sys.argv[1]
 
     # Activates some prints and keyboard inputs
     debug = False
@@ -283,32 +290,46 @@ if __name__ == '__main__':
     delta1 = pi/8
     delta2 = None
 
-    myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_results')
-
+    tstamp = str(datetime.now())
+    myLogger = BensLogger(arg_note = tstamp, arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_results')
     myLogger.open('a')
-
     myLogger.header(['label',
-                     'test_pitch',
-                     'test_height',
-                     'test_traj_length',
-                     'test_dist_left_right',
-                     'test_left_start_x',
-                     'test_left_start_y',
-                     'test_left_start_z',
-                     'nearest_left_sphere_distance',
-                     'nearest_left_start_sphere_ind',
-                     'successful_left_sphere_index',
-                     'successful_left_sphere_rank',
-                     'successful_left_sphere_x',
-                     'successful_left_sphere_y',
-                     'successful_left_sphere_z',
-                     'right_start_sphere_ind',
-                     'right_start_sphere_x',
-                     'right_start_sphere_y',
-                     'right_start_sphere_z',
-                     'resultId',
-                     'iterationToResult',
-                     'timeToResult'])
+                 'test_pitch',
+                 'test_height',
+                 'test_traj_length',
+                 'test_dist_left_right',
+                 'test_left_start_x',
+                 'test_left_start_y',
+                 'test_left_start_z',
+                 'nearest_left_sphere_distance',
+                 'nearest_left_start_sphere_ind',
+                 'successful_left_sphere_index',
+                 'successful_left_sphere_rank',
+                 'successful_left_sphere_x',
+                 'successful_left_sphere_y',
+                 'successful_left_sphere_z',
+                 'right_start_sphere_ind',
+                 'right_start_sphere_x',
+                 'right_start_sphere_y',
+                 'right_start_sphere_z',
+                 'resultId',
+                 'iterationToResult',
+                 'timeToResult'])
+
+    if(purpose == "test"):
+        myFailLogger = BensLogger(arg_note=tstamp, arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_failed_results')
+        myFailLogger.open('a')
+        myFailLogger.header(['test_pitch',
+                             'test_height',
+                             'test_traj_length',
+                             'test_dist_raw',
+                             'test_dist_round',
+                             'test_left_start_x',
+                             'test_left_start_y',
+                             'test_left_start_z',
+                             'nearest_left_sphere_distance',
+                             'nearest_left_start_sphere_ind'])
+    
 
     resultCount = 0
 
@@ -500,6 +521,7 @@ if __name__ == '__main__':
                                             # go_to_startik(robot, startikStr)
                                             # execute(robot, wheel, myTraj)
                                             stopTrying = True
+                                            fail = False
                                         else:
                                             print "planning failed."
                                             wheel.SetDOFValues([0],[0])
@@ -507,12 +529,15 @@ if __name__ == '__main__':
                                             # Bend the knees
                                             robot.SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
                                             robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+                                            fail = True
                                         if(debug):
                                             print "press enter to see the next solution."
                                             sys.stdin.readline()
                                         del TSRChainStringTurning
                                         del myTraj
+                                        
                                     else:
+                                        fail = True
                                         startikStr = n[2]
                                         wheel.SetDOFValues([0],[0])
                                         robot.SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
@@ -521,11 +546,39 @@ if __name__ == '__main__':
                                         robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                                         # go_to_startik(robot, startikStr)
 
+                            # samples == []
+                            else:
+                                fail = True
+
+                        # pathElements == None
+                        else:
+                            fail = True
+
+                # resp == None
+                else: 
+                    fail = True
+
                 if(stopTrying):
                     break
+
+            if(fail and (purpose == "test") ):
+                myFailLogger.save([pitch,
+                                   height, 
+                                   test_traj_length, 
+                                   fdist, # distance before being rounded to closest multiple of 0.05
+                                   dist, # distance after being rounded up to closest multiple of 0.05
+                                   test_x, 
+                                   test_y,
+                                   test_z,
+                                   round(minDist,3),
+                                   nearestSphereIdx])
                 
     print resultCount
     myLogger.close()
+    
+    if(purpose == "test"):
+        myFailLogger.close()
+
     try:
         env.Remove(probs_cbirrt)
         del probs_cbirrt
@@ -538,6 +591,8 @@ if __name__ == '__main__':
         del rm
         del rm2
         del myLogger
+        if(purpose == "test"):
+            del myFailLogger
     except openrave_exception, e:
         print e
 

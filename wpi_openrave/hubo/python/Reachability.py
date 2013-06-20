@@ -262,25 +262,41 @@ class ReachabilityMap(object):
             a.append(round(i,2)) # if we don't round the floatint-point number to 2 decimal places we get the exact value
         return a
 
-    def show(self,myEnv):
+    def show(self,myEnv,what="all"):
         # draw all, append to handles
         self.handles=[]
-        print "In show - map length: ",str(len(self.map))
-        for idx, s in enumerate(self.map):
-            for Tbase_s in s.T:
-                # if(Tbase_s[0,3] > 0):
-                #    print "warning!!!"
-                T0_ee =  dot(self.T0_base, Tbase_s)
-                if(s.shapeHandle == None):
-                    s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
-                                                pointsize=s.radius*0.5, # In case dx, dy and dz are all equal, this should be half of that increment constant.
-                                                colors=array((self.r,self.g,self.b,self.reachabilitySphereAlphaIncrement*s.reachability)), # This changes the transparency
-                                                drawstyle=1
-                                                )
+        if(what == "all"):
+            print "In show - map length: ",str(len(self.map))
+            for idx, s in enumerate(self.map):
+                for Tbase_s in s.T:
+                    # if(Tbase_s[0,3] > 0):
+                    #    print "warning!!!"
+                    T0_ee =  dot(self.T0_base, Tbase_s)
+                    if(s.shapeHandle == None):
+                        s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
+                                                    pointsize=s.radius*0.5, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                                    colors=array((self.r,self.g,self.b,self.reachabilitySphereAlphaIncrement*s.reachability)), # This changes the transparency
+                                                    drawstyle=1
+                                                    )
 
-                    self.handles.append(s.shapeHandle)
-                    
-                s.axisHandle.append(misc.DrawAxes(myEnv,dot(self.T0_base,Tbase_s),0.01))
+                        self.handles.append(s.shapeHandle)
+
+                    s.axisHandle.append(misc.DrawAxes(myEnv,dot(self.T0_base,Tbase_s),0.01))
+        elif(what=="spheres"):
+            print "In show - map length: ",str(len(self.map))
+            for idx, s in enumerate(self.map):
+                for Tbase_s in s.T:
+                    # if(Tbase_s[0,3] > 0):
+                    #    print "warning!!!"
+                    T0_ee =  dot(self.T0_base, Tbase_s)
+                    if(s.shapeHandle == None):
+                        s.shapeHandle = myEnv.plot3(points=T0_ee[0:3,3],
+                                                    pointsize=s.radius*0.5, # In case dx, dy and dz are all equal, this should be half of that increment constant.
+                                                    colors=array((self.r,self.g,self.b,self.reachabilitySphereAlphaIncrement*s.reachability)), # This changes the transparency
+                                                    drawstyle=1
+                                                    )
+
+                        self.handles.append(s.shapeHandle)
                 
             
     def update_indices(self):
