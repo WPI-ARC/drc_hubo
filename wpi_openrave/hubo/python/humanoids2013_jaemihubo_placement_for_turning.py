@@ -427,14 +427,8 @@ if __name__ == '__main__':
                                         resultCount += 1
                                         trajName = myPathStr+'/humanoids2013_turningTraj_'+str(resultCount)+'_'+str(datetime.now())+'.txt'
                                         startikStr = n[2]
-                                        myTrak = None
-                                        wheel.SetDOFValues([0],[0])
-                                        go_to_startik(robot, startikStr)
-                                        # print startikStr
-                                        # print robot.GetActiveDOFValues()
-                                        time.sleep(0.1)
+                                        myTraj = None
                                         myTraj = plan(env, robot, wheel, startikStr, rotationGoalIK, ' leftFootBase rightFootBase ', TSRChainStringTurning, trajName)
-                                        
                                         if(myTraj != None):
                                             print "planning done."
                                             
@@ -465,8 +459,8 @@ if __name__ == '__main__':
                                                 print "press enter to execute the trajectory"
                                                 sys.stdin.readline()
 
-                                            wheel.SetDOFValues([0],[0])
-                                            go_to_startik(robot, startikStr)
+                                            # wheel.SetDOFValues([0],[0])
+                                            # go_to_startik(robot, startikStr)
                                             # execute(robot, wheel, myTraj)
                                         else:
                                             print "planning failed."
@@ -477,11 +471,11 @@ if __name__ == '__main__':
                                         ############## END OF CBIRRT ##############
                                         del TSRChainStringTurning
                                         del myTraj
-
-                                    else:
-                                        startikStr = n[2]
-                                        wheel.SetDOFValues([0],[0])
-                                        go_to_startik(robot, startikStr)
+                                        
+                                    # else:
+                                    #     startikStr = n[2]
+                                    #     wheel.SetDOFValues([0],[0])
+                                    #     go_to_startik(robot, startikStr)
 
                                     # del myComMat
                                     # del comHandle
