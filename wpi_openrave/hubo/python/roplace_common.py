@@ -177,11 +177,23 @@ def go_to_startik(myRobot, startik):
     if(debug):
         sys.stdin.readline()
 
-def get_lin_goalik(myRobot,candidates, c):
-    # This function calculates the goalik by moving
-    # the robot to the last solution in
-    myIK = myRobot.GetActiveDOFValues()
-    return Serialize1DMatrix(matrix(myIK))
+def get_lin_goalik(myRobot, T0_LH2, T0_RH2):
+    myManip = myRobot.SetActiveManipulator('leftArmManip')
+    qL = myManip.FindIKSolution(array(T0_LH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+    if(qL != None):
+        LJ = myManip.GetArmJoints()
+        myRobot.SetDOFValues(qL,LJ)
+
+        myManip = myRobot.SetActiveManipulator('rightArmManip')
+        qR = myManip.FindIKSolution(array(T0_RH2), IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+        if(qR != None):
+            RJ = myManip.GetArmJoints()
+            myRobot.SetDOFValues(qR,RJ)
+
+            myIK = myRobot.GetActiveDOFValues()
+            return Serialize1DMatrix(matrix(myIK))
+        
+    return None
 
 def get_rot_goalik(myRobot, T0_LH2, T0_RH2):
     # This function calculates the goalik using the rotAngle
@@ -238,12 +250,68 @@ def get_tsr_chain_string(myRobot, TSRLeft, TSRRight, myObject, mimicObjectKinBod
 
     if(mimicObjectJoint != None):
         # For rotational trajectories
-        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,mimicObjectLink,matrix([mimicObjectJoint]))+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
+        myTSRChainString = SerializeTSRChain(0,0,1,1,TSRString0,mimicObjectLink,matrix([mimicObjectJoint]))+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
     else:
         # For linear trajectories
-        TSRChainStringTurning = SerializeTSRChain(0,0,1,1,TSRString0,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
+        myTSRChainString = SerializeTSRChain(0,0,1,1,TSRString0,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])
     
-    return TSRChainStringTurning
+    return myTSRChainString
+
+def plan_linear(myEnv, myRobot, kinBodyToGrab, startikStr, goalikStr, footlinknames, TSRChainString, trajName, returnTraj=False):
+    
+    fastsmoothingitrs = 1
+
+    myCBiRRTProblem = RaveCreateModule(myEnv,'CBiRRT')
+    myManipulationProblem = RaveCreateModule(myEnv,'Manipulation')
+
+    try:
+        myEnv.AddModule(myCBiRRTProblem,myRobot.GetName()) # this string should match to <Robot name="" > in robot.xml
+        myEnv.AddModule(myManipulationProblem,myRobot.GetName()) # this string should match to <Robot name="" > in robot.xml
+    except openrave_exception, e:
+        print e
+
+    #grab the object with manipulator 0
+    myManipulationProblem.SendCommand('setactivemanip index 0')
+    myManipulationProblem.SendCommand('GrabBody name '+kinBodyToGrab)
+        
+    jointgoalsStr = deepcopy(goalikStr)
+    jointgoalsNum = str2num(jointgoalsStr)
+        
+    try:
+        # answer = myCBiRRTProblem.SendCommand('RunCBiRRT timelimit 5 smoothingitrs 1 jointgoals %s %s %s'%(len(jointgoalsNum),Serialize1DMatrix(mat(jointgoalsNum)),TSRChainString))
+        answer = myCBiRRTProblem.SendCommand('RunCBiRRT timelimit 5 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
+
+
+        print 
+        print "RunCBiRRT answer: ",str(answer)
+    except openrave_exception, e:
+        print "Cannot send command RunCBiRRT: "
+        print e
+
+    # cleanup the cbirrt problem object
+    myEnv.Remove(myCBiRRTProblem)
+    myEnv.Remove(myManipulationProblem)
+
+    del myCBiRRTProblem
+    del myManipulationProblem
+    
+    if(str(answer) == '1'):
+        if(returnTraj):
+            try:
+                os.rename("cmovetraj.txt", trajName)
+                traj = RaveCreateTrajectory(myEnv,'').deserialize(open(trajName,'r').read()) 
+                return traj
+            except OSError, e:
+                print e
+                # No file cmovetraj: [Errno 2] No such file or directory
+                return None
+        else:
+            # CBiRRT succeeded
+            return True
+    else:
+        # CBiRRT failed
+        return None    
+    
 
 def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChainString, trajName, returnTraj=False):
 
@@ -288,7 +356,7 @@ def plan(myEnv, myRobot, myObject, startikStr, goalikStr, footlinknames, TSRChai
     #     sys.stdin.readline()
 
     try:
-        answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 3 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
+        answer = myRobotProblem.SendCommand('RunCBiRRT timelimit 5 supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(jointgoalsNum))+' '+Serialize1DMatrix(matrix(jointgoalsNum))+' '+TSRChainString)
         print "RunCBiRRT answer: ",str(answer)
     except openrave_exception, e:
         print "Cannot send command RunCBiRRT: "

@@ -44,6 +44,14 @@ viewerOn = False
 
 saveImg = False
 
+myDebugLevel = DebugLevel.Fatal
+# DebugLevel.Fatal
+# DebugLevel.Error
+# DebugLevel.Warn
+# DebugLevel.Info
+# DebugLevel.Debug
+# DebugLevel.Verbose
+
 def go_to_start_config_and_pose(myRobot, myRmaps, sol, T0_starts):
     for myManipulatorIndex in range(2):
          # Find where to move the base
@@ -255,8 +263,8 @@ if __name__ == '__main__':
     myPathStr = './humanoids2013_data/turning_'+myInitTimeStr
     os.mkdir(myPathStr)
 
-    RaveSetDebugLevel(DebugLevel.Fatal)
     env = Environment()
+    env.SetDebugLevel(myDebugLevel)
 
     if(viewerOn):
         env.SetViewer('qtcoin')
@@ -326,7 +334,7 @@ if __name__ == '__main__':
     delta2 = None
     myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_samples')
     myLogger.open('a')
-    myLogger.header(['label','pitch','height','traj_length','dist_left_right','left_start_sphere_ind','left_start_sphere_x','left_start_sphere_y','left_start_sphere_z','right_start_sphere_ind','right_start_sphere_x','right_start_sphere_y','right_start_sphere_z','timestamp'])
+    myLogger.header(['label','pitch','height','traj_length','dist_left_right','left_start_sphere_ind','left_start_sphere_x','left_start_sphere_y','left_start_sphere_z','right_start_sphere_ind','right_start_sphere_x','right_start_sphere_y','right_start_sphere_z','timestamp','planning_time'])
     resultCount = 0
 
     for dist in TrajectoryGenerator.frange(0.1,0.5,0.1):        
@@ -428,7 +436,9 @@ if __name__ == '__main__':
                                         trajName = myPathStr+'/humanoids2013_turningTraj_'+str(resultCount)+'_'+str(datetime.now())+'.txt'
                                         startikStr = n[2]
                                         myTraj = None
+                                        planningStart = time.time()
                                         myTraj = plan(env, robot, wheel, startikStr, rotationGoalIK, ' leftFootBase rightFootBase ', TSRChainStringTurning, trajName)
+                                        planningEnd = time.time()
                                         if(myTraj != None):
                                             print "planning done."
                                             
@@ -439,7 +449,7 @@ if __name__ == '__main__':
                                                 viewer.SendCommand('SetFiguresInCamera 1') 
                                                 scipy.misc.imsave(myPathStr+'/'+str(datetime.now())+'_turning_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(nIdx)+'_.jpg', viewer.GetCameraImage(1024,768,viewer.GetCameraTransform(),[1024,1024,512,384]))                           
                                                 del viewer
-
+                                            planningTime = planningEnd - planningStart
                                             myLogger.save([2, # label: 0 for lift, 1 for push, 2 for rotate (+3 for tests)
                                                            pitch, # feature1: pitch angle of the object
                                                            height, # feature2: height of the object from the ground
@@ -453,7 +463,8 @@ if __name__ == '__main__':
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][0,3],2), # feature10: right reachability sphere X
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), # feature11: right reachability sphere Y
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), # feature12: right reachability sphere Z
-                                                           resultCount]) # feature13: resultCount
+                                                           resultCount, # feature13: resultCount
+                                                           planningTime]) # feature14: planning time in secs.
 
                                             if(debug):
                                                 print "press enter to execute the trajectory"
