@@ -124,9 +124,9 @@ def get_ranked_neighbors(sIdx, myRmap):
     # print rankedNeighborsDict
     # sys.stdin.readline()
 
-    print "sortedKeys"
-    print sortedKeys
-    sys.stdin.readline()
+    # print "sortedKeys"
+    # print sortedKeys
+    # sys.stdin.readline()
 
     return [sortedKeys, rankedNeighborsDict]
     
