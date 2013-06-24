@@ -40,7 +40,7 @@ import scipy.misc
 
 h = []
 
-viewerOn = True
+viewerOn = False
 
 saveImg = False
 
@@ -328,9 +328,9 @@ if __name__ == '__main__':
     initialWheelTransform = wheel.GetTransform()
 
     myRmaps.append(rm2)
-    minPushDist= 0.1
+    minPushDist= 0.05
     maxPushDist = 0.5
-    delta1 = 0.1
+    delta1 = 0.05
     delta2 = 0.05
     myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_pushing_samples')
     myLogger.open('a')

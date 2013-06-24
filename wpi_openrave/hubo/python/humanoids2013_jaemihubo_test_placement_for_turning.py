@@ -42,7 +42,7 @@ import csv
 
 h = []
 
-viewerOn = True
+viewerOn = False
 
 saveImg = False
 
@@ -294,28 +294,29 @@ if __name__ == '__main__':
     myLogger = BensLogger(arg_note = tstamp, arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_results')
     myLogger.open('a')
     myLogger.header(['label',
-                 'test_pitch',
-                 'test_height',
-                 'test_traj_length',
-                 'test_dist_left_right',
-                 'test_left_start_x',
-                 'test_left_start_y',
-                 'test_left_start_z',
-                 'nearest_left_sphere_distance',
-                 'nearest_left_start_sphere_ind',
-                 'successful_left_sphere_index',
-                 'successful_left_sphere_rank',
-                 'successful_left_sphere_x',
-                 'successful_left_sphere_y',
-                 'successful_left_sphere_z',
-                 'right_start_sphere_ind',
-                 'right_start_sphere_x',
-                 'right_start_sphere_y',
-                 'right_start_sphere_z',
-                 'resultId',
-                 'iterationToResult',
-                 'timeToResult'])
-
+                     'test_pitch',
+                     'test_height',
+                     'test_traj_length',
+                     'test_dist_left_right',
+                     'test_left_start_x',
+                     'test_left_start_y',
+                     'test_left_start_z',
+                     'nearest_left_sphere_distance',
+                     'nearest_left_start_sphere_ind',
+                     'successful_left_sphere_index',
+                     'successful_left_sphere_rank',
+                     'successful_left_sphere_x',
+                     'successful_left_sphere_y',
+                     'successful_left_sphere_z',
+                     'right_start_sphere_ind',
+                     'right_start_sphere_x',
+                     'right_start_sphere_y',
+                     'right_start_sphere_z',
+                     'resultId',
+                     'iterationToResult',
+                     'timeToResult',
+                     'planning_time'])
+    
     if(purpose == "test"):
         myFailLogger = BensLogger(arg_note=tstamp, arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_failed_results')
         myFailLogger.open('a')
@@ -464,13 +465,15 @@ if __name__ == '__main__':
                                         resultCount += 1
                                         trajName = myPathStr+'/humanoids2013_turningTraj_'+str(resultCount)+'_'+str(datetime.now())+'.txt'
                                         startikStr = n[2]
-                                        myTrak = None
+                                        myTraj = None
                                         wheel.SetDOFValues([0],[0])
                                         go_to_startik(robot, startikStr)
                                         # print startikStr
                                         # print robot.GetActiveDOFValues()
                                         time.sleep(0.1)
+                                        planningStart = time.time()
                                         myTraj = plan(env, robot, wheel, startikStr, rotationGoalIK, ' leftFootBase rightFootBase ', TSRChainStringTurning, trajName, False)
+                                        planningEnd = time.time()
 
                                         if(myTraj != None):
                                             print "planning done."
@@ -485,7 +488,7 @@ if __name__ == '__main__':
                                             
                                             endTime = time.time()
                                             durationInSecs = endTime - startTime
-
+                                            planningTime = planningEnd - planningStart
                                             myLogger.save([5, # label: 0 for lift, 1 for push, 2 for rotate, 3 for lift test, 4 for push test, 5 for rotate test
                                                            pitch,  
                                                            height, 
@@ -507,7 +510,8 @@ if __name__ == '__main__':
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), 
                                                            resultCount,
                                                            iterationCount,
-                                                           durationInSecs])
+                                                           durationInSecs,
+                                                           planningTime])
             
                                             if(debug):
                                                 print "press enter to execute the trajectory"
