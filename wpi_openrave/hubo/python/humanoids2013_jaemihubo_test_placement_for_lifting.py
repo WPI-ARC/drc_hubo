@@ -469,7 +469,7 @@ if __name__ == '__main__':
                                         startikStr = n[2]
                                         myTraj = None
                                         planningStart = time.time()
-                                        myTraj = plan(env, robot, 'crank', startikStr, liftingGoalIK, ' leftFootBase rightFootBase ', TSRChainStringLifting, trajName, False)
+                                        myTraj = plan_linear(env, robot, 'crank', startikStr, liftingGoalIK, ' leftFootBase rightFootBase ', TSRChainStringLifting, trajName, False)
                                         planningEnd = time.time()
 
                                         if(myTraj != None):
