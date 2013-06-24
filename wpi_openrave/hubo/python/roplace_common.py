@@ -50,7 +50,9 @@ def get_ranked_neighbors(sIdx, myRmap):
     cNeighbors = [] # up to 343 spheres   
     dNeighbors = [] # up to 729 spheres   
     eNeighbors = [] # up to 1331 spheres
-    # fNeighbors = [] # up to 2197 spheres
+    fNeighbors = [] # up to 2197 spheres
+    gNeighbors = []
+    hNeighbors = []
     rankedNeighborsDict = {}
     rankedNeighborsDict[sIdx] = 0 # This is the main sphere, it's rank is zero.
 
@@ -86,20 +88,41 @@ def get_ranked_neighbors(sIdx, myRmap):
 
     for f in eNeighbors:
         if (not (f in rankedNeighborsDict)):
-            rankedNeighborsDict[f] = 5 # farthest neighbors
+            rankedNeighborsDict[f] = 5 
             sortedKeys.append(f)
 
-    print "length of rankedNeighborsDict"
-    print len(rankedNeighborsDict)
+        fNeighbors.extend(myRmap.map[f].neighbors)
+
+    for g in fNeighbors:
+        if (not (g in rankedNeighborsDict)):
+            rankedNeighborsDict[g] = 6 
+            sortedKeys.append(g)
     
-    print "length of sortedKeys"
-    print len(sortedKeys)
+        #gNeighbors.extend(myRmap.map[g].neighbors)
 
-    sys.stdin.readline()
+    # for h in gNeighbors:
+    #     if (not (h in rankedNeighborsDict)):
+    #         rankedNeighborsDict[h] = 7 
+    #         sortedKeys.append(h)
 
-    print "rankedNeighborsDict"
-    print rankedNeighborsDict
-    sys.stdin.readline()
+    #     hNeighbors.extend(myRmap.map[h].neighbors)
+
+    # for i in hNeighbors:
+    #     if (not (i in rankedNeighborsDict)):
+    #         rankedNeighborsDict[i] = 8 # farthest neighbors
+    #         sortedKeys.append(i)
+
+    # print "length of rankedNeighborsDict"
+    # print len(rankedNeighborsDict)
+    
+    # print "length of sortedKeys"
+    # print len(sortedKeys)
+
+    # sys.stdin.readline()
+
+    # print "rankedNeighborsDict"
+    # print rankedNeighborsDict
+    # sys.stdin.readline()
 
     print "sortedKeys"
     print sortedKeys
