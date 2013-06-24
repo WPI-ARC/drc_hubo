@@ -425,7 +425,7 @@ if __name__ == '__main__':
                                     if(pushingGoalIK != None):
                                         TSRL = [dot(dot(CTee,temp1),temp2),
                                                 dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[0].GetTransform()),
-                                                matrix([0,0,0,0,-1000,1000,0,0,0,0,0,0])]
+                                                matrix([-1000,1000,0,0,0,0,0,0,0,0,0,0])]
 
                                         TSRR = [MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0]))),
                                                 dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),robot.GetManipulators()[1].GetTransform()),
