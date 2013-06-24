@@ -220,8 +220,9 @@ if __name__ == '__main__':
     myPathStr = './humanoids2013_data/turning_'+purpose+'_'+myInitTimeStr
     os.mkdir(myPathStr)
 
-    RaveSetDebugLevel(DebugLevel.Debug)
+    
     env = Environment()
+    env.SetDebugLevel(DebugLevel.Fatal)
 
     if(viewerOn):
         env.SetViewer('qtcoin')
