@@ -430,7 +430,7 @@ while((not success) and (not end)):
             wheel.SetDOFValues([0],[0])
             go_to_startik(robots[0], startikStr)
 
-            myTraj = plan(env, robots[0], wheel, startikStr, goalikStr, ' leftFootBase rightFootBase ', TSRChainStringTurning, 'wheelTurning.txt')
+            myTraj = plan(env, robots[0], wheel, startikStr, goalikStr, ' leftFootBase rightFootBase ', TSRChainStringTurning, 'wheelTurning.txt',True)
             
             if(myTraj != None):
                 print "press enter to reset configs"

@@ -260,7 +260,7 @@ if __name__ == '__main__':
     
     # directory where we keep the data files
     myInitTimeStr = str(datetime.now())
-    myPathStr = './humanoids2013_data/lifting_'+myInitTimeStr
+    myPathStr = './humanoids2013_data/lifting_bruteforce_test'+myInitTimeStr
     os.mkdir(myPathStr)
 
     env = Environment()
@@ -328,172 +328,168 @@ if __name__ == '__main__':
     initialWheelTransform = wheel.GetTransform()
 
     myRmaps.append(rm2)
+
     minLiftDist= 0.05
     maxLiftDist = 0.5
     delta1 = 0.05
     delta2 = 0.05
-    myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_lifting_samples')
+
+    myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_bruteforce_lifting_samples')
     myLogger.open('a')
-    myLogger.header(['label','pitch','height','traj_length','dist_left_right','left_start_sphere_ind','left_start_sphere_x','left_start_sphere_y','left_start_sphere_z','right_start_sphere_ind','right_start_sphere_x','right_start_sphere_y','right_start_sphere_z','timestamp','planning_time'])
+    myLogger.header(['label','pitch','height','traj_length','dist_left_right','left_start_sphere_ind','left_start_sphere_x','left_start_sphere_y','left_start_sphere_z','right_start_sphere_ind','right_start_sphere_x','right_start_sphere_y','right_start_sphere_z','timestamp','planning_time','total_time'])
     resultCount = 0
 
-    for dist in TrajectoryGenerator.frange(0.1,0.5,0.1):        
-        TLH_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
-        trajs = TrajectoryGenerator.get('jaemiPlanning', 'lift', minLiftDist,maxLiftDist,delta1,delta2)
-        #print trajs
-        resp = get_pairs(TLH_RH, env, robot, myRmaps)
-        if(resp != None):
-            pairs = resp[0]
-            rm = resp[1]
-            [relBaseConstraint] = resp[2]
-            for t in range(len(trajs[0])):
-                leftTraj = trajs[0][t]
-                rightTraj = trajs[1][t]
-                candidates = get_candidates(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm)
-                if(candidates != None):
-                    for height in TrajectoryGenerator.frange(0.5,1.5,0.1):
-                        for pitch in TrajectoryGenerator.frange(-pi/2,pi/2,pi/6):
-                            # when the rotation around it's X axis is zero,
-                            # the wheel is facing to the ground. 
-                            # We add pi/2 to make it's zero the same with the hands
-                            # Also when we say "SetTransform" it sets the transform
-                            # of the base of the wheel, not the handle.
-                            # There's a difference of 23 degrees between the handle 
-                            # and the base, that's why we substract the tilt angle
-                            wheelOffset = matrix([-0.5*dist,0.0,height])
-                            wheelRotation = matrix(rodrigues([pitch+(pi/2)-tilt_angle_rad,0,0]))
-                            T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
-                            wheel.SetTransform(dot(initialWheelTransform,array(T0_wheelBase)))
+    with open('humanoids2013_lifting_bruteforce_points.csv', 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+        for r, data in enumerate(reader):
 
-                            # Where do we want the end effectors (hands) to start from in world coordinates?
-                            T0_OBJ = MakeTransform(matrix(rodrigues([0, pitch, 0])),transpose(matrix([0.0, -dist*0.5, height])))
-                            # T0_OBJ = wheel.GetManipulators()[0].GetEndEffectorTransform()
+            test_pitch = float(data[0])
+            test_height = float(data[1])
+            test_traj_length = float(data[2])
+            # We should find the closest distance to this value that is a multiple of 0.05
+            fdist = float(data[3])
+            fdistRem = round(fmod(fdist,0.05),2)
 
-                            TOBJ_LH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, dist*0.5, 0.0])))
-                            T0_LH = dot(T0_OBJ, TOBJ_LH)
-                            # h.append(misc.DrawAxes(env, T0_LH, 0.4))
+            if(fdistRem > 0.25):
+                test_dist = round(0.05 + round(fdist-fdistRem,2))
+            else:
+                test_dist = round(fdist-fdistRem,2)
 
-                            TOBJ_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist*0.5, 0.0])))
-                            T0_RH = dot(T0_OBJ, TOBJ_RH)
-                            # h.append(misc.DrawAxes(env, T0_RH, 0.4))
-                            
-                            samples = run(candidates, leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH, relBaseConstraint)
-                            if(samples != []):
-                                for nIdx, n in enumerate(samples):
-                                    
-                                    go_to_start_config_and_pose(robot,myRmaps,n,[T0_LH, T0_RH])
+            test_x = float(data[4])
+            test_y = float(data[5])
+            test_z = float(data[6])
 
-                                    # myComMat = get_robot_com(robot).round(4)
-                                    # myComMat[2,3] = 0.0
-                                    # comHandle = misc.DrawAxes(env,array(myComMat.round(4)),0.1)
+            dist = test_dist
+            height = test_height
+            pitch = test_pitch
+            
+            totalTimeStart = time.time() # time in [seconds]
 
-                                    # checkSupportProblem = RaveCreateModule(env,'CBiRRT')
+            TLH_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist, 0.0])))
+            trajs = TrajectoryGenerator.get('jaemiPlanning', 'lift', test_traj_length, test_traj_length, delta1, delta2)
+            #print trajs
+            resp = get_pairs(TLH_RH, env, robot, myRmaps)
+            if(resp != None):
+                pairs = resp[0]
+                rm = resp[1]
+                [relBaseConstraint] = resp[2]
+                for t in range(len(trajs[0])):
+                    leftTraj = trajs[0][t]
+                    rightTraj = trajs[1][t]
+                    candidates = get_candidates(leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm)
+                    if(candidates != None):
+                        # when the rotation around it's X axis is zero,
+                        # the wheel is facing to the ground. 
+                        # We add pi/2 to make it's zero the same with the hands
+                        # Also when we say "SetTransform" it sets the transform
+                        # of the base of the wheel, not the handle.
+                        # There's a difference of 23 degrees between the handle 
+                        # and the base, that's why we substract the tilt angle
+                        wheelOffset = matrix([-0.5*dist,0.0,height])
+                        wheelRotation = matrix(rodrigues([pitch+(pi/2)-tilt_angle_rad,0,0]))
+                        T0_wheelBase = MakeTransform(wheelRotation,transpose(wheelOffset))
+                        wheel.SetTransform(dot(initialWheelTransform,array(T0_wheelBase)))
 
-                                    # try:
-                                    #     env.AddModule(checkSupportProblem, robot.GetName()) # this string should match to <Robot name="" > in robot.xml
-                                    # except openrave_exception, e:
-                                    #     print e
-                                    
-                                    # print "CheckSupport: ",str(checkSupportProblem.SendCommand('CheckSupport supportlinks 2 leftFootBase rightFootBase draw'))
-                                    # print "CheckSelfCollision: ",str(robot.CheckSelfCollision())
-                                    # print "CheckEnvCollision: ",str(env.CheckCollision(robot))
-                                    
-                                    # sys.stdin.readline()
-                                    
+                        # Where do we want the end effectors (hands) to start from in world coordinates?
+                        T0_OBJ = MakeTransform(matrix(rodrigues([0, pitch, 0])),transpose(matrix([0.0, -dist*0.5, height])))
+                        # T0_OBJ = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-                                    ############# CBIRRT ####################
-                                    wheel.SetDOFValues([0],[0])
-                                    time.sleep(0.1)
+                        TOBJ_LH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, dist*0.5, 0.0])))
+                        T0_LH = dot(T0_OBJ, TOBJ_LH)
+                        # h.append(misc.DrawAxes(env, T0_LH, 0.4))
 
-                                    CTee = wheel.GetManipulators()[0].GetEndEffectorTransform()
-                                    
-                                    liftDist = minLiftDist+(t*delta1)
-                                    
-                                    T0_LH2 = dot(dot(dot(dot(CTee,temp1),temp2),MakeTransform(rodrigues([0,0,liftDist]),transpose(matrix([0,0,0])))),dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[0].GetTransform()))
-                                    
-                                    T0_RH2 = dot(dot(dot(dot(CTee,temp1),temp2),MakeTransform(rodrigues([0,0,liftDist]),transpose(matrix([0,0,0])))),dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[1].GetTransform()))
+                        TOBJ_RH = MakeTransform(matrix(rodrigues([0, 0, 0])),transpose(matrix([0.0, -dist*0.5, 0.0])))
+                        T0_RH = dot(T0_OBJ, TOBJ_RH)
+                        # h.append(misc.DrawAxes(env, T0_RH, 0.4))
 
-                                    liftingGoalIK = get_lin_goalik(robot, T0_LH2, T0_RH2)
+                        samples = run(candidates, leftTraj, rightTraj, env, robot, myRmaps, probs[0], pairs, rm, T0_LH, T0_RH, relBaseConstraint)
+                        if(samples != []):
+                            for nIdx, n in enumerate(samples):
 
-                                    if(debug):
-                                        print "press enter to reset configs"
-                                        sys.stdin.readline()
+                                go_to_start_config_and_pose(robot,myRmaps,n,[T0_LH, T0_RH])
 
-                                    wheel.SetDOFValues([0],[0])
-                                    go_to_startik(robot, n[2])
+                                ############# CBIRRT ####################
+                                wheel.SetDOFValues([0],[0])
+                                time.sleep(0.1)
 
-                                    if(liftingGoalIK != None):
-                                        TSRL = [dot(dot(CTee,temp1),temp2),
-                                                dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[0].GetTransform()),
-                                                matrix([0,0,0,0,-1000,1000,0,0,0,0,0,0])]
+                                CTee = wheel.GetManipulators()[0].GetEndEffectorTransform()
 
-                                        TSRR = [MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0]))),
-                                                dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),robot.GetManipulators()[1].GetTransform()),
-                                                matrix([0,0,0,0,0,0,0,0,0,0,0,0])]
+                                liftDist = minLiftDist+(t*delta1)
 
-                                        TSRChainStringLifting = get_tsr_chain_string(robot, TSRL, TSRR, wheel, 'crank', 'crank', mimicObjectJoint=None)
-                                        resultCount += 1
-                                        trajName = myPathStr+'/humanoids2013_liftingTraj_'+str(resultCount)+'_'+str(datetime.now())+'.txt'
-                                        startikStr = n[2]
-                                        myTraj = None
-                                        planningStart = time.time()
-                                        myTraj = plan_linear(env, robot, 'crank', startikStr, liftingGoalIK, ' leftFootBase rightFootBase ', TSRChainStringLifting, trajName, returnTraj=False)
-                                        planningEnd = time.time()
-                                        if(myTraj != None):
-                                            print "planning done."
-                                            
-                                            # Take a screenshot for the record
-                                            # uncomment this block if you'd like to save pngs of successful solutions
-                                            if(viewerOn and saveImg):
-                                                viewer = env.GetViewer()
-                                                viewer.SendCommand('SetFiguresInCamera 1') 
-                                                scipy.misc.imsave(myPathStr+'/'+str(datetime.now())+'_lifting_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(nIdx)+'_.jpg', viewer.GetCameraImage(1024,768,viewer.GetCameraTransform(),[1024,1024,512,384]))                           
-                                                del viewer
+                                T0_LH2 = dot(dot(dot(dot(CTee,temp1),temp2),MakeTransform(rodrigues([0,0,liftDist]),transpose(matrix([0,0,0])))),dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[0].GetTransform()))
 
-                                            planningTime = planningEnd - planningStart
-                                            myLogger.save([0, # label: 0 for lift, 1 for push, 2 for rotate (+3 for tests)
-                                                           pitch, # feature1: pitch angle of the object
-                                                           height, # feature2: height of the object from the ground
-                                                           round(minLiftDist+(t*delta1),3), # feature3: length of the trajectory
-                                                           dist, # feature4: distance between hands
-                                                           n[0][0].sIdx, # feature5: left reachability sphere index
-                                                           round(myRmaps[0].map[n[0][0].sIdx].T[0][0,3],2), # feature6: left reachability sphere X (in manip base coords.)
-                                                           round(myRmaps[0].map[n[0][0].sIdx].T[0][1,3],2), # feature7: left reachability sphere Y (in manip base coords.)
-                                                           round(myRmaps[0].map[n[0][0].sIdx].T[0][2,3],2), # # feature8: left reachability sphere Z
-                                                           n[1][0].sIdx, # feature9: right reachability sphere index
-                                                           round(myRmaps[1].map[n[1][0].sIdx].T[0][0,3],2), # feature10: right reachability sphere X
-                                                           round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), # feature11: right reachability sphere Y
-                                                           round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), # feature12: right reachability sphere Z
-                                                           resultCount, # feature13: resultCount
-                                                           planningTime]) # feature14: planningTime
+                                T0_RH2 = dot(dot(dot(dot(CTee,temp1),temp2),MakeTransform(rodrigues([0,0,liftDist]),transpose(matrix([0,0,0])))),dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[1].GetTransform()))
 
-                                            if(debug):
-                                                print "press enter to execute the trajectory"
-                                                sys.stdin.readline()
+                                liftingGoalIK = get_lin_goalik(robot, T0_LH2, T0_RH2)
 
-                                            # wheel.SetDOFValues([0],[0])
-                                            # go_to_startik(robot, startikStr)
-                                            # execute(robot, wheel, myTraj)
-                                        else:
-                                            print "planning failed."
+                                if(debug):
+                                    print "press enter to reset configs"
+                                    sys.stdin.readline()
+
+                                wheel.SetDOFValues([0],[0])
+                                go_to_startik(robot, n[2])
+
+                                if(liftingGoalIK != None):
+                                    TSRL = [dot(dot(CTee,temp1),temp2),
+                                            dot(linalg.inv(dot(dot(CTee,temp1),temp2)),robot.GetManipulators()[0].GetTransform()),
+                                            matrix([0,0,0,0,-1000,1000,0,0,0,0,0,0])]
+
+                                    TSRR = [MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0]))),
+                                            dot(linalg.inv(wheel.GetManipulators()[0].GetTransform()),robot.GetManipulators()[1].GetTransform()),
+                                            matrix([0,0,0,0,0,0,0,0,0,0,0,0])]
+
+                                    TSRChainStringLifting = get_tsr_chain_string(robot, TSRL, TSRR, wheel, 'crank', 'crank', mimicObjectJoint=None)
+                                    resultCount += 1
+                                    trajName = myPathStr+'/humanoids2013_liftingTraj_'+str(resultCount)+'_'+str(datetime.now())+'.txt'
+                                    startikStr = n[2]
+                                    myTraj = None
+                                    planningStart = time.time()
+                                    myTraj = plan_linear(env, robot, 'crank', startikStr, liftingGoalIK, ' leftFootBase rightFootBase ', TSRChainStringLifting, trajName, returnTraj=False)
+                                    planningEnd = time.time()
+                                    totalTimeEnd = time.time() # time in [seconds]
+                                    if(myTraj != None):
+                                        print "planning done."
+
+                                        # Take a screenshot for the record
+                                        # uncomment this block if you'd like to save pngs of successful solutions
+                                        if(viewerOn and saveImg):
+                                            viewer = env.GetViewer()
+                                            viewer.SendCommand('SetFiguresInCamera 1') 
+                                            scipy.misc.imsave(myPathStr+'/'+str(datetime.now())+'_lifting_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(nIdx)+'_.jpg', viewer.GetCameraImage(1024,768,viewer.GetCameraTransform(),[1024,1024,512,384]))                           
+                                            del viewer
+
+                                        planningTime = planningEnd - planningStart
+                                        totalTime = totalTimeEnd - totalTimeStart
+
+                                        myLogger.save([0, # label: 0 for lift, 1 for push, 2 for rotate (+3 for tests)
+                                                       pitch, # feature1: pitch angle of the object
+                                                       height, # feature2: height of the object from the ground
+                                                       round(minLiftDist+(t*delta1),3), # feature3: length of the trajectory
+                                                       dist, # feature4: distance between hands
+                                                       n[0][0].sIdx, # feature5: left reachability sphere index
+                                                       round(myRmaps[0].map[n[0][0].sIdx].T[0][0,3],2), # feature6: left reachability sphere X (in manip base coords.)
+                                                       round(myRmaps[0].map[n[0][0].sIdx].T[0][1,3],2), # feature7: left reachability sphere Y (in manip base coords.)
+                                                       round(myRmaps[0].map[n[0][0].sIdx].T[0][2,3],2), # # feature8: left reachability sphere Z
+                                                       n[1][0].sIdx, # feature9: right reachability sphere index
+                                                       round(myRmaps[1].map[n[1][0].sIdx].T[0][0,3],2), # feature10: right reachability sphere X
+                                                       round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), # feature11: right reachability sphere Y
+                                                       round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), # feature12: right reachability sphere Z
+                                                       resultCount, # feature13: resultCount
+                                                       planningTime,
+                                                       totalTime]) # feature14: planningTime
 
                                         if(debug):
-                                            print "press enter to see the next solution."
+                                            print "press enter to execute the trajectory"
                                             sys.stdin.readline()
-                                        ############## END OF CBIRRT ##############
-                                        del TSRChainStringLifting
-                                        del myTraj
-                                        
-                                    # else:
-                                    #     startikStr = n[2]
-                                    #     wheel.SetDOFValues([0],[0])
-                                    #     go_to_startik(robot, startikStr)
+                                    else:
+                                        print "planning failed."
 
-                                    # del myComMat
-                                    # del comHandle
-                                    # checkSupportProblem.SendCommand('ClearDrawn')
-                                    # env.Remove(checkSupportProblem)
-                                    # del checkSupportProblem
+                                    if(debug):
+                                        print "press enter to see the next solution."
+                                        sys.stdin.readline()
+                                    ############## END OF CBIRRT ##############
+                                    del TSRChainStringLifting
+                                    del myTraj
 
     myLogger.close()
     print "TOTAL RESULTS FOUND: "

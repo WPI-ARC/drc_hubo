@@ -42,7 +42,7 @@ import csv
 
 h = []
 
-viewerOn = True
+viewerOn = False
 
 saveImg = False
 
@@ -202,8 +202,15 @@ def run(candidates, leftTraj, rightTraj, env, robot, myRmaps, myProblem, pairs, 
     return mySamples
 
 if __name__ == '__main__':
-    purpose = 'test'
-    # purpose = 'validation'
+    
+    # Call this script from the terminal using the following command:
+    # 
+    # $ python humanoids2013_jaemihubo_test_placement_for_turning test 
+    # $ python humanoids2013_jaemihubo_test_placement_for_turning validation
+    #
+    # 'validation' uses validation data and saves the results under data/timestamp-validation directory
+    # 'test' uses test data and saves the results under dasta/timestamp-test directory
+    purpose = sys.argv[1]
 
     # Activates some prints and keyboard inputs
     debug = False
@@ -213,8 +220,9 @@ if __name__ == '__main__':
     myPathStr = './humanoids2013_data/turning_'+purpose+'_'+myInitTimeStr
     os.mkdir(myPathStr)
 
-    RaveSetDebugLevel(DebugLevel.Debug)
+    
     env = Environment()
+    env.SetDebugLevel(DebugLevel.Fatal)
 
     if(viewerOn):
         env.SetViewer('qtcoin')
@@ -283,10 +291,9 @@ if __name__ == '__main__':
     delta1 = pi/8
     delta2 = None
 
-    myLogger = BensLogger(arg_note=str(datetime.now()),arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_results')
-
+    tstamp = str(datetime.now())
+    myLogger = BensLogger(arg_note = tstamp, arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_results')
     myLogger.open('a')
-
     myLogger.header(['label',
                      'test_pitch',
                      'test_height',
@@ -306,7 +313,25 @@ if __name__ == '__main__':
                      'right_start_sphere_x',
                      'right_start_sphere_y',
                      'right_start_sphere_z',
-                     'resultId'])
+                     'resultId',
+                     'iterationToResult',
+                     'timeToResult',
+                     'planning_time'])
+    
+    if(purpose == "test"):
+        myFailLogger = BensLogger(arg_note=tstamp, arg_name=myPathStr+'/humanoids2013_jaemiPlanning_turning_'+purpose+'_failed_results')
+        myFailLogger.open('a')
+        myFailLogger.header(['test_pitch',
+                             'test_height',
+                             'test_traj_length',
+                             'test_dist_raw',
+                             'test_dist_round',
+                             'test_left_start_x',
+                             'test_left_start_y',
+                             'test_left_start_z',
+                             'nearest_left_sphere_distance',
+                             'nearest_left_start_sphere_ind'])
+    
 
     resultCount = 0
 
@@ -346,13 +371,24 @@ if __name__ == '__main__':
             traj = TrajectoryGenerator.get('jaemiPlanning', 'rotcw', test_traj_length,test_traj_length,1.0,None,(dist*0.5))
 
             [nearestSphereIdx, minDist] = find_nearest_reachability_sphere(test_x, test_y, test_z, myRmaps[0].map)
-            tryTheseSpheres = [nearestSphereIdx]
-            tryTheseSpheres.extend(myRmaps[0].map[nearestSphereIdx].neighbors)
+
+            # Note: tryTheseSpheres is a dictionary
+            [sortedKeys, tryTheseSpheres] = get_ranked_neighbors(nearestSphereIdx, myRmaps[0])
+
+            # tryTheseSpheres = [nearestSphereIdx]
+            # tryTheseSpheres.extend(myRmaps[0].map[nearestSphereIdx].neighbors)
 
             stopTrying = False # This is for breaking out of trying the neighbors
 
-            for rank, sIdx in enumerate(tryTheseSpheres):
+            iterationCount = 0
+            startTime = time.time()
+
+            for sIdx in sortedKeys:
                 
+                iterationCount += 1
+                # Note sIdx is a key (sphere index) and rank is a value between 0 and 3 (depending on its distance from the main sphere of interest) 
+                rank = tryTheseSpheres[sIdx]
+
                 resp = get_pair(TLH_RH, env, robot, myRmaps, sIdx)
 
                 if(resp != None):
@@ -430,13 +466,15 @@ if __name__ == '__main__':
                                         resultCount += 1
                                         trajName = myPathStr+'/humanoids2013_turningTraj_'+str(resultCount)+'_'+str(datetime.now())+'.txt'
                                         startikStr = n[2]
-                                        myTrak = None
+                                        myTraj = None
                                         wheel.SetDOFValues([0],[0])
                                         go_to_startik(robot, startikStr)
                                         # print startikStr
                                         # print robot.GetActiveDOFValues()
                                         time.sleep(0.1)
+                                        planningStart = time.time()
                                         myTraj = plan(env, robot, wheel, startikStr, rotationGoalIK, ' leftFootBase rightFootBase ', TSRChainStringTurning, trajName, False)
+                                        planningEnd = time.time()
 
                                         if(myTraj != None):
                                             print "planning done."
@@ -448,13 +486,10 @@ if __name__ == '__main__':
                                                 viewer.SendCommand('SetFiguresInCamera 1') 
                                                 scipy.misc.imsave(myPathStr+'/'+str(datetime.now())+'_turning_h-'+str(height)+'_p-'+str(pitch)+'_d-'+str(dist)+'_'+str(nIdx)+'_.jpg', viewer.GetCameraImage(1024,768,viewer.GetCameraTransform(),[1024,1024,512,384]))                           
                                                 del viewer
-                                            print "here"
-
-                                            if(rank == 0):
-                                                sphereRank = 1
-                                            else:
-                                                sphereRank = 2
-
+                                            
+                                            endTime = time.time()
+                                            durationInSecs = endTime - startTime
+                                            planningTime = planningEnd - planningStart
                                             myLogger.save([5, # label: 0 for lift, 1 for push, 2 for rotate, 3 for lift test, 4 for push test, 5 for rotate test
                                                            pitch,  
                                                            height, 
@@ -466,7 +501,7 @@ if __name__ == '__main__':
                                                            round(minDist,3),
                                                            nearestSphereIdx,
                                                            n[0][0].sIdx, 
-                                                           sphereRank,
+                                                           rank,
                                                            round(myRmaps[0].map[n[0][0].sIdx].T[0][0,3],2), 
                                                            round(myRmaps[0].map[n[0][0].sIdx].T[0][1,3],2), 
                                                            round(myRmaps[0].map[n[0][0].sIdx].T[0][2,3],2), 
@@ -474,7 +509,10 @@ if __name__ == '__main__':
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][0,3],2), 
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][1,3],2), 
                                                            round(myRmaps[1].map[n[1][0].sIdx].T[0][2,3],2), 
-                                                           resultCount])
+                                                           resultCount,
+                                                           iterationCount,
+                                                           durationInSecs,
+                                                           planningTime])
             
                                             if(debug):
                                                 print "press enter to execute the trajectory"
@@ -488,6 +526,7 @@ if __name__ == '__main__':
                                             # go_to_startik(robot, startikStr)
                                             # execute(robot, wheel, myTraj)
                                             stopTrying = True
+                                            fail = False
                                         else:
                                             print "planning failed."
                                             wheel.SetDOFValues([0],[0])
@@ -495,12 +534,15 @@ if __name__ == '__main__':
                                             # Bend the knees
                                             robot.SetDOFValues([-0.3,0.6,-0.3],[32,33,34])
                                             robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
+                                            fail = True
                                         if(debug):
                                             print "press enter to see the next solution."
                                             sys.stdin.readline()
                                         del TSRChainStringTurning
                                         del myTraj
+                                        
                                     else:
+                                        fail = True
                                         startikStr = n[2]
                                         wheel.SetDOFValues([0],[0])
                                         robot.SetActiveDOFValues(zeros(robot.GetActiveDOF()).tolist())
@@ -509,11 +551,39 @@ if __name__ == '__main__':
                                         robot.SetDOFValues([-0.3,0.6,-0.3],[26,27,28])
                                         # go_to_startik(robot, startikStr)
 
+                            # samples == []
+                            else:
+                                fail = True
+
+                        # pathElements == None
+                        else:
+                            fail = True
+
+                # resp == None
+                else: 
+                    fail = True
+
                 if(stopTrying):
                     break
+
+            if(fail and (purpose == "test") ):
+                myFailLogger.save([pitch,
+                                   height, 
+                                   test_traj_length, 
+                                   fdist, # distance before being rounded to closest multiple of 0.05
+                                   dist, # distance after being rounded up to closest multiple of 0.05
+                                   test_x, 
+                                   test_y,
+                                   test_z,
+                                   round(minDist,3),
+                                   nearestSphereIdx])
                 
     print resultCount
     myLogger.close()
+    
+    if(purpose == "test"):
+        myFailLogger.close()
+
     try:
         env.Remove(probs_cbirrt)
         del probs_cbirrt
@@ -526,6 +596,8 @@ if __name__ == '__main__':
         del rm
         del rm2
         del myLogger
+        if(purpose == "test"):
+            del myFailLogger
     except openrave_exception, e:
         print e
 
