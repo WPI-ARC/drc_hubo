@@ -23,62 +23,21 @@ from math import *
 from copy import *
 import os # for file operations
 from RaveCBiRRT import *
+from base_wheel_turning import *
 
-def trans_to_str(T):
-    myStr = ""
-    for c in range(0,3):
-        for r in range(0,3):
-            myStr += str(T[r,c])+" "
-    
-    for r in range(0,3):
-        myStr += str(T[r,3])+" "
-
-    #print "Tee string : " 
-    #print myStr
-    return myStr
-
-class HuboPlusWheelTurning:
+class HuboPlusWheelTurning( BaseWheelTurning ):
 
     def __init__(self,
                  HuboModelPath = '../../openHubo/huboplus/rlhuboplus.robot.xml',
                  WheelModelPath = '../../../drc_common/models/driving_wheel.robot.xml' ):
-        
+
+        BaseWheelTurning.__init__( self, HuboModelPath, WheelModelPath )
+
         # Set those variables to show or hide the interface
         # Do it using the member functions
         self.StopAtKeyStrokes = False
         self.ShowUserInterface = False
         self.ViewerStarted = False
-
-        self.T_Wheel = None
-        self.HuboModelPath = HuboModelPath
-        self.WheelModelPath = WheelModelPath
-
-        # Start Environment
-        self.env = Environment()
-        RaveSetDebugLevel(DebugLevel.Info) # set output level to debug
-        self.robotid = self.env.ReadRobotURI(self.HuboModelPath)
-        self.crankid = self.env.ReadRobotURI(self.WheelModelPath)
-        self.env.Add(self.robotid)
-        self.env.Add(self.crankid)
-
-        print "init HuboPlusWheelTurning"
-
-    def KillOpenrave(self):
-        self.env.Destroy()
-        RaveDestroy()
-
-    def SetViewer(self,arg=True):
-        print "SetViewer"
-        self.ShowUserInterface = arg
-
-    def SetStopKeyStrokes(self,arg=True):
-        print "SetStopKeyStrokes"
-        self.StopAtKeyStrokes = arg
-
-    def SetWheelPosition(self,trans,rot):
-        print "SetWheelPosition"
-        self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
-        self.crankid.SetTransform(array(self.T_Wheel))
 
     def SetRobotConfiguration(self,jointValues):
         print "SetRobotConfiguration"
@@ -148,19 +107,7 @@ class HuboPlusWheelTurning:
               
     def Run(self):
     
-        # Try to delete all existing trajectory files
-        try:
-            print "Removing qhullout.txt"
-            os.remove("qhullout.txt")
-        except OSError, e:
-            print e
-
-        for i in range(4):
-            try:
-                print "Removing movetraj"+str(i)+".txt"
-                os.remove("movetraj"+str(i)+".txt")
-            except OSError, e:
-                print e    
+        self.RemoveFiles()
 
         # This is a list of handles of the objects that are
         # drawn on the screen in OpenRAVE Qt-Viewer.
@@ -290,14 +237,14 @@ class HuboPlusWheelTurning:
 
         # Right Hand Joints 
         # Open - Closed Values
-        rhanddofs = range(27,42)
-        rhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
-        rhandopenvals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
+        self.rhanddofs = range(27,42)
+        self.rhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
+        self.rhandopenvals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
 
         # Left Hand Joints
-        lhanddofs = range(42,57)
-        lhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
-        lhandopenvals =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
+        self.lhanddofs = range(42,57)
+        self.lhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
+        self.lhandopenvals =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
@@ -575,8 +522,8 @@ class HuboPlusWheelTurning:
             return []
 
         self.robotid.GetController().Reset(0)
-        self.robotid.SetDOFValues(rhandopenvals,rhanddofs)
-        self.robotid.SetDOFValues(lhandopenvals,lhanddofs)
+        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
         self.robotid.SetActiveDOFValues(str2num(goalik))
 
         time.sleep(2)
@@ -654,78 +601,13 @@ class HuboPlusWheelTurning:
 
         self.robotid.GetController().Reset(0)
         
-        # Playback 0:(init-start) -> 1:(start-goal) -> 2:(goal-start) -> 3:(start-init)
-
-        self.robotid.SetDOFValues(rhandopenvals,rhanddofs)
-        self.robotid.SetDOFValues(lhandopenvals,lhanddofs)
-        try:
-            answer= cbirrtHubo.solve('traj movetraj0.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-            return []
-
-        self.robotid.GetController().Reset(0)
-        time.sleep(1)
-
-        self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
-        self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
-        time.sleep(1)
-
-        try:
-            answer= cbirrtHubo.solve('traj movetraj1.txt');
-            answer= cbirrtWheel.solve('traj movetraj1.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-            return []
-
-        self.robotid.GetController().Reset(0)
-        time.sleep(1)
-
-        self.robotid.SetDOFValues(rhandopenvals,rhanddofs)
-        self.robotid.SetDOFValues(lhandopenvals,lhanddofs)
-        time.sleep(1)
-
-        try:
-            answer= cbirrtHubo.solve('traj movetraj2.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-            return []
-        
-        self.robotid.GetController().Reset(0)
-        time.sleep(1)
-
-        try:
-            answer= cbirrtHubo.solve('traj movetraj3.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-            return []
-        
-        self.robotid.GetController().Reset(0)    
-        
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to exit..."
-            sys.stdin.readline()
-
-        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj1.txt','movetraj3.txt']
-        return file_names
+        return self.Playback()
 
 
 if __name__ == "__main__":
     planner = HuboPlusWheelTurning()
     planner.SetViewer(True)
-    planner.SetStopKeyStrokes(True)
+    planner.SetStopKeyStrokes(False)
     planner.Run()
     planner.KillOpenrave()
 
