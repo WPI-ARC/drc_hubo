@@ -100,6 +100,37 @@ class BaseWheelTurning:
             except OSError, e:
                 print e
 
+    def StartViewerAndSetWheelPos(self, handles):
+
+        # Start the Viewer and draws the world frame
+        if self.ShowUserInterface and not self.ViewerStarted :
+            cam_rot = dot(xyz_rotation([3*pi/2,0,0]),xyz_rotation([0,-pi/2,0]))
+            cam_rot = dot(cam_rot,xyz_rotation([-pi/10,0,0])) # inclination of the camera
+            T_cam = MakeTransform(cam_rot,transpose(matrix([2.0, 0.00, 01.4])))
+            self.env.SetViewer('qtcoin')
+            self.env.GetViewer().SetCamera(array(T_cam))
+            self.env.GetViewer().EnvironmentSync()
+            self.ViewerStarted = True
+            #handles.append( misc.DrawAxes(self.env,T_cam,1) )
+            handles.append( misc.DrawAxes(self.env,MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0]))),1) )
+            
+
+        # Move the wheel infront of the robot
+        if self.T_Wheel is None:
+            self.T_Wheel = MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.0851953, 0.85])))
+            self.crankid.SetTransform(array(self.T_Wheel))
+  
+        # Draw wheel position
+        if self.ShowUserInterface :
+            print self.robotid.GetJoints()[11].GetAnchor()
+            T_RightFoot = self.robotid.GetLinks()[0].GetTransform()
+            T_Torso = self.robotid.GetLinks()[8].GetTransform()
+            handles.append( misc.DrawAxes(self.env,self.T_Wheel,0.5) )  
+            handles.append( misc.DrawAxes(self.env,T_Torso,0.5) ) 
+            handles.append( misc.DrawAxes(self.env,T_RightFoot,0.5) ) 
+            print T_Torso
+            print T_RightFoot
+
     def Playback(self):
         # Playback 0:(init-start) -> 1:(start-goal) -> 2:(goal-start) -> 3:(start-init)
 
