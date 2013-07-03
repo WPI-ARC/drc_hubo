@@ -473,8 +473,8 @@ class HuboPlusWheelTurning( BaseWheelTurning ):
 
         self.robotid.SetActiveDOFValues(startik)
         time.sleep(0.5)
-        self.robotid.SetDOFValues(rhandclosevals,rhanddofs)
-        self.robotid.SetDOFValues(lhandclosevals,lhanddofs)
+        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
         # Close hands to start "turning" the wheel
         self.crankid.SetDOFValues([0],[crankjointind])
         time.sleep(0.5)
