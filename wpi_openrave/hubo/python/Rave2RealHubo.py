@@ -9,7 +9,7 @@ import openravepy
 from copy import deepcopy
 from numpy import *
 
-def traj2ach(env,robot,traj,fname):
+def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,deltatimeOffset):
 
     myAchTraj=openravepy.RaveCreateTrajectory(robot.GetEnv(),'')
     config=deepcopy(traj.GetConfigurationSpecification())
@@ -23,15 +23,15 @@ def traj2ach(env,robot,traj,fname):
     for i in range(trajLength):
         wp = traj.GetWaypoint(i)
         awp = deepcopy(wp)
-        print "joint values"
-        q = wp[0:numJoints]
-        print q
-        print "joint velocities"
-        qdot = wp[numJoints:(2*numJoints)]
-        print qdot
-        print "deltatime"
-        dt = wp[2*numJoints]
-        print dt
+        # print "joint values"
+        q = wp[robotJointValsOffset:numJoints]
+        # print q
+        # print "joint velocities"
+        qdot = wp[robotJointVelsOffset:(2*numJoints)]
+        # print qdot
+        # print "deltatime"
+        dt = wp[deltatimeOffset]
+        # print dt
         if(dt != 0.0):
             awp[2*numJoints] = 0.5
 
@@ -94,8 +94,37 @@ def traj2ach(env,robot,traj,fname):
 
     for i in range(achTrajLength):
         q = myAchTraj.GetWaypoint(i)
-        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], q[33], q[42], q[45], q[48], 0, q[7], q[20], q[23],  0, 0]
-        print myAchQ
+
+        # With Fingers
+        # myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], q[33], q[42], q[45], q[48], 0, q[7], q[20], q[23],  0, 0]
+
+        # No Fingers
+        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        # print myAchQ
         f.write(' '.join([str(x) for x in myAchQ])+'\n')
 
     f.close()
+
+def openHandsHere(robot,freq,duration,fname):
+    # duration in seconds (How long do you want to wait until the robot closes its hands)
+    # freq in hertz
+    reps = duration*freq
+    q = robot.GetDOFValues(range(51))
+    f = open(fname+'.traj','w')
+    for i in range(reps):
+        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], -0.1, 0, 0, 0, 0, -0.1, -0.1, 0, 0, 0]
+        f.write(' '.join([str(x) for x in myAchQ])+'\n')
+    f.close
+    
+def closeHandsHere(robot,freq,duration,fname):
+    # duration in seconds (How long do you want to wait until the robot closes its hands)
+    # freq in hertz
+    reps = duration*freq
+    q = robot.GetDOFValues(range(51))
+    f = open(fname+'.traj','w')
+    for i in range(reps):
+        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], 0.1, 0, 0, 0, 0, 0.1, 0.1, 0, 0, 0]
+        f.write(' '.join([str(x) for x in myAchQ])+'\n')
+    f.close
+    

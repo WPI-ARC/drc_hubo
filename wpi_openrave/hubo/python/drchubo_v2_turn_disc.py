@@ -68,7 +68,7 @@ def run(discRadius):
     infocylinder = KinBody.Link.GeometryInfo()
     infocylinder._type = KinBody.Link.GeomType.Cylinder
     #infocylinder._t[0,3] = 0.1 # transform matrix
-    infocylinder._vGeomData = [discRadius,0.0254] # radius and height/thickness?
+    infocylinder._vGeomData = [discRadius,0.01] # radius and height/thickness?
     infocylinder._bVisible = True
     infocylinder._fTransparency = 0.0
     infocylinder._vDiffuseColor = [0,1,1]
@@ -76,19 +76,23 @@ def run(discRadius):
     myDisc = RaveCreateKinBody(env,'')
     myDisc.InitFromGeometries([infocylinder]) # we could add more cylinders here
     myDisc.SetName('valve')
-    # env.Add(myDisc,True) 
+    env.Add(myDisc,True) 
 
     env.Add(robotid)
     env.Add(crankid)
     env.SetViewer('qtcoin')
 
-    shiftUp = 0.95
+    shiftUp = 1.25
+    
+    worldPitch = 0.0
 
+    tiltDiff = acos(dot(linalg.inv(crankid.GetManipulators()[0].GetEndEffectorTransform()),crankid.GetLinks()[0].GetTransform())[1,1])
+    
     # Move the wheel infront of the robot
-    crankid.SetTransform(array(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.35, 0.0, shiftUp])))))
+    crankid.SetTransform(array(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([(pi/2-tiltDiff+worldPitch),0,0])),transpose(matrix([0.6, 0.0, shiftUp])))))
 
-    # myDisc.SetTransform(crankid.GetManipulators()[0].GetTransform())
-    sys.stdin.readline()
+    myDisc.SetTransform(crankid.GetManipulators()[0].GetTransform())
+    # sys.stdin.readline()
     
     probs_cbirrt = RaveCreateModule(env,'CBiRRT')
     probs_crankmover = RaveCreateModule(env,'CBiRRT')
@@ -182,12 +186,12 @@ def run(discRadius):
     # Right Hand Joints 
     # Open - Closed Values
     rhanddofs = [7,20,23]
-    rhandclosevals = [0, 0, 0]
+    rhandclosevals = [-0.15, -0.15, -0.15]
     rhandopenvals = [-0.7, -0.7, -0.7]
 
     # Left Hand Joints
     lhanddofs = [33,42,45,48]
-    lhandclosevals = [0, 0, 0, 0]
+    lhandclosevals = [-0.15, -0.15, -0.15, -0.15]
     lhandopenvals = [-0.7, -0.7, -0.7, -0.7]
 
     # What is this?
@@ -264,21 +268,29 @@ def run(discRadius):
 
     try:
         os.rename("cmovetraj.txt","drchubo_trajectories/home2init.txt")
+        traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/home2init.txt','r').read())
+        
+        print "conf spec for start2goal:"
+        cs = traj.GetConfigurationSpecification()
+        
+        drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
+        print "drchubo-v2 joint values offset"
+        print drchuboJointValsGroup.offset
+        
+        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
+        print "drchubo-v2 joint velocities offset"
+        print drchuboJointVelocitiesGroup.offset
+        
+        deltatimeGroup = cs.GetGroupFromName("deltatime")
+        print "deltatime offset"
+        print deltatimeGroup.offset
+
+        sys.stdin.readline()
+
+        Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/home2init",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
     except OSError, e:
         # No file cmovetraj
         print e
-
-    # The following is the same as commented out try-except section
-    traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/home2init.txt','r').read())   
-        
-    print "press enter to see the way points 0 - 10"
-    print "total number of waypoints: ",str(traj.GetNumWaypoints())
-    sys.stdin.readline() 
-    
-    Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/home2init")
-        
-    sys.stdin.readline()
-
 
     try:
         answer=probs[0].SendCommand('traj drchubo_trajectories/home2init.txt');
@@ -310,7 +322,10 @@ def run(discRadius):
     # for the Left Hand
     # T0_w0L stands for: 
     # left hand's transform on wheel in world coordinates
-    T0_w0L = MakeTransform(rodrigues([0,tilt_angle_rad,0]),transpose(matrix(jointtm[0:3,3])))
+    
+    T0_w0L = MakeTransform(rodrigues([0,tilt_angle_rad-tiltDiff+worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
+    
+    #T0_w0L = MakeTransform(rodrigues([acos(crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix(jointtm[0:3,3])))
     # This is what's happening: 
     #
     # Tw0L_0 = linalg.inv(T0_w0L)
@@ -327,6 +342,7 @@ def run(discRadius):
     # Right Hand's transforms:
     T0_crankcrank = crankid.GetManipulators()[0].GetTransform()
     T0_w0R = MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0])))
+    #T0_w0R = MakeTransform(rodrigues([acos(crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix([0,0,0])))
     # End effector transform in wheel coordinates
     Tw0_eR = dot(linalg.inv(T0_crankcrank),T0_RH1)
 
@@ -437,26 +453,32 @@ def run(discRadius):
 
         try:
             os.rename("cmovetraj.txt","drchubo_trajectories/init2start.txt")
+            traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/init2start.txt','r').read())
+
+            print "conf spec for start2goal:"
+            cs = traj.GetConfigurationSpecification()
+
+            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
+            print "drchubo-v2 joint values offset"
+            print drchuboJointValsGroup.offset
+
+            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
+            print "drchubo-v2 joint velocities offset"
+            print drchuboJointVelocitiesGroup.offset
+
+            deltatimeGroup = cs.GetGroupFromName("deltatime")
+            print "deltatime offset"
+            print deltatimeGroup.offset
+
+            sys.stdin.readline()
+
+            Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/init2start",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
 
         # The following is the same as commented out try-except section
         traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/init2start.txt','r').read())   
-        
-        print "press enter to see the way points 0 - 10"
-        sys.stdin.readline()        
-
-        for wp in range(10):
-             wps = traj.GetWaypoints(wp,wp+1)
-             print "joint values"
-             print wps[0:len(robotid.GetJoints())]
-             print "joint velocities"
-             print wps[len(robotid.GetJoints()):(2*len(robotid.GetJoints()))]
-             print "deltatime"
-             print wps[2*len(robotid.GetJoints())]
-            
-        sys.stdin.readline()
 
         robotid.GetController().SetPath(traj) 
         robotid.WaitForController(0)
@@ -484,6 +506,37 @@ def run(discRadius):
 
         try:
             os.rename("cmovetraj.txt","drchubo_trajectories/start2goal.txt")
+            traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/start2goal.txt','r').read())
+
+            print "conf spec for start2goal:"
+            cs = traj.GetConfigurationSpecification()
+
+            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
+            print "drchubo-v2 joint values offset"
+            print drchuboJointValsGroup.offset
+
+            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
+            print "drchubo-v2 joint velocities offset"
+            print drchuboJointVelocitiesGroup.offset
+
+            deltatimeGroup = cs.GetGroupFromName("deltatime")
+            print "deltatime offset"
+            print deltatimeGroup.offset
+
+            sys.stdin.readline()
+
+            # crankJointValsGroup = cs.GetGroupFromName("joint_values crank")
+            # print "crank joint values offset:"
+            # print crankJointValsGroup.offset
+
+            # crankJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities crank")
+            # print "crank joint velocities offset"
+            # print crankJointVelocitiesGroup.offset
+            
+            
+
+            Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/start2goal",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+            
         except OSError, e:
             # No file cmovetraj
             print e
@@ -517,6 +570,26 @@ def run(discRadius):
 
         try:
             os.rename("cmovetraj.txt","drchubo_trajectories/goal2start.txt")
+            traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/goal2start.txt','r').read())
+
+            print "conf spec for start2goal:"
+            cs = traj.GetConfigurationSpecification()
+
+            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
+            print "drchubo-v2 joint values offset"
+            print drchuboJointValsGroup.offset
+
+            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
+            print "drchubo-v2 joint velocities offset"
+            print drchuboJointVelocitiesGroup.offset
+
+            deltatimeGroup = cs.GetGroupFromName("deltatime")
+            print "deltatime offset"
+            print deltatimeGroup.offset
+
+            sys.stdin.readline()
+
+            Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/goal2start",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
@@ -546,6 +619,26 @@ def run(discRadius):
 
         try:
             os.rename("cmovetraj.txt","drchubo_trajectories/start2init.txt")
+            traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/start2init.txt','r').read())
+            
+            print "conf spec for start2goal:"
+            cs = traj.GetConfigurationSpecification()
+
+            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
+            print "drchubo-v2 joint values offset"
+            print drchuboJointValsGroup.offset
+
+            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
+            print "drchubo-v2 joint velocities offset"
+            print drchuboJointVelocitiesGroup.offset
+
+            deltatimeGroup = cs.GetGroupFromName("deltatime")
+            print "deltatime offset"
+            print deltatimeGroup.offset
+
+            sys.stdin.readline()
+
+            Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/start2init",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
@@ -577,6 +670,26 @@ def run(discRadius):
 
         try:
             os.rename("cmovetraj.txt","drchubo_trajectories/init2home.txt")
+            traj = RaveCreateTrajectory(env,'').deserialize(open('drchubo_trajectories/init2home.txt','r').read())
+            
+            print "conf spec for start2goal:"
+            cs = traj.GetConfigurationSpecification()
+
+            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
+            print "drchubo-v2 joint values offset"
+            print drchuboJointValsGroup.offset
+
+            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
+            print "drchubo-v2 joint velocities offset"
+            print drchuboJointVelocitiesGroup.offset
+
+            deltatimeGroup = cs.GetGroupFromName("deltatime")
+            print "deltatime offset"
+            print deltatimeGroup.offset
+
+            sys.stdin.readline()
+            
+            Rave2RealHubo.traj2ach(env,robotid,traj,"drchubo_trajectories/init2home",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
