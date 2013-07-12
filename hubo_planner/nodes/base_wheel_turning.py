@@ -167,6 +167,11 @@ class BaseWheelTurning:
             print T_RightFoot
 
     def Playback(self):
+
+        if( self.StopAtKeyStrokes ):
+            print "Press Enter to exit..."
+            sys.stdin.readline()
+
         # Playback 0:(home-init) -> 1:(init-start) -> 2:(start-goal) -> 3:(goal-start) -> 4:(start-init) -> 5:(init-home)
         self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
         self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
@@ -266,4 +271,10 @@ class BaseWheelTurning:
 
         file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt']
         return file_names
+
+    def AddWall(self,p = [0.60,0.0,1.0]):
+        body = RaveCreateKinBody(self.env,'')
+        body.SetName('wall')
+        body.InitFromBoxes(numpy.array([[p[0],p[1],p[2],0.1,2.0,2.0]]),True) # False for not visible
+        self.env.Add(body,True)
 
