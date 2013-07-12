@@ -3,16 +3,20 @@
 # Worcester Polytechnic Institute
 #
 
-#import openhubo
-#import openhubo.trajectory as achtraj
 import openravepy
+import roslib
+roslib.load_manifest("wpi_planning_utilities")
 from copy import deepcopy
 from numpy import *
+from wpi_planning_utilities.str2num import *
 
 def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,deltatimeOffset):
 
     myAchTraj=openravepy.RaveCreateTrajectory(robot.GetEnv(),'')
     config=deepcopy(traj.GetConfigurationSpecification())
+    robotJointValsDOF = traj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").dof
+    robotJointVelsDOF = traj.GetConfigurationSpecification().GetGroupFromName("joint_velocities drchubo-v2").dof
+    
     #config.AddDeltaTimeGroup()
     myAchTraj.Init(config)
 
@@ -24,14 +28,14 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
         wp = traj.GetWaypoint(i)
         awp = deepcopy(wp)
         # print "joint values"
-        q = wp[robotJointValsOffset:(robotJointValsOffset+numJoints)]
+        q = wp[robotJointValsOffset:(robotJointValsOffset+robotJointValsDOF)]
         #print "Rave2RealHubo says"
         #print robotJointValsOffset
         #print (robotJointValsOffset+numJoints)
         
         # print q
         # print "joint velocities"
-        qdot = wp[robotJointVelsOffset:(robotJointVelsOffset+numJoints)]
+        qdot = wp[robotJointVelsOffset:(robotJointVelsOffset+robotJointVelsDOF)]
         # print qdot
         # print "deltatime"
         dt = wp[deltatimeOffset]
@@ -81,12 +85,17 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
         # pose['LF3'] = q[23]
         # pose['LF4'] = 0
         # pose['LF5'] = 0
+        
+    # openravepy.planningutils.RetimeTrajectory(myAchTraj,hastimestamps=True) # inputs: trajectory, hastimestamps.
 
-    openravepy.planningutils.RetimeTrajectory(myAchTraj,True)
+    openravepy.planningutils.RetimeActiveDOFTrajectory(myAchTraj,robot,hastimestamps=False,maxvelmult=1,maxaccelmult=1,plannername='ParabolicTrajectoryRetimer')
+
     achTrajLength = myAchTraj.GetNumWaypoints()
 
     retimedRobotJointValsOffset = myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").offset
-
+    retimedRobotJointValsDOF = myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").dof
+    
+    activedofs = str2num(myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").name[len("joint_values drchubo-v2"):]).astype(int)
     fRaveRetimed = open(fname+'_retimed.txt','w')
     fRaveRetimed.write(myAchTraj.serialize(0))
     fRaveRetimed.close()
@@ -95,12 +104,15 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
 
     for i in range(achTrajLength):
         atwp = myAchTraj.GetWaypoint(i)
-        aq = atwp[retimedRobotJointValsOffset:(retimedRobotJointValsOffset+numJoints)]
-        # With Fingers
-        # myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], q[33], q[42], q[45], q[48], 0, q[7], q[20], q[23],  0, 0]
-
+        allq = zeros(numJoints)
+        aq = atwp[retimedRobotJointValsOffset:(retimedRobotJointValsOffset+retimedRobotJointValsDOF)]
+        for aIdx, a in enumerate(activedofs):
+            # With Fingers
+            # myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], q[33], q[42], q[45], q[48], 0, q[7], q[20], q[23],  0, 0]
+            allq[a] = aq[aIdx]
+            
         # No Fingers
-        myAchQ = [aq[36], aq[37], aq[38], aq[39], aq[40], aq[41], aq[11], aq[12], aq[13], aq[14], aq[15], aq[16], aq[26], aq[27], aq[28], aq[29], aq[30], aq[32], aq[31], aq[0], aq[1], aq[2], aq[3], aq[4], aq[6], aq[5], aq[17], aq[18], aq[19], aq[10], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        myAchQ = [allq[36], allq[37], allq[38], allq[39], allq[40], allq[41], allq[11], allq[12], allq[13], allq[14], allq[15], allq[16], allq[26], allq[27], allq[28], allq[29], allq[30], allq[32], allq[31], allq[0], allq[1], allq[2], allq[3], allq[4], allq[6], allq[5], allq[17], allq[18], allq[19], allq[10], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
         # print myAchQ
         f.write(' '.join([str(x) for x in myAchQ])+'\n')
