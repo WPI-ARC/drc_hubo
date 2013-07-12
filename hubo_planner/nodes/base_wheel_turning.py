@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# Jim Mainprice, RAIL
+# Jim Mainprice of ARC, and,
+# Ben Suay of RAIL
 # May 2013
 # Worcester Polytechnic Institute
 #
@@ -47,13 +48,14 @@ class BaseWheelTurning:
         self.ShowUserInterface = False
         self.ViewerStarted = False
 
-        self.T_Wheel = None
+        self.T_Wheel = None # Wheel transform in world coords.
+        self.r_Wheel = None # Default Wheel radius
         self.HuboModelPath = HuboModelPath
         self.WheelModelPath = WheelModelPath
 
         # Start Environment
         self.env = Environment()
-        RaveSetDebugLevel(DebugLevel.Info) # set output level to debug
+        self.env.SetDebugLevel(DebugLevel.Info) # set output level to debug
         self.robotid = self.env.ReadRobotURI(self.HuboModelPath)
         self.crankid = self.env.ReadRobotURI(self.WheelModelPath)
         self.env.Add(self.robotid)
@@ -79,10 +81,13 @@ class BaseWheelTurning:
         print "SetStopKeyStrokes"
         self.StopAtKeyStrokes = arg
 
-    def SetWheelPosition(self,trans,rot):
+    def SetWheelPosition(self,trans,rot,radius):
         print "SetWheelPosition"
         self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
         self.crankid.SetTransform(array(self.T_Wheel))
+        # Add a disc that acts like a valve.
+        # This is for obstacle avoidance and visualization purposes
+        
 
     def RemoveFiles(self):
 
@@ -93,7 +98,7 @@ class BaseWheelTurning:
         except OSError, e:
             print e    
 
-        for i in range(4):
+        for i in range(10):
             try:
                 print "Removing movetraj"+str(i)+".txt"
                 os.remove("movetraj"+str(i)+".txt")
@@ -116,9 +121,37 @@ class BaseWheelTurning:
             
 
         # Move the wheel infront of the robot
+        # These are the default transform and radius values
+        wheelHeight = 0.95
+        wheelDist = 0.35
+        wheelY = 0.0
+        self.worldPitch = 0.0
+
+        # Find the difference of angle between the wheel's end effector and the link (23 degrees)
+        # We should only do this if we're using the logitech wheel.
+        self.tiltDiff = acos(dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.crankid.GetLinks()[0].GetTransform())[1,1])
         if self.T_Wheel is None:
-            self.T_Wheel = MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2,0,0])),transpose(matrix([0.18, 0.0851953, 0.85])))
+            # pi/2-tiltDiff+worldPitch makes sure that the wheel's pitch angle is 0 when it's straight up in the world
+            self.T_Wheel = MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-self.tiltDiff+self.worldPitch,0,0])),transpose(matrix([wheelDist, wheelY, wheelHeight])))
             self.crankid.SetTransform(array(self.T_Wheel))
+
+        if(self.r_Wheel == None):
+            self.r_Wheel = 0.15
+            
+        # Create a cylinder
+        self.infocylinder = KinBody.Link.GeometryInfo()
+        self.infocylinder._type = KinBody.Link.GeomType.Cylinder
+        self.infocylinder._vGeomData = [self.r_Wheel,0.01] # radius and height/thickness
+        self.infocylinder._bVisible = True
+        self.infocylinder._fTransparency = 0.0
+        self.infocylinder._vDiffuseColor = [0,1,1]
+
+        self.myDisc = RaveCreateKinBody(self.env,'')
+        self.myDisc.InitFromGeometries([self.infocylinder]) # we could add more cylinders in the list
+        self.myDisc.SetName('valve')
+        self.env.Add(self.myDisc,True)
+
+        self.myDisc.SetTransform(self.crankid.GetManipulators()[0].GetTransform())
   
         # Draw wheel position
         if self.ShowUserInterface :
@@ -132,10 +165,9 @@ class BaseWheelTurning:
             print T_RightFoot
 
     def Playback(self):
-        # Playback 0:(init-start) -> 1:(start-goal) -> 2:(goal-start) -> 3:(start-init)
-
-        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+        # Playback 0:(home-init) -> 1:(init-start) -> 2:(start-goal) -> 3:(goal-start) -> 4:(start-init) -> 5:(init-home)
+        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
         probs = self.env.GetLoadedProblems()
 
@@ -146,6 +178,22 @@ class BaseWheelTurning:
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
+            return []
+        
+        self.robotid.GetController().Reset(0)
+        time.sleep(1)
+
+        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+        
+        try:
+            answer= probs[0].SendCommand('traj movetraj1.txt');
+            self.robotid.WaitForController(0)
+            # debug
+            print "traj call answer: ",str(answer)
+        except openrave_exception, e:
+            print e
+            return []
         
         self.robotid.GetController().Reset(0)
         time.sleep(1)
@@ -155,13 +203,14 @@ class BaseWheelTurning:
         time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj1.txt');
-            answer= probs[1].SendCommand('traj movetraj1.txt');
+            answer= probs[0].SendCommand('traj movetraj2.txt');
+            answer= probs[1].SendCommand('traj movetraj2.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
+            return []
         
         self.robotid.GetController().Reset(0)
         time.sleep(1)
@@ -171,30 +220,48 @@ class BaseWheelTurning:
         time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj2.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-        
-        self.robotid.GetController().Reset(0)
-        time.sleep(1)
-
-        try:
             answer= probs[0].SendCommand('traj movetraj3.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
         except openrave_exception, e:
             print e
+            return []
         
         self.robotid.GetController().Reset(0)
+        time.sleep(1)
 
+        try:
+            answer= probs[0].SendCommand('traj movetraj4.txt');
+            self.robotid.WaitForController(0)
+            # debug
+            print "traj call answer: ",str(answer)
+        except openrave_exception, e:
+            print e
+            return []
+        
+        self.robotid.GetController().Reset(0)
+        time.sleep(1)
+
+        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
+        time.sleep(1)
+
+        try:
+            answer= probs[0].SendCommand('traj movetraj5.txt');
+            self.robotid.WaitForController(0)
+            # debug
+            print "traj call answer: ",str(answer)
+        except openrave_exception, e:
+            print e
+            return []
+        
+        self.robotid.GetController().Reset(0)
+        
         if( self.StopAtKeyStrokes ):
             print "Press Enter to exit..."
             sys.stdin.readline()
 
-        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj1.txt','movetraj3.txt']
+        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt']
         return file_names
 
