@@ -3,8 +3,8 @@
 # Worcester Polytechnic Institute
 #
 
-import openhubo
-import openhubo.trajectory as achtraj
+#import openhubo
+#import openhubo.trajectory as achtraj
 import openravepy
 from copy import deepcopy
 from numpy import *
@@ -25,9 +25,9 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
         awp = deepcopy(wp)
         # print "joint values"
         q = wp[robotJointValsOffset:(robotJointValsOffset+numJoints)]
-        print "Rave2RealHubo says"
-        print robotJointValsOffset
-        print (robotJointValsOffset+numJoints)
+        #print "Rave2RealHubo says"
+        #print robotJointValsOffset
+        #print (robotJointValsOffset+numJoints)
         
         # print q
         # print "joint velocities"
