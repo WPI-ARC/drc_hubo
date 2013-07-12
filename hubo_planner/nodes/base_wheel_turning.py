@@ -166,20 +166,26 @@ class BaseWheelTurning:
             print T_Torso
             print T_RightFoot
 
-    def Playback(self):
+    def Playback(self,retimed=False):
 
         if( self.StopAtKeyStrokes ):
             print "Press Enter to exit..."
             sys.stdin.readline()
 
-        # Playback 0:(home-init) -> 1:(init-start) -> 2:(start-goal) -> 3:(goal-start) -> 4:(start-init) -> 5:(init-home)
-        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
+        retimed_str = ''
+        if( retimed ):
+            retimed_str = '_retimed'
+
+        close_hands = False
+        if( close_hands ):
+            # Playback 0:(home-init) -> 1:(init-start) -> 2:(start-goal) -> 3:(goal-start) -> 4:(start-init) -> 5:(init-home)
+            self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+            self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
         probs = self.env.GetLoadedProblems()
 
         try:
-            answer= probs[0].SendCommand('traj movetraj0.txt');
+            answer= probs[0].SendCommand('traj movetraj0'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -190,11 +196,12 @@ class BaseWheelTurning:
         self.robotid.GetController().Reset(0)
         time.sleep(1)
 
-        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+        if( close_hands ):
+            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
         
         try:
-            answer= probs[0].SendCommand('traj movetraj1.txt');
+            answer= probs[0].SendCommand('traj movetraj1'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -205,13 +212,14 @@ class BaseWheelTurning:
         self.robotid.GetController().Reset(0)
         time.sleep(1)
 
-        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-        time.sleep(1)
+        if( close_hands ):
+            self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+            self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
+            time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj2.txt');
-            answer= probs[1].SendCommand('traj movetraj2.txt');
+            answer= probs[0].SendCommand('traj movetraj2'+retimed_str+'.txt');
+            answer= probs[1].SendCommand('traj movetraj2'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -222,12 +230,13 @@ class BaseWheelTurning:
         self.robotid.GetController().Reset(0)
         time.sleep(1)
 
-        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-        time.sleep(1)
+        if( close_hands ):
+            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+            time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj3.txt');
+            answer= probs[0].SendCommand('traj movetraj3'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -239,7 +248,7 @@ class BaseWheelTurning:
         time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj4.txt');
+            answer= probs[0].SendCommand('traj movetraj4'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -250,12 +259,13 @@ class BaseWheelTurning:
         self.robotid.GetController().Reset(0)
         time.sleep(1)
 
-        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-        time.sleep(1)
+        if( close_hands ):
+            self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+            self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
+            time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj5.txt');
+            answer= probs[0].SendCommand('traj movetraj5'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -269,12 +279,12 @@ class BaseWheelTurning:
             print "Press Enter to exit..."
             sys.stdin.readline()
 
-        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt']
+        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt' ]
         return file_names
 
     def AddWall(self,p = [0.60,0.0,1.0]):
         body = RaveCreateKinBody(self.env,'')
         body.SetName('wall')
-        body.InitFromBoxes(numpy.array([[p[0],p[1],p[2],0.1,2.0,2.0]]),True) # False for not visible
+        body.InitFromBoxes(numpy.array([[p[0],p[1],p[2],0.1,2.0,2.0]]),False) # False for not visible
         self.env.Add(body,True)
 

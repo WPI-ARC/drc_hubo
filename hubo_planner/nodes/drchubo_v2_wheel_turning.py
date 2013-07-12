@@ -25,7 +25,7 @@ from math import *
 from copy import *
 import os # for file operations
 from base_wheel_turning import *
-import Rave2RealHubo
+import rave2realhubo
 
 class DrcHuboWheelTurning( BaseWheelTurning ):
 
@@ -270,7 +270,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # print "deltatime offset"
             # print deltatimeGroup.offset
 
-            Rave2RealHubo.traj2ach(self.env,self.robotid,traj,"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+            rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
@@ -462,7 +462,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    Rave2RealHubo.traj2ach(self.env,self.robotid,traj,"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
@@ -524,7 +524,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
 
 
-                    Rave2RealHubo.traj2ach(self.env,self.robotid,traj,"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
 
                 except OSError, e:
                     # No file cmovetraj
@@ -577,7 +577,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    Rave2RealHubo.traj2ach(self.env,self.robotid,traj,"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
@@ -625,7 +625,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    Rave2RealHubo.traj2ach(self.env,self.robotid,traj,"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
@@ -675,7 +675,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    Rave2RealHubo.traj2ach(self.env,self.robotid,traj,"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
@@ -714,8 +714,7 @@ if __name__ == "__main__":
         planner.SetStopKeyStrokes(True)
         planner.StartViewerAndSetWheelPos( handles )
         planner.SetProblems()
-        planner.AddWall()
-        planner.Playback()
+        planner.Playback(True)
         planner.KillOpenrave()
     else:    
         planner.SetViewer(True)
