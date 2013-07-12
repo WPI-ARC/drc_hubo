@@ -10,20 +10,22 @@
 # On that page you can find more examples on how to use openrave-robot.py.
 
 from openravepy import *
+import roslib
+roslib.load_manifest("hubo_planner")
 import sys
 if not __openravepy_build_doc__:
     from openravepy import *
     from numpy import *
     import numpy
 import time
-from rodrigues import *
-from TransformMatrix import *
-from str2num import *
-from TSR import *
+from wpi_planning_utilities.rodrigues import *
+from wpi_planning_utilities.TransformMatrix import *
+from wpi_planning_utilities.str2num import *
+from wpi_planning_utilities.TSR import *
 from math import *
 from copy import *
 import os # for file operations
-from RaveCBiRRT import *
+from wpi_planning_utilities.RaveCBiRRT import *
 
 def trans_to_str(T):
     myStr = ""
