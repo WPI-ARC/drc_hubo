@@ -17,7 +17,7 @@ from sensor_msgs.msg import *
 from trajectory_msgs.msg import *
 from hubo_planner.srv import *
 
-import hubo_trajectory_reader
+import hubo_traj_reader
 import hubo_plus_wheel_turning
 
 
@@ -91,7 +91,7 @@ class HuboPlannerInterface:
 
         for f in trajectory_files:
             print "read file : " + f
-            traj_array.append( hubo_trajectory_reader.read( f ) )
+            traj_array.append( hubo_traj_reader.read( f ) )
 
         #print traj_array
         return PlanValveTurningResponse( traj_array, ["LABELS"] , "PLAN_OK" )

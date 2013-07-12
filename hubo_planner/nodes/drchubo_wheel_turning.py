@@ -38,6 +38,17 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         self.ShowUserInterface = False
         self.ViewerStarted = False
 
+	# Right Hand Joints 
+        # Open - Closed Values
+        self.rhanddofs = range(26,29)
+        self.rhandclosevals = [0.95, 0.95, -0.95]
+        self.rhandopenvals = [0, 0, 0]
+
+        # Left Hand Joints
+        self.lhanddofs = range(8,11)
+        self.lhandclosevals = [0.95, 0.95, -0.95]
+        self.lhandopenvals = [0, 0, 0]
+
     def Run(self):
 
         self.RemoveFiles()
@@ -145,17 +156,6 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         # Center of Gravity Target
         # cogtarg = [-0.05, 0.085, 0]
         cogtarg = [0, 0, 0]
-        
-        # Right Hand Joints 
-        # Open - Closed Values
-        self.rhanddofs = range(26,29)
-        self.rhandclosevals = [0.95, 0.95, -0.95]
-        self.rhandopenvals = [0, 0, 0]
-
-        # Left Hand Joints
-        self.lhanddofs = range(8,11)
-        self.lhandclosevals = [0.95, 0.95, -0.95]
-        self.lhandopenvals = [0, 0, 0]
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around

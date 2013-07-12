@@ -39,6 +39,17 @@ class HuboPlusWheelTurning( BaseWheelTurning ):
         self.ShowUserInterface = False
         self.ViewerStarted = False
 
+	# Right Hand Joints 
+        # Open - Closed Values
+        self.rhanddofs = range(27,42)
+        self.rhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
+        self.rhandopenvals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
+
+        # Left Hand Joints
+        self.lhanddofs = range(42,57)
+        self.lhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
+        self.lhandopenvals =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
+
     def SetRobotConfiguration(self,jointValues):
         print "SetRobotConfiguration"
         values = []
@@ -208,17 +219,6 @@ class HuboPlusWheelTurning( BaseWheelTurning ):
         #if self.ShowUserInterface :
             #cogtm = MakeTransform(rodrigues([0,0,0]),transpose(matrix(cogtarg)))
             #handles.append(misc.DrawAxes(self.env,cogtm,1))
-
-        # Right Hand Joints 
-        # Open - Closed Values
-        self.rhanddofs = range(27,42)
-        self.rhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
-        self.rhandopenvals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
-
-        # Left Hand Joints
-        self.lhanddofs = range(42,57)
-        self.lhandclosevals = [0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0.439, 0.683, 0.497, 0, 0, 1.2]
-        self.lhandopenvals =  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.08]
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
