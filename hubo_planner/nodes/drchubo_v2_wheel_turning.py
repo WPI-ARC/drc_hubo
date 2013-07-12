@@ -41,7 +41,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         self.ShowUserInterface = False
         self.ViewerStarted = False
 
-	# Right Hand Joints 
+	    # Right Hand Joints 
         # Open - Closed Values
         self.rhanddofs = [7,20,23]
         self.rhandclosevals = [-0.15, -0.15, -0.15]
@@ -107,6 +107,12 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         # elbows: Left Elbow Pitch: 3; Right Elbow Pitch: 29
         self.robotid.SetDOFValues([-0.95,-0.95],[3,29]) 
         self.robotid.SetActiveDOFs(activedofs)
+
+        leg_height = self.robotid.GetManipulators()[2].GetEndEffectorTransform()[2,3]
+        # Find a trajectory from 0 to initconfig
+        if( self.StopAtKeyStrokes ):
+            print "Leg height :  " + str(leg_height)
+            sys.stdin.readline()
 
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
@@ -700,17 +706,21 @@ if __name__ == "__main__":
             elif(sys.argv[index] == "-play"):
                 p = True
     
-    planner = DrcHuboWheelTurning()
-    planner.SetViewer(True)
-    planner.SetStopKeyStrokes(False)
+    planner = DrcHuboWheelTurning()   
 
     if p:
         handles = [] 
+        planner.SetViewer(True)
+        planner.SetStopKeyStrokes(True)
         planner.StartViewerAndSetWheelPos( handles )
         planner.SetProblems()
+        planner.AddWall()
         planner.Playback()
         planner.KillOpenrave()
     else:    
+        planner.SetViewer(True)
+        planner.SetStopKeyStrokes(False)
+        planner.AddWall()
         planner.Run(r)
         planner.KillOpenrave()
 
