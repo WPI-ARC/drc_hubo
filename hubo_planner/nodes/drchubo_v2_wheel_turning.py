@@ -698,28 +698,33 @@ if __name__ == "__main__":
     # One can run this script from terminal passing a radius value in
     # Otherwise use the default value
     r = None
-    p = False
+    play = False
+    taskwall = False
     if(len(sys.argv) >= 2):
         for index in range(1,len(sys.argv)):
             if(sys.argv[index] == "-radius" and index+1<len(sys.argv)):
                 r = float(sys.argv[index+1])
             elif(sys.argv[index] == "-play"):
-                p = True
+                play = True
+            elif(sys.argv[index] == "-taskwall"):
+                taskwall = True
     
     planner = DrcHuboWheelTurning()   
+    planner.SetViewer(True)
 
-    if p:
+    if play:
         handles = [] 
-        planner.SetViewer(True)
         planner.SetStopKeyStrokes(True)
         planner.StartViewerAndSetWheelPos( handles )
         planner.SetProblems()
-        planner.Playback(True)
-        planner.KillOpenrave()
+        planner.Playback(True)        
     else:    
-        planner.SetViewer(True)
         planner.SetStopKeyStrokes(False)
-        planner.AddWall()
+        if taskwall:
+            planner.InitFromTaskWallEnv()
+        else:
+            planner.AddWall()
         planner.Run(r)
-        planner.KillOpenrave()
+
+    planner.KillOpenrave()
 

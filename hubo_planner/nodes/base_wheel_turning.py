@@ -288,3 +288,6 @@ class BaseWheelTurning:
         body.InitFromBoxes(numpy.array([[p[0],p[1],p[2],0.1,2.0,2.0]]),False) # False for not visible
         self.env.Add(body,True)
 
+    def InitFromTaskWallEnv(self):
+        self.env.Load(roslib.packages.get_pkg_dir("wpi_drc_sim")+'/../models/drc_task_wall.env.xml')
+
