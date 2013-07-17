@@ -44,6 +44,8 @@ class BaseWheelTurning:
 
     def __init__(self, HuboModelPath, WheelModelPath ):
         
+        self.crouch = 0.05
+        
         # Set those variables to show or hide the interface
         # Do it using the member functions
         self.StopAtKeyStrokes = False
@@ -71,6 +73,14 @@ class BaseWheelTurning:
         self.lhandclosevals = None
         self.lhanddofs = None
 
+        self.T0_tsy_home = self.robotid.GetLinks()[12].GetTransform()
+        self.T0_lar_home = self.robotid.GetManipulators()[2].GetEndEffectorTransform()
+        self.T0_rar_home = self.robotid.GetManipulators()[3].GetEndEffectorTransform()
+        self.Ttsy_lar_home = array(dot(linalg.inv(self.T0_tsy_home),self.T0_lar_home))
+        self.Ttsy_rar_home = array(dot(linalg.inv(self.T0_tsy_home),self.T0_rar_home))
+
+        self.wheelDistFromTSY = 0.4
+
     def KillOpenrave(self):
         self.env.Destroy()
         RaveDestroy()
@@ -87,9 +97,11 @@ class BaseWheelTurning:
         print "SetWheelPosition"
         self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
         self.crankid.SetTransform(array(self.T_Wheel))
-        # Add a disc that acts like a valve.
-        # This is for obstacle avoidance and visualization purposes
-        
+
+    def SetWheelPoseFromTransform(self,T0_Wheel):
+        print "SetWheelPosition"
+        self.T_Wheel = T0_Wheel
+        self.crankid.SetTransform(array(self.T_Wheel))        
 
     def RemoveFiles(self):
 
@@ -107,7 +119,7 @@ class BaseWheelTurning:
             except OSError, e:
                 print e
 
-    def StartViewerAndSetWheelPos(self, handles):
+    def StartViewerAndSetValvePos(self, handles, valveType="w"):
 
         # Start the Viewer and draws the world frame
         if self.ShowUserInterface and not self.ViewerStarted :
@@ -124,9 +136,15 @@ class BaseWheelTurning:
 
         # Move the wheel infront of the robot
         # These are the default transform and radius values
-        wheelHeight = 0.95
-        wheelDist = 0.35
+        #
+        # Get the 
+        
+        self.wheelHeightFromTSY = 0.15
+        self.TSYHeight = self.robotid.GetLinks()[12].GetTransform()[2,3]
+        self.wheelHeight = self.TSYHeight + self.wheelHeightFromTSY - self.crouch
+
         wheelY = 0.0
+
         self.worldPitch = 0.0
 
         # Find the difference of angle between the wheel's end effector and the link (23 degrees)
@@ -134,37 +152,45 @@ class BaseWheelTurning:
         self.tiltDiff = acos(dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.crankid.GetLinks()[0].GetTransform())[1,1])
         if self.T_Wheel is None:
             # pi/2-tiltDiff+worldPitch makes sure that the wheel's pitch angle is 0 when it's straight up in the world
-            self.T_Wheel = MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-self.tiltDiff+self.worldPitch,0,0])),transpose(matrix([wheelDist, wheelY, wheelHeight])))
+            # TODO: This is super hacky. Make it right. As in, define everythig in TSY frame, and then convert it to world frame.
+            self.T_Wheel = MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-self.tiltDiff+self.worldPitch,0,0])),transpose(matrix([self.wheelDistFromTSY, wheelY, self.wheelHeight])))
             self.crankid.SetTransform(array(self.T_Wheel))
 
         if(self.r_Wheel == None):
-            self.r_Wheel = 0.15
-            
-        # Create a cylinder
-        self.infocylinder = KinBody.Link.GeometryInfo()
-        self.infocylinder._type = KinBody.Link.GeomType.Cylinder
-        self.infocylinder._vGeomData = [self.r_Wheel,0.01] # radius and height/thickness
-        self.infocylinder._bVisible = True
-        self.infocylinder._fTransparency = 0.0
-        self.infocylinder._vDiffuseColor = [0,1,1]
+            self.r_Wheel = 0.2
 
-        self.myDisc = RaveCreateKinBody(self.env,'')
-        self.myDisc.InitFromGeometries([self.infocylinder]) # we could add more cylinders in the list
-        self.myDisc.SetName('valve')
-        self.env.Add(self.myDisc,True)
 
-        self.myDisc.SetTransform(self.crankid.GetManipulators()[0].GetTransform())
+        self.myValveHandle = RaveCreateKinBody(self.env,'')
+
+        if(valveType == "l"): # valve type: lever
+            self.myValveHandle.InitFromBoxes(numpy.array([[-self.r_Wheel*0.5,0,0,self.r_Wheel*0.5,0.01,0.005]]),True)
+        elif(valveType == "w"): # valve type: wheel
+            # Create a cylinder
+            self.infocylinder = KinBody.Link.GeometryInfo()
+            self.infocylinder._type = KinBody.Link.GeomType.Cylinder
+            self.infocylinder._vGeomData = [self.r_Wheel,0.01] # radius and height/thickness
+            self.infocylinder._bVisible = True
+            self.infocylinder._fTransparency = 0.0
+            self.infocylinder._vDiffuseColor = [0,1,1]           
+            self.myValveHandle.InitFromGeometries([self.infocylinder]) # we could add more cylinders in the list
+
+        self.myValveHandle.SetName('valve')
+        self.env.Add(self.myValveHandle,True)
+        
+
+        self.myValveHandle.SetTransform(self.crankid.GetManipulators()[0].GetTransform())
   
         # Draw wheel position
         if self.ShowUserInterface :
             print self.robotid.GetJoints()[11].GetAnchor()
             T_RightFoot = self.robotid.GetLinks()[0].GetTransform()
             T_Torso = self.robotid.GetLinks()[8].GetTransform()
-            handles.append( misc.DrawAxes(self.env,self.T_Wheel,0.5) )  
-            handles.append( misc.DrawAxes(self.env,T_Torso,0.5) ) 
-            handles.append( misc.DrawAxes(self.env,T_RightFoot,0.5) ) 
+            #handles.append( misc.DrawAxes(self.env,self.T_Wheel,0.5) )  
+            #handles.append( misc.DrawAxes(self.env,T_Torso,0.5) ) 
+            #handles.append( misc.DrawAxes(self.env,T_RightFoot,0.5) ) 
             print T_Torso
             print T_RightFoot
+        
 
     def Playback(self,retimed=False):
 
@@ -185,7 +211,7 @@ class BaseWheelTurning:
         probs = self.env.GetLoadedProblems()
 
         try:
-            answer= probs[0].SendCommand('traj movetraj0'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj movetraj0'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -201,7 +227,7 @@ class BaseWheelTurning:
             self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
         
         try:
-            answer= probs[0].SendCommand('traj movetraj1'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj movetraj1'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -218,8 +244,8 @@ class BaseWheelTurning:
             time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj2'+retimed_str+'.txt');
-            answer= probs[1].SendCommand('traj movetraj2'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj movetraj2'+retimed_str+'.txt');
+            answer= self.probs_crankmover.SendCommand('traj movetraj2'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -236,7 +262,7 @@ class BaseWheelTurning:
             time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj3'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj movetraj3'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -248,7 +274,7 @@ class BaseWheelTurning:
         time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj4'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj movetraj4'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -265,7 +291,7 @@ class BaseWheelTurning:
             time.sleep(1)
 
         try:
-            answer= probs[0].SendCommand('traj movetraj5'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj movetraj5'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -282,10 +308,12 @@ class BaseWheelTurning:
         file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt' ]
         return file_names
 
-    def AddWall(self,p = [0.60,0.0,1.0]):
+    def AddWall(self,p = [0,0,0]):
+        print "adding a wall"
         body = RaveCreateKinBody(self.env,'')
         body.SetName('wall')
-        body.InitFromBoxes(numpy.array([[p[0],p[1],p[2],0.1,2.0,2.0]]),False) # False for not visible
+        behindValveClearance = 0.08
+        body.InitFromBoxes(numpy.array([[self.wheelDistFromTSY+behindValveClearance,0,0.61,0.001,0.61,1.22]]),True) # False for not visible
         self.env.Add(body,True)
 
     def InitFromTaskWallEnv(self):

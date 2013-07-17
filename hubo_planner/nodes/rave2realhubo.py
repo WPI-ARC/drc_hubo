@@ -119,25 +119,32 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
 
     f.close()
 
-def openHandsHere(robot,freq,duration,fname):
+def sameDamnThing(robot,freq,duration,hand,fname,fingerVal):
+    lfv = 0.0
+    rfv = 0.0
+    if(hand == "lh"):
+        lfv = fingerVal
+    elif(hand == "rh"):
+        rfv = fingerVal
+    elif(hand == "bh"):
+        lfv = fingerVal
+        rfv = fingerVal
+
     # duration in seconds (How long do you want to wait until the robot closes its hands)
     # freq in hertz
     reps = duration*freq
-    q = robot.GetDOFValues(range(51))
+    q = robot.GetDOFValues(range(len(robot.GetJoints())))
     f = open(fname+'.traj','w')
-    for i in range(reps):
-        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], -0.1, 0, 0, 0, 0, -0.1, -0.1, 0, 0, 0]
+    for i in range(int(reps)):
+        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], lfv, 0, 0, 0, 0, rfv,  rfv, 0, 0, 0]
         f.write(' '.join([str(x) for x in myAchQ])+'\n')
     f.close
+
+def openHandsHere(robot,freq,duration,hand,fname):
+    sameDamnThing(robot,freq,duration,hand,fname,-0.1)
     
-def closeHandsHere(robot,freq,duration,fname):
-    # duration in seconds (How long do you want to wait until the robot closes its hands)
-    # freq in hertz
-    reps = duration*freq
-    q = robot.GetDOFValues(range(51))
-    f = open(fname+'.traj','w')
-    for i in range(reps):
-        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], 0.1, 0, 0, 0, 0, 0.1, 0.1, 0, 0, 0]
-        f.write(' '.join([str(x) for x in myAchQ])+'\n')
-    f.close
+def relaxHandsHere(robot,freq,duration,hand,fname):
+    sameDamnThing(robot,freq,duration,hand,fname,0.0)
     
+def closeHandsHere(robot,freq,duration,hand,fname):
+    sameDamnThing(robot,freq,duration,hand,fname,0.1)

@@ -31,9 +31,10 @@ class HuboPlannerInterface:
         self.path = path
         self.current_config = None
 
-        #path_to_robot = path + '/../openHubo/huboplus/rlhuboplus_mit.robot.xml'
-        path_to_robot = path + '/../openHubo/huboplus/rlhuboplus.robot.xml'
-        path_to_wheel = path + '/../../drc_common/models/driving_wheel.robot.xml'
+        # path_to_robot = path + '/../openHubo/huboplus/rlhuboplus_mit.robot.xml'
+        # path_to_robot = path + '/../openHubo/huboplus/rlhuboplus.robot.xml'
+        # path_to_wheel = path + '/../../drc_common/models/driving_wheel.robot.xml'
+        path_to_robot = roslib.packages.get_pkg_dir("drchubo-v2")+'/robots/drchubo-v2.robot.xml'
         self.planner = hubo_plus_wheel_turning.HuboPlusWheelTurning( path_to_robot, path_to_wheel )
         self.planner.SetViewer(True)
         self.planner.SetStopKeyStrokes(False)
