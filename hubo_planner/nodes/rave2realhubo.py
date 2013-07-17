@@ -136,7 +136,7 @@ def sameDamnThing(robot,freq,duration,hand,fname,fingerVal):
     q = robot.GetDOFValues(range(len(robot.GetJoints())))
     f = open(fname+'.traj','w')
     for i in range(int(reps)):
-        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], lfv, 0, 0, 0, 0, rfv,  rfv, 0, 0, 0]
+        myAchQ = [q[36], q[37], q[38], q[39], q[40], q[41], q[11], q[12], q[13], q[14], q[15], q[16], q[26], q[27], q[28], q[29], q[30], q[32], q[31], q[0], q[1], q[2], q[3], q[4], q[6], q[5], q[17], q[18], q[19], q[10], rfv, rfv, 0, 0, 0, lfv,  0, 0, 0, 0]
         f.write(' '.join([str(x) for x in myAchQ])+'\n')
     f.close
 

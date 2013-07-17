@@ -1612,8 +1612,8 @@ if __name__ == "__main__":
             # planner.Run(handles,r,manipulator="bh",valveType="w")
 
             #################################################################################
-            # Uncomment the following for the vertical ball valve code (left hand)
-            # planner.wheelHeightFromTSY = 0.02
+            # # Uncomment the following for the vertical ball valve code (left hand)
+            # planner.wheelHeightFromTSY = 0.1
             # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
             # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
             # wheelY = 0.0
@@ -1628,7 +1628,7 @@ if __name__ == "__main__":
 
             #################################################################################
             # Uncomment the following for the vertical tiny valve code (left hand)
-            planner.wheelHeightFromTSY = 0.02
+            planner.wheelHeightFromTSY = 0.1
             planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
             planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
             wheelY = 0.0
