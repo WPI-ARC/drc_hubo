@@ -1,4 +1,7 @@
-geometry_msgs/Pose valve_position
+geometry_msgs/PoseStamped valve_pose
+std_msgs/float64 valve_radius
+std_msgs/int32 valve_type
+std_msgs/int32 manipulator_index 
 ---
 trajectory_msgs/JointTrajectory[] trajectories
 string[] labels
