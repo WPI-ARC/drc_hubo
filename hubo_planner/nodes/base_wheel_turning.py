@@ -10,6 +10,7 @@
 # On that page you can find more examples on how to use openrave-robot.py.
 
 from openravepy import *
+import rospy
 import roslib
 roslib.load_manifest("hubo_planner")
 import sys
@@ -93,13 +94,29 @@ class BaseWheelTurning:
         print "SetStopKeyStrokes"
         self.StopAtKeyStrokes = arg
 
-    def SetWheelPosition(self,trans,rot,radius):
+    def SetWheelPosition(self,trans,rot):
         print "SetWheelPosition"
         self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
         self.crankid.SetTransform(array(self.T_Wheel))
 
+    def SetWheelPoseFromQuaternionInFrame(self,frame,trans,rot):
+        print "SetWheelPoseFromQuaternion"
+
+        self.T0_RefLink = None
+
+        for l in self.robotid.GetLinks():
+            if(l.GetName() == frame):
+                self.T0_RefLink = l.GetTransform()
+        
+        if(self.T0_RefLink == None):
+            rospy.logerr("In base_wheel_turning, SetWheelPoseFromQuaternion: Couldn't find the reference link name.")
+        else:
+            self.TRefLink_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
+            self.T0_Wheel = dot(self.T0_RefLink,self.TRefLink_Wheel)   
+            self.crankid.SetTransform(array(self.T0_Wheel))
+
     def SetWheelPoseFromTransform(self,T0_Wheel):
-        print "SetWheelPosition"
+        print "SetWheelPoseFromTransform"
         self.T_Wheel = T0_Wheel
         self.crankid.SetTransform(array(self.T_Wheel))        
 
@@ -162,9 +179,11 @@ class BaseWheelTurning:
 
         self.myValveHandle = RaveCreateKinBody(self.env,'')
 
-        if(valveType == "l"): # valve type: lever
+        if(valveType == "RL"): # valve type: right-lever
             self.myValveHandle.InitFromBoxes(numpy.array([[-self.r_Wheel*0.5,0,0,self.r_Wheel*0.5,0.01,0.005]]),True)
-        elif(valveType == "w"): # valve type: wheel
+        if(valveType == "LL"): # valve type: left-lever
+            self.myValveHandle.InitFromBoxes(numpy.array([[self.r_Wheel*0.5,0,0,self.r_Wheel*0.5,0.01,0.005]]),True)
+        elif(valveType == "W"): # valve type: wheel
             # Create a cylinder
             self.infocylinder = KinBody.Link.GeometryInfo()
             self.infocylinder._type = KinBody.Link.GeomType.Cylinder
@@ -195,7 +214,7 @@ class BaseWheelTurning:
     def Playback(self,retimed=False):
 
         if( self.StopAtKeyStrokes ):
-            print "Press Enter to exit..."
+            print "Press enter to play the trajectories..."
             sys.stdin.readline()
 
         retimed_str = ''
@@ -215,6 +234,8 @@ class BaseWheelTurning:
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
+            if(answer != '1'):
+                return 40 # error code 4: playback error, 0: at 0th trajectory
         except openrave_exception, e:
             print e
             return []
@@ -231,6 +252,8 @@ class BaseWheelTurning:
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
+            if(answer != '1'):
+                return 41 # error code 4: playback error, 1: at 1st trajectory
         except openrave_exception, e:
             print e
             return []
@@ -249,6 +272,8 @@ class BaseWheelTurning:
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
+            if(answer != '1'):
+                return 42 # error code 4: playback error, 2: at 2nd trajectory
         except openrave_exception, e:
             print e
             return []
@@ -266,6 +291,8 @@ class BaseWheelTurning:
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
+            if(answer != '1'):
+                return 43 # error code 4: playback error, 3: at 3rd trajectory
         except openrave_exception, e:
             print e
             return []
@@ -278,6 +305,8 @@ class BaseWheelTurning:
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
+            if(answer != '1'):
+                return 44 # error code 4: playback error, 4: at 4th trajectory
         except openrave_exception, e:
             print e
             return []
@@ -295,6 +324,8 @@ class BaseWheelTurning:
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
+            if(answer != '1'):
+                return 45 # error code 4: playback error, 5: at 5th trajectory
         except openrave_exception, e:
             print e
             return []
@@ -305,8 +336,10 @@ class BaseWheelTurning:
             print "Press Enter to exit..."
             sys.stdin.readline()
 
-        file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt' ]
-        return file_names
+        # file_names = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt' ]
+        # return file_names
+            
+        return 0 # If you are here, there is no error, return 0
 
     def AddWall(self,p = [0,0,0]):
         print "adding a wall"
@@ -318,4 +351,3 @@ class BaseWheelTurning:
 
     def InitFromTaskWallEnv(self):
         self.env.Load(roslib.packages.get_pkg_dir("wpi_drc_sim")+'/../models/drc_task_wall.env.xml')
-
