@@ -61,6 +61,14 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         self.optTaskWall = False
         self.optWall = False
         self.optDemo = False
+
+    def getSign(self,num):
+        if(num < 0.0):
+            return -1
+        elif(num > 0.0):
+            return 1
+        elif(num == 0.0):
+            return 0
         
     def GenerateJointDict(self):
         self.jointDict = {}
@@ -91,7 +99,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         waitThisMuch = 6.0 # seconds.
         rave2realhubo.openHandsHere(self.robotid,25.0,waitThisMuch,hand,fname)
         print "waiting for "+hand+" to open..."
-        time.sleep(waitThisMuch)
+        # time.sleep(waitThisMuch)
         self.SetHandDOFs(hand,self.bothhandsopenval)
         
 
@@ -100,11 +108,71 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         waitThisMuch = 6.0 # seconds.
         rave2realhubo.closeHandsHere(self.robotid,25.0,waitThisMuch,hand,fname)
         print "waiting for "+hand+" to close..."
-        time.sleep(waitThisMuch)
+        # time.sleep(waitThisMuch)
         if(fake):
             self.SetHandDOFs(hand,self.bothhandsopenval)
         else:
             self.SetHandDOFs(hand,self.bothhandscloseval)
+    
+    def GetBVector(self,T1,T2):
+
+        margin = 0.1 # in radians
+
+        print "GetBVector"
+
+        print "Getting T1"
+        axisangle1 = axisAngleFromRotationMatrix(array(T1))
+        print axisangle1
+        angle1 = sqrt(axisangle1[0]**2+axisangle1[1]**2+axisangle1[2]**2)
+        axisangle1 /= angle1
+        print "T1: rotation angle: "+str(angle1*180/pi)+", axis=["+str(axisangle1[0])+", "+str(axisangle1[1])+", "+str(axisangle1[2])+"]"
+
+        print "Getting T2"
+        axisangle2 = axisAngleFromRotationMatrix(array(T2))
+        print axisangle2
+        angle2 = sqrt(axisangle2[0]**2+axisangle2[1]**2+axisangle2[2]**2)
+        axisangle2 /= angle2
+        print "T2: rotation angle: "+str(angle2*180/pi)+", axis=["+str(axisangle2[0])+", "+str(axisangle2[1])+", "+str(axisangle2[2])+"]"       
+
+        print "T2 - T1: ["+str(axisangle2[0]-axisangle1[0])+", "+str(axisangle2[1]-axisangle1[1])+", "+str(axisangle2[2]-axisangle1[2])+"]"
+
+        # rotConstX = axisangle2[0]-axisangle1[0]
+        # rotConstY = axisangle2[1]-axisangle1[1]
+        # rotConstZ = axisangle2[2]-axisangle1[2]
+
+        rotConstX = (axisangle2[0]*angle2)-(axisangle1[0]*angle1)
+        rotConstY = (axisangle2[1]*angle2)-(axisangle1[1]*angle1)
+        rotConstZ = (axisangle2[2]*angle2)-(axisangle1[2]*angle1)
+
+        if(rotConstX < 0):
+            minRotConstX = rotConstX
+            # minRotConstX = -pi
+            maxRotConstX = 0.0
+        else:
+            minRotConstX = 0.0
+            maxRotConstX = rotConstX
+            # maxRotConstX = pi
+
+        if(rotConstY < 0):
+            minRotConstY = rotConstY
+            # minRotConstY = -pi
+            maxRotConstY = 0.0
+        else:
+            minRotConstY = 0.0
+            maxRotConstY = rotConstY
+            # maxRotConstY = pi
+
+        if(rotConstZ < 0):
+            minRotConstZ = rotConstZ
+            # minRotConstZ = -pi
+            maxRotConstZ = 0.0
+        else:
+            minRotConstZ = 0.0
+            maxRotConstZ = rotConstZ
+            # maxRotConstZ = pi
+
+        print "B Vector (with margin added): [0,0,0,0,0,0,",str(minRotConstX),", ",str(maxRotConstX),", ",str(minRotConstY),", ",str(maxRotConstY),", ",str(minRotConstZ),", ",str(maxRotConstZ),"]"
+        return matrix([0.0,0.0,0.0,0.0,0.0,0.0,minRotConstX,maxRotConstX,minRotConstY,maxRotConstY,minRotConstZ,maxRotConstZ])
         
     def BothHands(self,radius,valveType,direction):
         
@@ -152,20 +220,11 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Leg height :  " + str(leg_height)
             sys.stdin.readline()
 
-        # polyscale: changes the scale of the support polygon
-        # polytrans: shifts the support polygon around
-        footlinknames = ' Body_RAR Body_LAR polyscale 0.5 0.5 0 ' #polytrans -0.015 0 0.0 '
-
-        # Center of Gravity Target
-        # cogtarg = [-0.05, 0.085, 0]
-        cogtarg = [0, 0, 0]
-
         print "activedofs:"
         print activedofs
 
         # Current configuration of the robot is its initial configuration
         initconfig = self.robotid.GetActiveDOFValues()
-    
 
         # List of Robot Links
         links = self.robotid.GetLinks()
@@ -228,6 +287,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
         # Left Hand Pose in World Coordinates
         T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
+        #T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
 
         # Uncomment if you want to see where T0_LH1 is 
         handles.append(misc.DrawAxes(self.env,matrix(T0_LH1),1))
@@ -239,6 +299,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
         # Right Hand Pose in World Coordinates
         T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
+        #T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
 
         # Uncomment if you want to see where T0_RH1 is 
         handles.append(misc.DrawAxes(self.env,matrix(T0_RH1),1))
@@ -246,9 +307,11 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         # Define Task Space Region strings
         # Left Hand
         TSRString1 = SerializeTSR(0,'NULL',T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        #TSRString1 = SerializeTSR(0,'NULL',T0_LH1,MakeTransform(T0_LH1[0:3,0:3],transpose(matrix(jointtm[0:3,3]))),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
 
         # Right Hand
         TSRString2 = SerializeTSR(1,'NULL',T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        #TSRString2 = SerializeTSR(1,'NULL',T0_RH1,MakeTransform(T0_LH1[0:3,0:3],transpose(matrix(jointtm[0:3,3]))),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
 
         # Left Foot
         TSRString3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
@@ -281,18 +344,17 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Press Enter to go home"
             sys.stdin.readline()
 
-        
-
         self.BendTheKnees()
 
-        arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
 
-        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
-
-        sys.stdin.readline()
+        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
 
         self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
         home = self.robotid.GetActiveDOFValues()
+
+        # handles.append(misc.DrawAxes(self.env,matrix(self.T0_RefLink),0.5))
+        # handles.append(misc.DrawAxes(self.env,matrix(self.T0_WheelRViz),0.5))
 
         # Find a trajectory from 0 to initconfig
         if( self.StopAtKeyStrokes ):
@@ -304,7 +366,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         goaljoints = str2num(goaljoints)
 
         try:
-            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
+            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
             print "RunCBiRRT answer: ",str(answer)
             if(answer != '1'):
                 return 10 # 1: cbirrt error, 0: home->init
@@ -354,11 +416,12 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Press Enter to go to startik"
             sys.stdin.readline()
 
-        arg1 = str(cogtarg).strip("[]").replace(', ',' ')
-        startik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+'nummanips 2 maniptm 0 '+trans_to_str(T0_LH1)+' maniptm 1 '+trans_to_str(T0_RH1))
+        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
+        startik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 0 '+trans_to_str(T0_LH1)+' maniptm 1 '+trans_to_str(T0_RH1))
 
         if(startik == ''):
             print "Error: could not find startik"
+            return 22 # 2: generalik error, 2: at startik
         else:
             print "found startik"
             # print startik
@@ -389,9 +452,26 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())            
                 self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
                 startik = self.robotid.GetActiveDOFValues()
-            
-                T0_w0L = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
+                # print startik
 
+                # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
+                # How much do we want to rotate the wheel?
+                if(direction == "CCW"):
+                    multiplier = -1
+                elif(direction == "CW"):
+                    multiplier = 1
+
+                crank_rot = (multiplier)*(pi/10)
+            
+                # T0_w0L = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
+                # print "tilt_angle_rad"
+                # print tilt_angle_rad
+                # print "self.tiltDiff"
+                # print self.tiltDiff
+                
+                # Reverse calculate T0_w from the left hand.
+                T0_w0L = MakeTransform(T0_LH1[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
+                
                 #T0_w0L = MakeTransform(rodrigues([acos(self.crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix(jointtm[0:3,3])))
                 # This is what's happening: 
                 #
@@ -404,25 +484,70 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 # Required by CBiRRT
                 Tw0_eL = Tw0L_LH1
                 # How much freedom do we want to give to the left hand
-                Bw0L = matrix([0,0,0,0,0,0,0,pi,0,0,0,0])
+                
+                # Bw0L = matrix([0,0,0,0,0,0,0,pi,0,pi,0,pi])
 
                 # Right Hand's transforms:
-                T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
+                T0_crankcrank = self.crankid.GetManipulators()[0].GetEndEffectorTransform()
                 T0_w0R = MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0])))
+                #T0_w0R = MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0])))
                 #T0_w0R = MakeTransform(rodrigues([acos(self.crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix([0,0,0])))
                 # End effector transform in wheel coordinates
                 Tw0_eR = dot(linalg.inv(T0_crankcrank),T0_RH1)
 
                 # handles.append(misc.DrawAxes(self.env,matrix(Tw0_eR),1))
 
+                # Which joint do we want the CBiRRT to mimic the TSR for?
+                TSRChainMimicDOF = 1
+                
+                # What is this?
+                temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
+                
+                # Where will the right hand go after turning the wheel?
+                # T0_RH2 = dot(T0_crankcrank,dot(temp,dot(linalg.inv(T0_crankcrank),T0_RH1)))
+                T0_crankcrank_rotated = dot(T0_crankcrank,temp)
+                Tcrankcrank_RH1 = dot(linalg.inv(T0_crankcrank),T0_RH1)
+                T0_RH2 = dot(T0_crankcrank_rotated, Tcrankcrank_RH1)
+                
+
+                # Uncomment to see T0_RH2
+                handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
+
                 # How much freedom? (note: in frame of crank)
                 Bw0R = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
+                # Bw0R = self.GetBVector(T0_RH1,T0_RH2)
 
                 # Head's transforms:
                 T0_w0H =  Tee[4]
                 Tw0_eH = eye(4);
                 Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
 
+                # Create the transform for the wheel that we would like to reach to
+                # Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
+                # Tcrank_rot = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
+
+                # handles.append(misc.DrawAxes(self.env,self.crankid.GetManipulators()[0].GetEndEffectorTransform(),1))
+
+                # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
+                #T0_cranknew = dot(T0_w0L,Tcrank_rot)
+                T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
+                handles.append(misc.DrawAxes(self.env,matrix(T0_cranknew),1))
+
+                # Where will the left hand go after turning the wheel?
+                # This is what's happening:
+                #
+                # Tcranknew_LH2 = dot(Tw0L_0,T0_LH1) --> Left hand in wheel's coordinate
+                # T0_LH2 = dot(T0_cranknew,Tcranknew_LH2) --> Left hand rotated around wheel's origin
+                # T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
+                T0_LH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),T0_LH1))
+
+                #Bw0L = self.GetBVector(T0_LH1,T0_LH2)
+                Bw0L = matrix([0,0,0,0,0,0,0,pi,0,0,0,0])
+                # print Bw0L
+                # sys.stdin.readline()
+
+                # Uncomment to see T0_LH2
+                handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
 
                 # Define Task Space Regions
                 # Left Hand
@@ -442,57 +567,21 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                 TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([crankjointind]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',matrix([]))+' '+TSRChainStringFeetandHead_goal2start
 
-                # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
-                # How much do we want to rotate the wheel?
-                if(direction == "CCW"):
-                    multiplier = -1
-                elif(direction == "CW"):
-                    multiplier = 1
-
-                crank_rot = (multiplier)*(pi/10)
-
-                # Which joint do we want the CBiRRT to mimic the TSR for?
-                TSRChainMimicDOF = 1
-
-                # Create the transform for the wheel that we would like to reach to
-                Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
-
-                # What is this?
-                temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
-
-                # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
-                T0_cranknew = dot(T0_w0L,Tcrank_rot)
-
-                # Where will the left hand go after turning the wheel?
-                # This is what's happening:
-                #
-                # Tcranknew_LH2 = dot(Tw0L_0,T0_LH1) --> Left hand in wheel's coordinate
-                # T0_LH2 = dot(T0_cranknew,Tcranknew_LH2) --> Left hand rotated around wheel's origin
-                T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
-
-                # Uncomment to see T0_LH2
-                handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
-
-                # Where will the right hand go after turning the wheel?
-                T0_RH2 = dot(T0_crankcrank,dot(temp,dot(linalg.inv(T0_crankcrank),T0_RH1)))
-
-                # Uncomment to see T0_RH2
-                handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
 
                 if( self.StopAtKeyStrokes ):
                     print "Press Enter to find a goalIK"
                     sys.stdin.readline()
 
-                self.crankid.SetDOFValues([crank_rot],[crankjointind])
-
-                arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+                arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
                 arg2 = trans_to_str(T0_LH2)
                 arg3 = trans_to_str(T0_RH2)
                 arg4 = trans_to_str(T0_LFTarget)
                 arg5 = trans_to_str(T0_RFTarget)
 
+                self.crankid.SetDOFValues([crank_rot],[crankjointind])
+                self.crankid.GetController().Reset(0)
 
-                goalik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+' nummanips 4 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4+' maniptm 3 '+arg5)
+                goalik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+' nummanips 4 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4+' maniptm 3 '+arg5)
 
                 if(goalik == ''):
                     print "Error: No goalik found!"
@@ -507,9 +596,14 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                     self.robotid.SetActiveDOFValues(str2num(goalik))
                     self.crankid.SetDOFValues([crank_rot],[crankjointind])
+                    self.crankid.GetController().Reset(0)
 
+                    if( self.StopAtKeyStrokes ):
+                        print "Press Enter to go to initik"
+                        sys.stdin.readline()
 
                     self.crankid.SetDOFValues([0],[crankjointind])
+                    self.crankid.GetController().Reset(0)
                     # self.robotid.SetActiveDOFValues(initconfig)
                     self.robotid.SetActiveDOFValues(str2num(initik))
 
@@ -532,8 +626,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                     with self.robotid:
                         try:
-                            answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
-                            # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
+                            answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
+                            # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
                             print "RunCBiRRT answer: ",str(answer)
                             if(answer != '1'):
                                 return 11 # 1: cbirrt error, 1: init->start
@@ -581,6 +675,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print "Press Enter to plan startik --> goalik "
                         sys.stdin.readline()
 
+                    # self.crankid.SetDOFValues([0],[crankjointind])
+
                     # Get a trajectory from goalik to grasp configuration
                     goaljoints = deepcopy(goalik)
                     for i in range(TSRChainMimicDOF):
@@ -589,7 +685,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     goaljoints = str2num(goaljoints)
 
                     try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
+                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
                         print "RunCBiRRT answer: ",str(answer)
                         if(answer != '1'):
                             return 12 # 1: cbirrt error, 2: start->goal
@@ -656,7 +752,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     goaljoints = deepcopy(startik)
 
                     try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_goal2start)
+                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_goal2start)
                         print "RunCBiRRT answer: ",str(answer)
                         if(answer != '1'):
                             return 13 # 1: cbirrt error, 3: goal->start
@@ -708,7 +804,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                     print goaljoints
                     try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_goal2start)
+                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_goal2start)
                         print "RunCBiRRT answer: ",str(answer)
                         if(answer != '1'):
                             return 14 # 1: cbirrt error, 4: start->init
@@ -761,7 +857,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     goaljoints = home
 
                     try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
+                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
                         print "RunCBiRRT answer: ",str(answer)
                         if(answer != '1'):
                             return 15 # 1: cbirrt error, 5: init->home
@@ -854,14 +950,6 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Leg height :  " + str(leg_height)
             sys.stdin.readline()
 
-        # polyscale: changes the scale of the support polygon
-        # polytrans: shifts the support polygon around
-        footlinknames = ' Body_RAR Body_LAR polyscale 0.5 0.5 0 ' #polytrans -0.015 0 0.0 '
-
-        # Center of Gravity Target
-        # cogtarg = [-0.05, 0.085, 0]
-        cogtarg = [0, 0, 0]
-
         print "activedofs:"
         print activedofs
 
@@ -929,10 +1017,10 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
         # Left Hand Pose in World Coordinates
-        if(valveType == "RL"): # if lever, hold it from the tip of the handle
-            T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
-        if(valveType == "LL"): # if lever, hold it from the tip of the handle
+        if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
             T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
+        if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
+            T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,(self.r_Wheel-0.005)]))))
         if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
             T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
 
@@ -985,9 +1073,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
         self.BendTheKnees()
 
-        arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
 
-        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
+        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
 
         if(initik == ''):
             return 21 # 2: generalik error, 1: at init
@@ -1005,7 +1093,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         goaljoints = str2num(goaljoints)
 
         try:
-            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
+            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
             print "RunCBiRRT answer: ",str(answer)
             if (str(answer) != '1'):
                 return 10 # 1: cbirrt error, 0: home->init
@@ -1057,7 +1145,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Press Enter to go to startik"
             sys.stdin.readline()
 
-        arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
         
         # GeneralIK does not check for collision, so let's make sure that we find IKs that don't collide
         # with the environment
@@ -1078,6 +1166,15 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())
             startik = self.robotid.GetActiveDOFValues()
 
+            # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
+            # How much do we want to rotate the wheel?
+            if(direction == "CCW"):
+                multiplier = -1
+            elif(direction == "CW"):
+                multiplier = 1
+
+            crank_rot = (multiplier)*pi/4
+
             # print startik
 
             ##################
@@ -1089,8 +1186,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # for the Left Hand
             # T0_w0L stands for: 
             # left hand's transform on wheel in world coordinates
-
-            T0_w0L = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
+            ForTw0L = dot(T0_LH1,MakeTransform(rodrigues([-pi,0,0]),transpose(matrix([0,0,0]))))
+            T0_w0L = MakeTransform(ForTw0L[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
             #T0_w0L = dot(temp,MakeTransform(rodrigues([0,0,0]),transpose(matrix(jointtm[0:3,3]))))
 
             #T0_w0L = MakeTransform(rodrigues([acos(self.crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix(jointtm[0:3,3])))
@@ -1105,7 +1202,10 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # Required by CBiRRT
             Tw0_eL = Tw0L_LH1
             # How much freedom do we want to give to the left hand
-            Bw0L = matrix([0,0,0,0,0,0,-pi,pi,0,0,0,0])
+            if(direction == "CW"):
+                Bw0L = matrix([0,0,0,0,0,0,0,0,0,crank_rot,0,0])
+            elif(direction == "CCW"):
+                Bw0L = matrix([0,0,0,0,0,0,0,0,crank_rot,0,0,0])
 
             # Right Hand's transforms:
             T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
@@ -1137,14 +1237,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             
             TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([crankjointind]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',matrix([]))+' '+TSRChainStringFeetandHead_goal2start
 
-            # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
-            # How much do we want to rotate the wheel?
-            if(direction == "CCW"):
-                multiplier = -1
-            elif(direction == "CW"):
-                multiplier = 1
 
-            crank_rot = (multiplier)*pi/4
 
             # Which joint do we want the CBiRRT to mimic the TSR for?
             TSRChainMimicDOF = 1
@@ -1158,12 +1251,15 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
             T0_cranknew = dot(T0_w0L,Tcrank_rot)
 
+            T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
+
             # Where will the left hand go after turning the wheel?
             # This is what's happening:
             #
             # Tcranknew_LH2 = dot(Tw0L_0,T0_LH1) --> Left hand in wheel's coordinate
             # T0_LH2 = dot(T0_cranknew,Tcranknew_LH2) --> Left hand rotated around wheel's origin
-            T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
+            # T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
+            T0_LH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),T0_LH1))
 
             # Uncomment to see T0_LH2
             handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
@@ -1174,21 +1270,15 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
             # check if ik solutions exist
             sol1=leftArmIkmodel.manip.FindIKSolution(array(T0_LH2),IkFilterOptions.CheckEnvCollisions)
-            print "sol1"
-            print len(sol1)
-            print sol1
-            assert(sol1 is not None)
-            self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[0].GetArmIndices())
-            sys.stdin.readline()
-        
-            goalik = self.robotid.GetActiveDOFValues()
 
-            if(goalik == ''):
+            if(sol1 is None):
                 print "Error: No goalik found!"
                 return 23 # 2: generalik error, 3: at goal
             else:
                 print "found goalik"
                 # print goalik
+                self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[0].GetArmIndices())
+                goalik = self.robotid.GetActiveDOFValues()
 
                 if( self.StopAtKeyStrokes ):
                     print "Press Enter to go to goalik"
@@ -1197,9 +1287,10 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                 self.robotid.SetActiveDOFValues(goalik)
                 self.crankid.SetDOFValues([crank_rot],[crankjointind])
-
+                self.crankid.GetController().Reset(0)
 
                 self.crankid.SetDOFValues([0],[crankjointind])
+                self.crankid.GetController().Reset(0)
                 # self.robotid.SetActiveDOFValues(initconfig)
                 self.robotid.SetActiveDOFValues(str2num(initik))
 
@@ -1222,8 +1313,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 
                 with self.robotid:
                     try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
-                        # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
+                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
+                        # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
                         print "RunCBiRRT answer: ",str(answer)
                         if (str(answer) != '1'):
                             return 11 # 1: cbirrt error, 1: init->start
@@ -1280,7 +1371,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     goaljoints.append(0)
                 
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
                     print "RunCBiRRT answer: ",str(answer)
                     if (str(answer) != '1'):
                         return 12 # 1: cbirrt error, 2: start->goal
@@ -1347,7 +1438,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 goaljoints = deepcopy(startik)
 
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetRightHandandHead_goal2start)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetRightHandandHead_goal2start)
                     print "RunCBiRRT answer: ",str(answer)
                     if (str(answer) != '1'):
                         return 13 # 1: cbirrt error, 3: goal->start
@@ -1399,7 +1490,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                 print goaljoints
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetHeadandRightHand_start2init)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetHeadandRightHand_start2init)
                     print "RunCBiRRT answer: ",str(answer)
                     if (str(answer) != '1'):
                         return 14 # 1: cbirrt error, 4: start->init
@@ -1452,7 +1543,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 goaljoints = home
 
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
                     print "RunCBiRRT answer: ",str(answer)
                     if (str(answer) != '1'):
                         return 15 # 1: cbirrt error, 5: init->home
@@ -1545,14 +1636,6 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Leg height :  " + str(leg_height)
             sys.stdin.readline()
 
-        # polyscale: changes the scale of the support polygon
-        # polytrans: shifts the support polygon around
-        footlinknames = ' Body_RAR Body_LAR polyscale 0.5 0.5 0 ' #polytrans -0.015 0 0.0 '
-
-        # Center of Gravity Target
-        # cogtarg = [-0.05, 0.085, 0]
-        cogtarg = [0, 0, 0]
-
         print "activedofs:"
         print activedofs
 
@@ -1620,10 +1703,10 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
         # Right Hand Pose in World Coordinates
-        if(valveType == "RL"): # if lever, hold it from the tip of the handle
-            T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
-        if(valveType == "LL"): # if lever, hold it from the tip of the handle
+        if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
             T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
+        if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
+            T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
         if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
             T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
 
@@ -1673,14 +1756,12 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
         self.BendTheKnees()
 
-        arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
 
-        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
+        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
         
         if(initik == ''):
             return 21 # 2: generalik error, 1: initik
-
-        sys.stdin.readline()
 
         self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
         home = self.robotid.GetActiveDOFValues()
@@ -1695,7 +1776,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         goaljoints = str2num(goaljoints)
 
         try:
-            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
+            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
             print "RunCBiRRT answer: ",str(answer)
             if(answer != '1'):
                 return 10 # 1: cbirrt error, 0: home->init
@@ -1747,7 +1828,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print "Press Enter to go to startik"
             sys.stdin.readline()
 
-        arg1 = str(cogtarg).strip("[]").replace(', ',' ')
+        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
         
         # GeneralIK does not check for collision, so let's make sure that we find IKs that don't collide
         # with the environment
@@ -1772,14 +1853,25 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
             ##################
 
-            T0_w0R = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
+            if(direction == "CCW"):
+                multiplier = -1
+            elif(direction == "CW"):
+                multiplier = 1
+
+            crank_rot = (multiplier)*pi/4
+
+            # T0_w0R = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
+            ForTw0R = dot(T0_RH1,MakeTransform(rodrigues([-pi,0,0]),transpose(matrix([0,0,0]))))
+            T0_w0R = MakeTransform(ForTw0R[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
 
             Tw0R_RH1 = dot(linalg.inv(T0_w0R),T0_RH1)
 
             Tw0_eR = Tw0R_RH1
 
-
-            Bw0R = matrix([0,0,0,0,0,0,-pi,pi,0,0,0,0])
+            if(direction == "CW"):
+                Bw0R = matrix([0,0,0,0,0,0,0,0,0,crank_rot,0,0])
+            elif(direction == "CCW"):
+                Bw0R = matrix([0,0,0,0,0,0,0,0,crank_rot,0,0,0])
 
             # Right Hand's transforms:
             T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
@@ -1809,14 +1901,6 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
             TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',matrix([]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'crank',matrix([crankjointind]))+' '+TSRChainStringFeetandHead_goal2start
 
-            
-            if(direction == "CCW"):
-                multiplier = -1
-            elif(direction == "CW"):
-                multiplier = 1
-
-            crank_rot = (multiplier)*pi/4
-
             # Which joint do we want the CBiRRT to mimic the TSR for?
             TSRChainMimicDOF = 1
 
@@ -1829,7 +1913,11 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
             T0_cranknew = dot(T0_w0R,Tcrank_rot)
 
-            T0_RH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0R),T0_RH1))
+
+            T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
+
+            #T0_RH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0R),T0_RH1))
+            T0_RH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),T0_RH1))
 
             # Uncomment to see T0_RH2
             handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
@@ -1837,33 +1925,28 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             ################################
 
             # check if ik solutions exist
-            sol1=rightArmIkmodel.manip.FindIKSolution(array(T0_RH2),IkFilterOptions.CheckEnvCollisions)
-            print "sol1"
-            print len(sol1)
-            print sol1
-            assert(sol1 is not None)
-            self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
-            sys.stdin.readline()
-        
-            goalik = self.robotid.GetActiveDOFValues()
+            sol1=rightArmIkmodel.manip.FindIKSolution(array(T0_RH2),IkFilterOptions.CheckEnvCollisions)            
 
-            if(goalik == ''):
+            if(sol1 is None):
                 print "Error: No goalik found!"
                 return 23 # 2: generalik error, 3: at goal
             else:
                 print "found goalik"
                 # print goalik
 
+                self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
+                goalik = self.robotid.GetActiveDOFValues()
+
                 if( self.StopAtKeyStrokes ):
                     print "Press Enter to go to goalik"
                     sys.stdin.readline()
 
-
                 self.robotid.SetActiveDOFValues(goalik)
                 self.crankid.SetDOFValues([crank_rot],[crankjointind])
-
+                self.crankid.GetController().Reset(0)
 
                 self.crankid.SetDOFValues([0],[crankjointind])
+                self.crankid.GetController().Reset(0)
                 # self.robotid.SetActiveDOFValues(initconfig)
                 self.robotid.SetActiveDOFValues(str2num(initik))
 
@@ -1874,7 +1957,6 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
                 
-
                 if( self.StopAtKeyStrokes ):
                     print "Press Enter to plan initconfig --> startik"
                     sys.stdin.readline()
@@ -1886,8 +1968,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 
                 with self.robotid:
                     try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
-                        # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
+                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
+                        # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
                         print "RunCBiRRT answer: ",str(answer)
                         if(answer != '1'):
                             return 11 # 1: cbirrt error, 1: init->start
@@ -1944,7 +2026,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     goaljoints.append(0)
                 
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
                     print "RunCBiRRT answer: ",str(answer)
                     if(answer != '1'):
                         return 12 # 1: cbirrt error, 2: start->goal
@@ -2011,7 +2093,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 goaljoints = deepcopy(startik)
 
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetLeftHandandHead_goal2start)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetLeftHandandHead_goal2start)
                     print "RunCBiRRT answer: ",str(answer)
                     if(answer != '1'):
                         return 13 # 1: cbirrt error, 1: start->goal
@@ -2063,7 +2145,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                 print goaljoints
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetHeadandLeftHand_start2init)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetHeadandLeftHand_start2init)
                     print "RunCBiRRT answer: ",str(answer)
                     if(answer != '1'):
                         return 14 # 1: cbirrt error, 4: start->init
@@ -2116,7 +2198,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 goaljoints = home
 
                 try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
+                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
                     print "RunCBiRRT answer: ",str(answer)
                     if(answer != '1'):
                         return 15 # 1: cbirrt error, 5: init->home
@@ -2191,7 +2273,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
         hlfoot = misc.DrawAxes(self.env,T0_LF,1)
         hrfoot =misc.DrawAxes(self.env,T0_RF,1)
-        sys.stdin.readline()
+        
         return [T0_LF, T0_RF]
     
     def BendTheKnees(self,howMuch=0.1):
@@ -2209,14 +2291,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # LAP: 15, RAP: 40
             self.robotid.SetDOFValues([-howMuch,-howMuch],[15,40])
             
-        sys.stdin.readline()
 
     def Plan(self,handles=[],radius=None,manipulator=None,direction="CW",valveType=None):
 
+        # self.StartViewerAndSetValvePos( handles, valveType)
+
         if(radius != None):
             self.r_Wheel = radius
-
-        self.StartViewerAndSetValvePos( handles, valveType)
         
         if(self.optWall):
             self.AddWall()
@@ -2316,8 +2397,12 @@ if __name__ == "__main__":
 
         # demonstrate both hands - wheel
         planner.SetWheelPoseFromTransform(T5_1)
-        planner.Plan(handles, radius=0.1, manipulator="BH", valveType="W")
         
+        planner.Plan(handles, radius=0.1, manipulator="BH", valveType="W")
+
+        ############## TODO ##################################
+        # 
+        ######################################################
         
     else:
         if play:

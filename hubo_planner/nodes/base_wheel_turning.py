@@ -74,6 +74,12 @@ class BaseWheelTurning:
         self.lhandclosevals = None
         self.lhanddofs = None
 
+        self.myValveHandle = None
+        self.infocylinder = None
+
+        self.probs_cbirrt = None
+        self.probs_crankmover = None
+
         self.T0_tsy_home = self.robotid.GetLinks()[12].GetTransform()
         self.T0_lar_home = self.robotid.GetManipulators()[2].GetEndEffectorTransform()
         self.T0_rar_home = self.robotid.GetManipulators()[3].GetEndEffectorTransform()
@@ -81,6 +87,16 @@ class BaseWheelTurning:
         self.Ttsy_rar_home = array(dot(linalg.inv(self.T0_tsy_home),self.T0_rar_home))
 
         self.wheelDistFromTSY = 0.4
+
+        self.drawingHandles = []
+
+        # CBiRRT variables
+        # polyscale: changes the scale of the support polygon
+        # polytrans: shifts the support polygon around
+        self.footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 ' #polytrans -0.015 0 0.0 '
+
+        # Center of Gravity Target
+        self.cogtarg = [0, 0, 0]
 
     def KillOpenrave(self):
         self.env.Destroy()
@@ -99,8 +115,39 @@ class BaseWheelTurning:
         self.T_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
         self.crankid.SetTransform(array(self.T_Wheel))
 
-    def SetWheelPoseFromQuaternionInFrame(self,frame,trans,rot):
+    def ResetEnv(self):
+        
+        # Remove the valve (cylinder or box)
+        if(self.env.GetKinBody("valve") is not None):
+            self.env.RemoveKinBody(self.myValveHandle)
+
+        if(self.env.GetKinBody("4by4") is not None):
+            self.env.RemoveKinBody(self.my4by4)
+        
+        if(self.infocylinder != None):
+            self.infocylinder = None
+
+        # Remove the CBiRRT problems
+        if(self.probs_cbirrt != None):
+            self.env.Remove(self.probs_cbirrt)
+            self.probs_cbirrt = None
+
+        if(self.probs_crankmover != None):
+            self.env.Remove(self.probs_crankmover)
+            self.probs_crankmover = None
+
+        # Reset the robot's joints
+        self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
+
+        # Reset the driving wheel's joint
+        self.crankid.SetDOFValues([0],[0])
+        self.crankid.GetController().Reset(0)
+        
+
+    def SetValvePoseFromQuaternionInFrame(self,frame,trans,rot):
         print "SetWheelPoseFromQuaternion"
+
+        self.tiltDiff = acos(dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.crankid.GetLinks()[0].GetTransform())[1,1])
 
         self.T0_RefLink = None
 
@@ -111,9 +158,53 @@ class BaseWheelTurning:
         if(self.T0_RefLink == None):
             rospy.logerr("In base_wheel_turning, SetWheelPoseFromQuaternion: Couldn't find the reference link name.")
         else:
-            self.TRefLink_Wheel = MakeTransform(rotationMatrixFromQuat(rot),matrix(trans))
-            self.T0_Wheel = dot(self.T0_RefLink,self.TRefLink_Wheel)   
-            self.crankid.SetTransform(array(self.T0_Wheel))
+            print "rotation matrix from quat - using openrave function"
+            self.TRefLink_Wheel = MakeTransform(matrixFromQuat([rot[3],rot[0],rot[1],rot[2]])[0:3,0:3],matrix(trans))
+            
+            self.T0_WheelRViz = dot(self.T0_RefLink,self.TRefLink_Wheel)   
+
+            self.TWheelRViz_WheelRave = MakeTransform(dot(rodrigues([0,pi/2-self.tiltDiff,0]),rodrigues([0,0,pi/2])),transpose(matrix([0,0,0])))
+
+            self.T0_WheelRave = dot(self.T0_WheelRViz,self.TWheelRViz_WheelRave)
+
+            self.crankid.SetTransform(array(self.T0_WheelRave))
+
+    def CreateValve(self,valveRadius,valveType):
+
+        self.r_Wheel = valveRadius
+
+        self.myValveHandle = RaveCreateKinBody(self.env,'')
+
+        if(valveType == "RL"): # valve type: lever with right end at the origin of rotation
+            self.myValveHandle.InitFromBoxes(numpy.array([[self.r_Wheel*0.5,0,0,self.r_Wheel*0.5,0.01,0.005]]),True)
+        if(valveType == "LL"): # valve type: lever with left end at the origin of rotation
+            self.myValveHandle.InitFromBoxes(numpy.array([[-self.r_Wheel*0.5,0,0,self.r_Wheel*0.5,0.01,0.005]]),True)
+        elif(valveType == "W"): # valve type: wheel
+            # Create a cylinder
+            self.infocylinder = KinBody.Link.GeometryInfo()
+            self.infocylinder._type = KinBody.Link.GeomType.Cylinder
+            self.infocylinder._vGeomData = [self.r_Wheel,0.01] # radius and height/thickness
+            self.infocylinder._bVisible = True
+            self.infocylinder._fTransparency = 0.0
+            self.infocylinder._vDiffuseColor = [0,1,1]           
+            self.myValveHandle.InitFromGeometries([self.infocylinder]) # we could add more cylinders in the list
+
+        self.myValveHandle.SetName('valve')
+        self.env.Add(self.myValveHandle,True)
+        
+        self.myValveHandle.SetTransform(self.crankid.GetManipulators()[0].GetTransform())
+        self.Add4by4()
+
+    def Add4by4(self):
+
+        print "adding a wall"
+        self.my4by4 = RaveCreateKinBody(self.env,'')
+        self.my4by4.SetName('4by4')
+        behindValveClearance = 0.08
+        self.my4by4.InitFromBoxes(numpy.array([[0,0,behindValveClearance,0.61,0.61,0.001]]),True) # False for not visible
+        self.my4by4.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(array((0,0,1,0.5)))
+        self.my4by4.SetTransform(self.crankid.GetManipulators()[0].GetEndEffectorTransform())
+        self.env.Add(self.my4by4,True)
 
     def SetWheelPoseFromTransform(self,T0_Wheel):
         print "SetWheelPoseFromTransform"
@@ -135,6 +226,19 @@ class BaseWheelTurning:
                 os.remove("movetraj"+str(i)+".txt")
             except OSError, e:
                 print e
+
+    def StartViewer(self):
+        # Start the Viewer and draws the world frame
+        if self.ShowUserInterface and not self.ViewerStarted :
+            cam_rot = dot(xyz_rotation([3*pi/2,0,0]),xyz_rotation([0,-pi/2,0]))
+            cam_rot = dot(cam_rot,xyz_rotation([-pi/10,0,0])) # inclination of the camera
+            T_cam = MakeTransform(cam_rot,transpose(matrix([2.0, 0.00, 01.4])))
+            self.env.SetViewer('qtcoin')
+            self.env.GetViewer().SetCamera(array(T_cam))
+            self.env.GetViewer().EnvironmentSync()
+            self.ViewerStarted = True
+            # handles.append( misc.DrawAxes(self.env,T_cam,1) )
+            # handles.append( misc.DrawAxes(self.env,MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0]))),1) )
 
     def StartViewerAndSetValvePos(self, handles, valveType="w"):
 
@@ -214,7 +318,7 @@ class BaseWheelTurning:
     def Playback(self,retimed=False):
 
         if( self.StopAtKeyStrokes ):
-            print "Press enter to play the trajectories..."
+            print "Press Enter to play the trajectories..."
             sys.stdin.readline()
 
         retimed_str = ''

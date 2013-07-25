@@ -64,6 +64,8 @@ class HuboPlannerInterface:
     # Reads the trajectories from the files
     def PlanRequestHandler(self, req):
 
+        self.planner.ResetEnv()
+
         # Set wheel location
         wheel_trans = [req.Request.ValvePose.pose.position.x, req.Request.ValvePose.pose.position.y, req.Request.ValvePose.pose.position.z]
         wheel_rot = [req.Request.ValvePose.pose.orientation.x, req.Request.ValvePose.pose.orientation.y, req.Request.ValvePose.pose.orientation.z, req.Request.ValvePose.pose.orientation.w]
@@ -85,9 +87,12 @@ class HuboPlannerInterface:
         print "direction"
         print req.Request.Direction
         
-
+        self.planner.StartViewer()
+        
         # Use the frame id that comes in from RViz and set the wheel pose
-        self.h = self.planner.SetWheelPoseFromQuaternionInFrame( req.Request.ValvePose.header.frame_id.strip("/"), wheel_trans, wheel_rot )
+        self.h = self.planner.SetValvePoseFromQuaternionInFrame( req.Request.ValvePose.header.frame_id.strip("/"), wheel_trans, wheel_rot )
+        
+        self.planner.CreateValve(req.Request.ValveSize, req.Request.ValveType)
 
         while (self.read_joint_states and (self.current_config is None)):
             rospy.logwarn("Planner is waiting to recieve joint states of the robot!")
