@@ -375,7 +375,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print e
 
         try:
-            os.rename("cmovetraj.txt","movetraj0.txt")
+            os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj0.txt")
             traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj0.txt','r').read())
 
             # print "conf spec for start2goal:"
@@ -393,13 +393,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # print "deltatime offset"
             # print deltatimeGroup.offset
 
-            rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+            rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
 
         try:
-            answer=self.probs_cbirrt.SendCommand('traj movetraj0.txt');
+            answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -610,7 +610,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # bh: both hands
                     # lh: left hands
                     # rh: right hands
-                    self.OpenHands("BH","movetraj0_openhands")
+                    self.OpenHands("BH",self.default_trajectory_dir+"movetraj0_openhands")
                     # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                     # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
 
@@ -636,9 +636,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                             print e
 
                     try:
-                        os.rename("cmovetraj.txt","movetraj1.txt")
+                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj1.txt")
 
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj1.txt','r').read())
+                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())
 
                         # print "conf spec for start2goal:"
                         cs = traj.GetConfigurationSpecification()
@@ -655,19 +655,19 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         # print "deltatime offset"
                         # print deltatimeGroup.offset
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                     except OSError, e:
                         # No file cmovetraj
                         print e
 
                     # The following is the same as commented out try-except section
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj1.txt','r').read())   
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())   
 
                     self.robotid.GetController().SetPath(traj) 
                     self.robotid.WaitForController(0)
                     self.robotid.GetController().Reset(0) 
 
-                    self.CloseHands("BH","movetraj1_closehands",True)
+                    self.CloseHands("BH",self.default_trajectory_dir+"movetraj1_closehands",True)
                     # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
                     # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
@@ -694,8 +694,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                     try:
-                        os.rename("cmovetraj.txt","movetraj2.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj2.txt','r').read())
+                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj2.txt")
+                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj2.txt','r').read())
 
                         # print "conf spec for start2goal:"
                         cs = traj.GetConfigurationSpecification()
@@ -722,15 +722,15 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
 
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
 
                     except OSError, e:
                         # No file cmovetraj
                         print e
 
                     try:
-                        answer= self.probs_cbirrt.SendCommand('traj movetraj2.txt');
-                        answer= self.probs_crankmover.SendCommand('traj movetraj2.txt');
+                        answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
+                        answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
                         self.robotid.WaitForController(0)
                         # debug
                         print "traj call answer: ",str(answer)
@@ -738,7 +738,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                     self.robotid.GetController().Reset(0)
-                    self.OpenHands("BH","movetraj2_openhands")
+                    self.OpenHands("BH",self.default_trajectory_dir+"movetraj2_openhands")
                     #self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                     #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
 
@@ -761,8 +761,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                     try:
-                        os.rename("cmovetraj.txt","movetraj3.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj3.txt','r').read())
+                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj3.txt")
+                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj3.txt','r').read())
 
                         # print "conf spec for start2goal:"
                         cs = traj.GetConfigurationSpecification()
@@ -779,13 +779,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         # print "deltatime offset"
                         # print deltatimeGroup.offset
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                     except OSError, e:
                         # No file cmovetraj
                         print e
 
                     try:
-                        answer= self.probs_cbirrt.SendCommand('traj movetraj3.txt');
+                        answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3.txt');
                         self.robotid.WaitForController(0)
                         # debug
                         print "traj call answer: ",str(answer)
@@ -813,8 +813,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                     try:
-                        os.rename("cmovetraj.txt","movetraj4.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj4.txt','r').read())
+                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj4.txt")
+                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj4.txt','r').read())
 
                         # print "conf spec for start2goal:"
                         cs = traj.GetConfigurationSpecification()
@@ -831,13 +831,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         # print "deltatime offset"
                         # print deltatimeGroup.offset
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                     except OSError, e:
                         # No file cmovetraj
                         print e
 
                     try:
-                        answer= self.probs_cbirrt.SendCommand('traj movetraj4.txt');
+                        answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4.txt');
                         self.robotid.WaitForController(0)
                         # debug
                         print "traj call answer: ",str(answer)
@@ -846,7 +846,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                     self.robotid.GetController().Reset(0)
 
-                    self.CloseHands("BH","movetraj4_closehands")
+                    self.CloseHands("BH",self.default_trajectory_dir+"movetraj4_closehands")
                     # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
                     # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
@@ -866,8 +866,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                     try:
-                        os.rename("cmovetraj.txt","movetraj5.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj5.txt','r').read())
+                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj5.txt")
+                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj5.txt','r').read())
 
                         # print "conf spec for start2goal:"
                         cs = traj.GetConfigurationSpecification()
@@ -884,13 +884,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         # print "deltatime offset"
                         # print deltatimeGroup.offset
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                     except OSError, e:
                         # No file cmovetraj
                         print e
 
                     try:
-                        answer=self.probs_cbirrt.SendCommand('traj movetraj5.txt');
+                        answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5.txt');
                         self.robotid.WaitForController(0)
                         # debug
                         print "traj call answer: ",str(answer)
@@ -1102,8 +1102,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print e
 
         try:
-            os.rename("cmovetraj.txt","movetraj0.txt")
-            traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj0.txt','r').read())
+            os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj0.txt")
+            traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj0.txt','r').read())
 
             # print "conf spec for start2goal:"
             cs = traj.GetConfigurationSpecification()
@@ -1120,13 +1120,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # print "deltatime offset"
             # print deltatimeGroup.offset
 
-            rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+            rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
 
         try:
-            answer=self.probs_cbirrt.SendCommand('traj movetraj0.txt');
+            answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -1297,7 +1297,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 # bh: both hands
                 # lh: left hands
                 # rh: right hands
-                self.OpenHands("LH","movetraj0_openhands")
+                self.OpenHands("LH",self.default_trajectory_dir+"movetraj0_openhands")
                 # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
                 
@@ -1323,9 +1323,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj1.txt")
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj1.txt")
 
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj1.txt','r').read())
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -1342,19 +1342,19 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 # The following is the same as commented out try-except section
-                traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj1.txt','r').read())   
+                traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())   
 
                 self.robotid.GetController().SetPath(traj) 
                 self.robotid.WaitForController(0)
                 self.robotid.GetController().Reset(0) 
 
-                self.CloseHands("LH","movetraj1_closehands",True)
+                self.CloseHands("LH",self.default_trajectory_dir+"movetraj1_closehands",True)
                 # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
@@ -1380,8 +1380,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj2.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj2.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj2.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj2.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -1408,15 +1408,15 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
 
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
 
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer= self.probs_cbirrt.SendCommand('traj movetraj2.txt');
-                    answer= self.probs_crankmover.SendCommand('traj movetraj2.txt');
+                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
+                    answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -1424,7 +1424,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 self.robotid.GetController().Reset(0)
-                self.OpenHands("LH","movetraj2_openhands")
+                self.OpenHands("LH",self.default_trajectory_dir+"movetraj2_openhands")
                 #self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                 #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
 
@@ -1447,8 +1447,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj3.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj3.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj3.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj3.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -1465,13 +1465,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer= self.probs_cbirrt.SendCommand('traj movetraj3.txt');
+                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -1499,8 +1499,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj4.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj4.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj4.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj4.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -1517,13 +1517,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer= self.probs_cbirrt.SendCommand('traj movetraj4.txt');
+                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -1532,7 +1532,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                 self.robotid.GetController().Reset(0)
 
-                self.CloseHands("LH","movetraj4_closehands")
+                self.CloseHands("LH",self.default_trajectory_dir+"movetraj4_closehands")
                 # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
@@ -1552,8 +1552,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj5.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj5.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj5.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj5.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -1570,13 +1570,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer=self.probs_cbirrt.SendCommand('traj movetraj5.txt');
+                    answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -1785,8 +1785,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             print e
 
         try:
-            os.rename("cmovetraj.txt","movetraj0.txt")
-            traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj0.txt','r').read())
+            os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj0.txt")
+            traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj0.txt','r').read())
 
             # print "conf spec for start2goal:"
             cs = traj.GetConfigurationSpecification()
@@ -1803,13 +1803,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             # print "deltatime offset"
             # print deltatimeGroup.offset
 
-            rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+            rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
         except OSError, e:
             # No file cmovetraj
             print e
 
         try:
-            answer=self.probs_cbirrt.SendCommand('traj movetraj0.txt');
+            answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -1953,7 +1953,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                 # bh: both hands
                 # lh: left hands
                 # rh: right hands
-                self.OpenHands("RH","movetraj0_openhands")
+                self.OpenHands("RH",self.default_trajectory_dir+"movetraj0_openhands")
                 # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
                 
@@ -1978,9 +1978,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                         print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj1.txt")
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj1.txt")
 
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj1.txt','r').read())
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -1997,19 +1997,19 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 # The following is the same as commented out try-except section
-                traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj1.txt','r').read())   
+                traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())   
 
                 self.robotid.GetController().SetPath(traj) 
                 self.robotid.WaitForController(0)
                 self.robotid.GetController().Reset(0) 
 
-                self.CloseHands("RH","movetraj1_closehands",True)
+                self.CloseHands("RH",self.default_trajectory_dir+"movetraj1_closehands",True)
                 # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
@@ -2035,8 +2035,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj2.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj2.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj2.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj2.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -2063,15 +2063,15 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
 
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
 
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer= self.probs_cbirrt.SendCommand('traj movetraj2.txt');
-                    answer= self.probs_crankmover.SendCommand('traj movetraj2.txt');
+                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
+                    answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -2079,7 +2079,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 self.robotid.GetController().Reset(0)
-                self.OpenHands("RH","movetraj2_openhands")
+                self.OpenHands("RH",self.default_trajectory_dir+"movetraj2_openhands")
                 #self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                 #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
 
@@ -2102,8 +2102,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj3.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj3.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj3.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj3.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -2120,13 +2120,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer= self.probs_cbirrt.SendCommand('traj movetraj3.txt');
+                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -2154,8 +2154,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj4.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj4.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj4.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj4.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -2172,13 +2172,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer= self.probs_cbirrt.SendCommand('traj movetraj4.txt');
+                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -2187,7 +2187,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
 
                 self.robotid.GetController().Reset(0)
 
-                self.CloseHands("RH","movetraj4_closehands")
+                self.CloseHands("RH",self.default_trajectory_dir+"movetraj4_closehands")
                 # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
                 # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
@@ -2207,8 +2207,8 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     print e
 
                 try:
-                    os.rename("cmovetraj.txt","movetraj5.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj5.txt','r').read())
+                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj5.txt")
+                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj5.txt','r').read())
 
                     # print "conf spec for start2goal:"
                     cs = traj.GetConfigurationSpecification()
@@ -2225,13 +2225,13 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
                     # print "deltatime offset"
                     # print deltatimeGroup.offset
 
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
                 except OSError, e:
                     # No file cmovetraj
                     print e
 
                 try:
-                    answer=self.probs_cbirrt.SendCommand('traj movetraj5.txt');
+                    answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5.txt');
                     self.robotid.WaitForController(0)
                     # debug
                     print "traj call answer: ",str(answer)
@@ -2308,22 +2308,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             error_code = self.RightHand(radius,valveType,direction)
         elif(manipulator=="BH"):
             error_code = self.BothHands(radius,valveType,direction)
-            
-        if(error_code == 0):
-            # if no error, ask to execute
-            #
-            print "Would you like to execute the trajectory [y/n]?"
-            a = sys.stdin.readline().strip('\n')
 
-            while( a != "y" and a != "n"):
-                print "please enter y for yes or n for no."
-                a = sys.stdin.readline().strip('\n')
-                
-            if(a == "y"):
-                error_code = self.Playback()
-            elif(a == "n"):
-                pass
-        
+        print "Planning, done."
+
         return error_code
             
 

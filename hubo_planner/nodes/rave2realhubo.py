@@ -122,11 +122,11 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
 def sameDamnThing(robot,freq,duration,hand,fname,fingerVal):
     lfv = 0.0
     rfv = 0.0
-    if(hand == "lh"):
+    if(hand == "LH"):
         lfv = fingerVal
-    elif(hand == "rh"):
+    elif(hand == "RH"):
         rfv = fingerVal
-    elif(hand == "bh"):
+    elif(hand == "BH"):
         lfv = fingerVal
         rfv = fingerVal
 
