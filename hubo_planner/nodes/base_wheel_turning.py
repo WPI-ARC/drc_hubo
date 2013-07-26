@@ -46,6 +46,8 @@ class BaseWheelTurning:
     def __init__(self, HuboModelPath, WheelModelPath ):
         
         self.crouch = 0.05
+
+        self.default_trajectory_dir = roslib.packages.get_pkg_dir('hubo_planner')+"/trajectories/"
         
         # Set those variables to show or hide the interface
         # Do it using the member functions
@@ -93,7 +95,7 @@ class BaseWheelTurning:
         # CBiRRT variables
         # polyscale: changes the scale of the support polygon
         # polytrans: shifts the support polygon around
-        self.footlinknames = ' Body_RAR Body_LAR polyscale 0.3 0.5 0 ' #polytrans -0.015 0 0.0 '
+        self.footlinknames = ' Body_RAR Body_LAR polyscale 0.5 0.5 0 ' #polytrans -0.015 0 0.0 '
 
         # Center of Gravity Target
         self.cogtarg = [0, 0, 0]
@@ -123,6 +125,9 @@ class BaseWheelTurning:
 
         if(self.env.GetKinBody("4by4") is not None):
             self.env.RemoveKinBody(self.my4by4)
+            
+        if(self.env.GetKinBody("1by1") is not None):
+            self.env.RemoveKinBody(self.my1by1)
         
         if(self.infocylinder != None):
             self.infocylinder = None
@@ -167,6 +172,12 @@ class BaseWheelTurning:
 
             self.T0_WheelRave = dot(self.T0_WheelRViz,self.TWheelRViz_WheelRave)
 
+            # Set wheel location
+            # TODO We shall plan after crouchin. But until then just think that the valve 
+            # is self.crouch higher. This should be the height of the real wheel after the 
+            # robot crouches.
+            self.T0_WheelRave[2,3] += self.crouch
+
             self.crankid.SetTransform(array(self.T0_WheelRave))
 
     def CreateValve(self,valveRadius,valveType):
@@ -193,14 +204,25 @@ class BaseWheelTurning:
         self.env.Add(self.myValveHandle,True)
         
         self.myValveHandle.SetTransform(self.crankid.GetManipulators()[0].GetTransform())
-        self.Add4by4()
+        # self.Add4by4()
+        self.Add1by1()
+
+    def Add1by1(self):
+        print "adding a wall"
+        self.my1by1 = RaveCreateKinBody(self.env,'')
+        self.my1by1.SetName('1by1')
+        behindValveClearance = 0.1
+        self.my1by1.InitFromBoxes(numpy.array([[0,0,behindValveClearance,0.1525,0.1525,0.001]]),True) # False for not visible
+        self.my1by1.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(array((0,0,1,0.5)))
+        self.my1by1.SetTransform(self.crankid.GetManipulators()[0].GetEndEffectorTransform())
+        self.env.Add(self.my1by1,True)
 
     def Add4by4(self):
 
         print "adding a wall"
         self.my4by4 = RaveCreateKinBody(self.env,'')
         self.my4by4.SetName('4by4')
-        behindValveClearance = 0.08
+        behindValveClearance = 0.1
         self.my4by4.InitFromBoxes(numpy.array([[0,0,behindValveClearance,0.61,0.61,0.001]]),True) # False for not visible
         self.my4by4.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(array((0,0,1,0.5)))
         self.my4by4.SetTransform(self.crankid.GetManipulators()[0].GetEndEffectorTransform())
@@ -213,6 +235,8 @@ class BaseWheelTurning:
 
     def RemoveFiles(self):
 
+        max_traj_num = 10
+
         # Try to delete all existing trajectory files
         try:
             print "Removing qhullout.txt"
@@ -220,10 +244,39 @@ class BaseWheelTurning:
         except OSError, e:
             print e    
 
-        for i in range(10):
+        for i in range(max_traj_num):
             try:
                 print "Removing movetraj"+str(i)+".txt"
-                os.remove("movetraj"+str(i)+".txt")
+                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+".txt")
+            except OSError, e:
+                print e
+
+        for i in range(max_traj_num):
+            try:
+                print "Removing movetraj"+str(i)+".traj"
+                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+".traj")
+            except OSError, e:
+                print e
+
+        for i in range(max_traj_num):
+            try:
+                print "Removing movetraj"+str(i)+"_retimed.txt"
+                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+"_retimed.txt")
+            except OSError, e:
+                print e
+
+
+        for i in range(max_traj_num):
+            try:
+                print "Removing movetraj"+str(i)+"_openhands.traj"
+                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+"_openhands.traj")
+            except OSError, e:
+                print e
+                
+        for i in range(max_traj_num):
+            try:
+                print "Removing movetraj"+str(i)+"_closehands.traj"
+                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+"_closehands.traj")
             except OSError, e:
                 print e
 
@@ -334,7 +387,8 @@ class BaseWheelTurning:
         probs = self.env.GetLoadedProblems()
 
         try:
-            answer= self.probs_cbirrt.SendCommand('traj movetraj0'+retimed_str+'.txt');
+            print 'traj '+self.default_trajectory_dir+'movetraj0'+retimed_str+'.txt'
+            answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -352,7 +406,7 @@ class BaseWheelTurning:
             self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
         
         try:
-            answer= self.probs_cbirrt.SendCommand('traj movetraj1'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj1'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -371,8 +425,8 @@ class BaseWheelTurning:
             time.sleep(1)
 
         try:
-            answer= self.probs_cbirrt.SendCommand('traj movetraj2'+retimed_str+'.txt');
-            answer= self.probs_crankmover.SendCommand('traj movetraj2'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2'+retimed_str+'.txt');
+            answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -391,7 +445,7 @@ class BaseWheelTurning:
             time.sleep(1)
 
         try:
-            answer= self.probs_cbirrt.SendCommand('traj movetraj3'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -405,7 +459,7 @@ class BaseWheelTurning:
         time.sleep(1)
 
         try:
-            answer= self.probs_cbirrt.SendCommand('traj movetraj4'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
@@ -424,7 +478,7 @@ class BaseWheelTurning:
             time.sleep(1)
 
         try:
-            answer= self.probs_cbirrt.SendCommand('traj movetraj5'+retimed_str+'.txt');
+            answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5'+retimed_str+'.txt');
             self.robotid.WaitForController(0)
             # debug
             print "traj call answer: ",str(answer)
