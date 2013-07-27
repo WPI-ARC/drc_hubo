@@ -11,6 +11,7 @@
 #//
 #// You should have received a copy of the GNU Lesser General Public License
 #// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# modifed by Jim Mainprice
 
 from __future__ import with_statement # for python 2.5
 __author__ = 'Kris Hauser'
@@ -59,9 +60,9 @@ class Timer(object):
             print 'Elapsed: ',skiptemp,' sec : ', (ha.HUBO_LOOP_PERIOD/skiptemp * 100.0),' percent'
             skipi = 0
 
-#setup the index mappings between hubo ach and robotsim
-#what about NK2?
-#rs_index2 is the link index in the whole body index in robotsim 
+# setup the index mappings between hubo ach and robotsim
+# what about NK2?
+# rs_index2 is the link index in the whole body index in robotsim 
 ha_fingerL = [ha.LF1,ha.LF1,ha.LF1,ha.LF1,ha.LF1,ha.LF1,ha.LF1,ha.LF1,ha.LF1]
 rs_fingerL = range(7,16)
 rs_fingerL2 = range(13,22)
@@ -86,17 +87,23 @@ rs_rleg2 = range(54,60)
 ha_lleg = [ha.LHY,ha.LHR,ha.LHP,ha.LKN,ha.LAP,ha.LAR]
 rs_lleg = range(39,45)
 rs_lleg2 = range(47,53)
+
 joint_mapping = zip(ha_fingerR,rs_fingerR)+zip(ha_fingerL,rs_fingerL)+zip(ha_neck,rs_neck)+zip(ha_rarm,rs_rarm)+zip(ha_larm,rs_larm)+[(ha_wst,rs_wst)]+zip(ha_rleg,rs_rleg)+zip(ha_lleg,rs_lleg)
+
 encoder_joint_mapping = zip(ha_fingerR,rs_fingerR2)+zip(ha_fingerL,rs_fingerL2)+zip(ha_neck,rs_neck2)+zip(ha_rarm,rs_rarm2)+zip(ha_larm,rs_larm2)+[(ha_wst,rs_wst2)]+zip(ha_rleg,rs_rleg2)+zip(ha_lleg,rs_lleg2)
+
 max_rs_index = 51
 max_rs_index2 = 61
 
 def MakeSimulator(filename):
+
     world = WorldModel()
+
     if not world.readFile(filename):
         raise ValueError("Unable to read setup model file")
     if len(world.robot(0).getConfig()) != 61:
         raise ValueError("Robot doesn't seem to have the right number of DOFs")
+    
     sim = Simulator(world)
     robot = sim.getController(0)
 
@@ -125,7 +132,7 @@ def GetSimulationState(simulator,state):
     fts = [ft.getMeasurements() for ft in simulator.fts]
 
     for (ha_ind,rs_ind) in encoder_joint_mapping:
-        state.joint[ha_ind].pos = pose[rs_ind]
+        state.joint[ha_ind].pos = pose[rs_ind]       
 
     #fill out IMUs
     for i,imuvals in enumerate(imus):
@@ -147,6 +154,7 @@ def SendDesiredConfig(simulation, ref, prevRef, state):
     qdes = [0]*max_rs_index
     dqdes = [0]*max_rs_index
     curdes = [0]*max_rs_index
+
     for (ha_ind,rs_ind) in joint_mapping:
         qdes[rs_ind] = ref.ref[ha_ind]
         dqdes[rs_ind] = (ref.ref[ha_ind]-prevRef.ref[ha_ind])/simulation.timestep
@@ -194,33 +202,70 @@ class RobotSimHuboAchProgram(GLRealtimeProgram):
 
         #self.feedbackChannel.put(self.sim)
 
+
     def display(self):
 
         DrawSimulation(self.simulator)
 
-        #draw the trajectory configuration as a transparent robot
+        # draws the time
+        w=glutGet(GLUT_WINDOW_WIDTH)
+        h=glutGet(GLUT_WINDOW_HEIGHT)
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+        gluOrtho2D(0, w, 0, h)
+        glScalef(1, -1, 1)
+        glTranslatef(0, -h, 0)
+        glMatrixMode(GL_MODELVIEW)
+        glPushMatrix()
+        glLoadIdentity()
+        glRasterPos2f( 10, 20 )
+        text = "%0.3f" % self.state.time + " sec."
+        for ch in text :
+            glColor3f(1,1,1)
+            glutBitmapCharacter( GLUT_BITMAP_9_BY_15, ctypes.c_int( ord(ch) ) )
+        glPopMatrix()
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+
+        # draws the trajectory configuration as a transparent robot
         glEnable(GL_LIGHTING)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
         glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE,[1,1,0,0.5])
-        for i in xrange(self.simulator.world.numRobots()):
-            r = self.simulator.world.robot(i)
-            qdes = [0]*max_rs_index
-            for (ha_ind,rs_ind) in joint_mapping:
-                qdes[rs_ind] = self.ref.ref[ha_ind]
-            r.setConfig(qdes)
-            r.drawGL(False)
-        glDisable(GL_BLEND)
+        r = self.simulator.world.robot(0)
+        qcur = r.getConfig() 
+        qdes = [0]*max_rs_index2
+        for (ha_ind,rs_ind) in encoder_joint_mapping:
+            qdes[rs_ind] = self.ref.ref[ha_ind]
+        for i in range(0,6):
+            qdes[i] = qcur[i]
+        r.setConfig(qdes)
+        r.drawGL(False)
+        glDisable(GL_BLEND)    
+       
 
     def idle(self):
-
+        #KH question: what does this line do?
+        #[statuss, framesizes] = self.timeChannel.get(self.sim, wait=True, last=False)
+        #[statuss, framesizes] = self.stateChannel.get(self.state, wait=False, last=True)
         [statuss, framesizes] = self.refChannel.get(self.ref, wait=False, last=True)
+        
+        # print "self.state.time"
+        # Set Reference from simulation
         SendDesiredConfig(self.simulator,self.ref,self.prevRef, self.state)
-        StepSimulation(self.simulator)  # in seconds
+        #print self.state
+          
+        # this will step the simulation  note: i can run env step in a loop if nothign else changes
+        StepSimulation(self.simulator)  # this is in seconds
+        #self.sim.time = self.sim.time + self.simulator.timestep
         self.state.time = self.state.time + self.simulator.timestep
         GetSimulationState(self.simulator,self.state)
         self.state.refWait = 0
         self.stateChannel.put(self.state)
+        #print ha.HUBO_CHAN_STATE_NAME
+        #self.feedbackChannel.put(self.sim) 
         
         for (ha_ind,rs_ind) in joint_mapping:
             self.prevRef.ref[ha_ind] = self.ref.ref[ha_ind]
@@ -232,12 +277,14 @@ class RobotSimHuboAchProgram(GLRealtimeProgram):
 if __name__=='__main__':
 
     parser = OptionParser()
+
     (options, args) = parser.parse_args()
 
     try:
         sim_fn = args[0]
     except:
         sim_fn = "BootCamp/hubo_plane_ach_drc_v3.xml"
+		#sim_fn = "/home/jmainpri/workspace/RobotSim/data/drchubo/hubo_plane_ach_drc_v3.xml"
 
     print "Launching with simulation file",sim_fn
     RobotSimHuboAchProgram(sim_fn).run()
