@@ -44,7 +44,7 @@ class HuboPlannerInterface:
         self.planner = drchubo_v2_wheel_turning.DrcHuboWheelTurning( path_to_robot, path_to_wheel )
 
         self.planner.SetViewer(True)
-        self.planner.SetStopKeyStrokes(False)
+        self.planner.SetStopKeyStrokes(True)
 
         rospy.loginfo("Loaded Hubo CBiRRT wrapper")
 
