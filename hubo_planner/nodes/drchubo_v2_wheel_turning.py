@@ -148,37 +148,87 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             else:
                 robot.SetDOFValues([-0.0001],[jIdx])
 
-    def ChooseSol(self, manipname, sols):
-        for s in sols:
-            pass
+    def d(self, c1, c2):
+        diff = c1 - c2 # these have to be numpy arrays of dimension 1
+        euclideanDist = 0
+
+        for x in diff:
+            euclideanDist += pow(x,2)
+
+        euclideanDist = pow(euclideanDist,0.5)
+        
+        return euclideanDist
+
+    # Takes in a set of configurations and returns the ones 
+    # that have minimum distance between
+    def GetMinConf(self, sols1, sols2):
+        minD = sys.float_info.max
+        minS1Idx = None
+        minS2Idx = None
+
+        for s1Idx, s1 in enumerate(sols1):
+            for s2Idx, s2 in enumerate(sols2):
+                thisD = self.d(s1,s2)
+                if(thisD < minD):
+                    minD = thisD
+                    minS1Idx = s1Idx
+                    minS2Idx = s2Idx
+
+        return [minS1Idx, minS2Idx]
+
+    def GetClosestSols(self, manipname, set1, set2):
+        return GetMinConf(set1,set2)
             
-    def IKFast(self,T,manipname,allSolutions=True):
+    def IKFast(self, manipname, T, allSolutions=True):
         self.robotid.SetActiveManipulator(manipname)
         ikmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
         ikmodel.load()
+
         # check if ik solution(s) exist
         if(allSolutions):
             return ikmodel.manip.FindIKSolutions(array(T),IkFilterOptions.CheckEnvCollisions)
         else:
             return ikmodel.manip.FindIKSolution(array(T),IkFilterOptions.CheckEnvCollisions)
 
+    # Returns all combinations of two sets of manipulator solutions
+    def GetTwoManipsFullBodyIKs(self, manipname1, sols1, manipname2, sols2):
+        manips = self.robotid.GetManipulators()
+        confs = []
+        m1Idx = None
+        m2Idx = None
 
-    def FindIk(self,T, hands=None):
-        foundRSol = True
-        foundLSol = True
-        if( hands == None ):
-            print "Error in planner IKFast method: You forgot to specify hands."
-            return -1
-        elif( hands == "LH" ):
-            foundLSol = self.ChooseSol('leftArm', self.IKFast(T,'leftArm',True))
-        elif( hands == "RH" ):
-            foundRSol = self.ChooseSol('rightArm', self.IKFast(T,'rightArm',True))
-        elif( hands == "BH" ):
-            foundLSol = self.ChooseSol('leftArm', self.IKFast(T,'leftArm',True))
-            foundRSol = self.ChooseSol('rightArm', self.IKFast(T,'rightArm',True))
+        for mIdx, m in enumerate(manips):
+            name = m.GetName()
+            if ( name == manipname1 ):
+                m1Idx = mIdx
+                
+            if ( name == manipname2 ):
+                m2Idx = mIdx
 
-        return (foundLSol and foundRSol)
+        for s1 in sols1:
+            self.robotid.SetDOFValues(s1,self.robotid.GetManipulators()[m1Idx].GetArmIndices())
+            for s2 in sols2:
+                self.robotid.SetDOFValues(s2,self.robotid.GetManipulators()[m2Idx].GetArmIndices())
+                confs.append(self.robotid.GetDOFValues())
+
+        return confs
         
+
+    def GetFullBodyIKs(self, manipname, sols):
+        manips = self.robotid.GetManipulators()
+        confs = []
+        for mIdx, m in enumerate(manips):
+            if ( m.GetName() == manipname ):
+                for s in sols:
+                    self.robotid.SetDOFValues(s,self.robotid.GetManipulators()[mIdx].GetArmIndices())
+                    confs.append(self.robotid.GetDOFValues())
+        return confs
+
+    def FindManipIKs(self, manipname, T):
+        return self.IKFast(manipname, T, True)
+
+    def FindManipIK(self, manipname, T):
+        return self.IKFast(manipname, T, False)
         
     def BothHands(self,radius,valveType,direction):
         
@@ -1247,9 +1297,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             Tw0_eL = Tw0L_LH1
             # How much freedom do we want to give to the left hand
             if(direction == "CW"):
-                Bw0L = matrix([0,0,0,0,0,0,0,0,0,crank_rot,0,0])
+                Bw0L = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
             elif(direction == "CCW"):
-                Bw0L = matrix([0,0,0,0,0,0,0,0,crank_rot,0,0,0])
+                Bw0L = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0]
 
             # Right Hand's transforms:
             T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
@@ -1905,21 +1955,21 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             crank_rot = (multiplier)*pi/4
 
             # T0_w0R = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
-            ForTw0R = dot(T0_RH1,MakeTransform(rodrigues([-pi,0,0]),transpose(matrix([0,0,0]))))
-            T0_w0R = MakeTransform(ForTw0R[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
+            # ForTw0R = dot(T0_RH1,MakeTransform(rodrigues([-pi,0,0]),transpose(matrix([0,0,0]))))
+            # T0_w0R = MakeTransform(ForTw0R[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
 
             # FIX THIS TRANSFORMS!!!
-            # T0_w0R = dot(jointtm,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
-            # T0_w0R = dot(T0_w0R,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+            T0_w0R = dot(jointtm,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
+            T0_w0R = dot(T0_w0R,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
             Tw0R_RH1 = dot(linalg.inv(T0_w0R),T0_RH1)
 
             Tw0_eR = Tw0R_RH1
 
             if(direction == "CW"):
-                Bw0R = matrix([0,0,0,0,0,0,0,0,0,crank_rot,0,0])
+                Bw0R = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
             elif(direction == "CCW"):
-                Bw0R = matrix([0,0,0,0,0,0,0,0,crank_rot,0,0,0])
+                Bw0R = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0])
 
             # Right Hand's transforms:
             T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
