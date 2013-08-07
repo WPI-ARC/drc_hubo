@@ -27,6 +27,8 @@ class HuboPlannerInterface:
 
     def __init__(self, path):
 
+        self.tempIndex = 0
+
         self.debug = True
         self.no_planning = False
         rospy.loginfo("Starting Hubo planner interface...")
@@ -41,19 +43,16 @@ class HuboPlannerInterface:
         print path_to_wheel
         print self.read_joint_states
 
-        self.planner = drchubo_v2_wheel_turning.DrcHuboWheelTurning( path_to_robot, path_to_wheel )
+        self.planner = drchubo_v2_wheel_turning.DrcHuboV2WheelTurning( path_to_robot, path_to_wheel )
 
         self.planner.SetViewer(True)
-        self.planner.SetStopKeyStrokes(True)
+        self.planner.SetStopKeyStrokes(False)
 
         rospy.loginfo("Loaded Hubo CBiRRT wrapper")
 
         # We can either read the hubo's joint state from the TF tree or assume it starts from home in OpenRAVE
         if(self.read_joint_states):
-            self.config_cb = rospy.Subscriber("/joint_states", JointState, self.GetRealRobotConfig)
-        else:
-            # Assume drchubo starts from home in openrave
-            pass
+            self.RobotConfigurationClient = rospy.Subscriber("/drchubo_fullbody_interface/joint_states", JointState, self.GetRealRobotConfig)
 
         self.PlanRequestService = rospy.Service("drchubo_planner/PlanningQuery", PlanTurning, self.PlanRequestHandler)
         self.ExecuteRequestService = rospy.Service("drchubo_planner/ExecutionQuery", ExecuteTurning, self.ExecuteRequestHandler)
@@ -64,28 +63,46 @@ class HuboPlannerInterface:
     def ExecuteRequestHandler(self, req):
         print "Execute - Identifier: "
         print req.Identifier
-
-        self.planner.Playback()
-
         res = ExecuteTurningResponse()
-        res.ErrorCode = "Happy birthday to you."
+
+        if( req.Identifier == "PREVIEW" ):
+            [success, why] = self.planner.trajectory.PlayInOpenRAVE()
+        elif( req.Identifier == "EXECUTE" ):
+            [success, why] = self.planner.trajectory.PlayOnTheRobot()
+
+        if(not success):
+            res.ErrorCode = "error :"+why
+        else:
+            print "no error"
+            res.ErrorCode = "Happy birthday to you."
+
+        print res.ErrorCode
         return res
 
-    # Sets the wheel location in openrave
-    # Calls the planner (CiBRRT)
-    # Reads the trajectories from the files
-    def PlanRequestHandler(self, req):
+    def GetPlanResponse(self,error_code):
+        # Do whatever you want to do with the error_code
+        error_str = ""
+        if(error_code == 0):
+            # No error
+            error_str = "NoError"
+        else:
+            error_str = str(error_code)
+        res = PlanTurningResponse()
+        res.Response.header = Header()
+        res.Response.ErrorCode = error_str
+        res.Response.Labels = "LABELS"
+        return res
 
-        self.planner.ResetEnv()
+    def UpdateValvePose(self,req):
+        valve_trans = [req.Request.ValvePose.pose.position.x, req.Request.ValvePose.pose.position.y, req.Request.ValvePose.pose.position.z]
+        valve_rot = [req.Request.ValvePose.pose.orientation.x, req.Request.ValvePose.pose.orientation.y, req.Request.ValvePose.pose.orientation.z, req.Request.ValvePose.pose.orientation.w]    
+        # Use the frame id that comes in from RViz and set the wheel pose
+        self.h = self.planner.SetValvePoseFromQuaternionInFrame( req.Request.ValvePose.header.frame_id.strip("/"), valve_trans, valve_rot )
 
-        wheel_trans = [req.Request.ValvePose.pose.position.x, req.Request.ValvePose.pose.position.y, req.Request.ValvePose.pose.position.z]
-        wheel_rot = [req.Request.ValvePose.pose.orientation.x, req.Request.ValvePose.pose.orientation.y, req.Request.ValvePose.pose.orientation.z, req.Request.ValvePose.pose.orientation.w]
-             
-        print "wheel_trans"
-        print wheel_trans
-        print "wheel_rot"
-        print wheel_rot
-        print "wheel rad."
+    def PrintReqInfo(self,req):
+        print "task stage"
+        print req.Request.TaskStage
+        print "valve rad."
         print req.Request.ValveSize
         print "frame id"
         print req.Request.ValvePose.header.frame_id.strip("/")
@@ -97,12 +114,20 @@ class HuboPlannerInterface:
         print req.Request.Hands
         print "rotation direction"
         print req.Request.Direction
-        
+
+    # Sets the wheel location in openrave
+    # Calls the planner (CiBRRT)
+    # Reads the trajectories from the files
+    def PlanRequestHandler(self, req):
+
+        self.planner.ResetEnv()
+
+        self.PrintReqInfo(req)
+
         self.planner.StartViewer()
-        
-        # Use the frame id that comes in from RViz and set the wheel pose
-        self.h = self.planner.SetValvePoseFromQuaternionInFrame( req.Request.ValvePose.header.frame_id.strip("/"), wheel_trans, wheel_rot )
-        
+
+        self.UpdateValvePose(req)
+
         self.planner.CreateValve(req.Request.ValveSize, req.Request.ValveType)
 
         while (self.read_joint_states and (self.current_config is None)):
@@ -115,22 +140,9 @@ class HuboPlannerInterface:
         if( self.no_planning ):
             trajectory_files = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt']
         else:
-            error_code = self.planner.Plan([],req.Request.ValveSize,req.Request.Hands,req.Request.Direction,req.Request.ValveType)
+            error_code = self.planner.Plan([],req.Request.ValveSize,req.Request.Hands,req.Request.Direction,req.Request.ValveType, req.Request.TaskStage)
 
-        error_str = ""
-
-        # Read the trajectories from files
-        if(error_code == 0):
-            # No error
-            error_str = "NoError"
-        else:
-            error_str = str(error_code)
-            
-        res = PlanTurningResponse()
-        res.Response.header = Header()
-        res.Response.ErrorCode = error_str
-        res.Response.Labels = "LABELS"
-        return res
+        return self.GetPlanResponse(error_code)
 
     # NOT USED
     # Reads the trajectory from the files generated by openrave
@@ -157,6 +169,16 @@ class HuboPlannerInterface:
             for joint_index in range(len(msg.name)):
                 new_config[msg.name[joint_index]] = msg.position[joint_index]
             self.current_config = new_config
+
+            # debug #######################
+            #
+            # if(self.tempIndex == 200):
+            #     self.tempIndex = 0
+            #     print "CURRENT CONFIG"
+            #     print self.current_config
+            # else:
+            #     self.tempIndex += 1
+            ################################
     
     def Hook(self):
         print "End planner node"

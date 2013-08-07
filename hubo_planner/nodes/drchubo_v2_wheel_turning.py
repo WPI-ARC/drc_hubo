@@ -27,14 +27,107 @@ import os # for file operations
 from base_wheel_turning import *
 import rave2realhubo
 
-class DrcHuboWheelTurning( BaseWheelTurning ):
+class ConstrainedPath():
+    def __init__(self, myName):
+        self.name = myName
+        self.elements = []
+        
+    def PlayInOpenRAVE(self):
+        for e in self.elements:
+            [success, why] = e.PlayInOpenRAVE()
+            if(not success):
+                return why
+
+        return [True, ""]
+
+    def PlayOnTheRobot(self):
+        # Fill this out with the action lib.
+        pass
+        return [True, ""]
+        
+    def Execute(self):
+        # execute this trajectory
+        # on the robot
+        return [True, ""]    
+
+class ConstrainedPathElement():
+    def __init__(self, myName):
+        self.name = myName
+        self.startik = None
+        self.goalik = None
+        self.TSR = None
+        self.smoothing = None
+        self.psample = None
+        self.mimicdof = None
+        self.filename = None
+        self.errorCode = None
+        # The following attributes are 
+        # lists. And they will be used
+        # when playing trajectories with
+        # cbirrt 'traj' command
+        self.cbirrtProblems = None
+        self.cbirrtRobots = None
+        self.cbirrtTrajectories = None
+        
+        # The following attributes
+        # will auto-generate hand
+        # trajectories 
+        self.openHandsBefore = False
+        self.openHandsAfter = False
+        self.closeHandsBefore = False
+        self.closeHandsAfter = False
+        self.hands = None
+
+    def PlayInOpenRAVE(self):
+        # play this path element
+        # in openrave for
+        # confirmation / error check
+        
+        answers = []
+
+        if(len(self.cbirrtProblems) != len(self.cbirrtTrajectories)):
+            return [False, "Error: size of problem - trajectory mismatch."]
+        else:
+            try:
+                for i in range(len(self.cbirrtTrajectories)):
+                    answers.append(self.cbirrtProblems[i].SendCommand('traj '+self.cbirrtTrajectories[i]+'.txt'))
+                    print "traj call answer: ",str(answers[i])
+
+                for r in self.cbirrtRobots:
+                    r.WaitForController(0)
+
+            except openrave_exception, e:
+                print e
+                return [False, "OS exception in PlayTrajectory."]
+
+            for r in self.cbirrtRobots:
+                r.GetController().Reset(0)
+
+        time.sleep(2)
+        return [True, ""]
+
+class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
     def __init__(self,
-                 HuboModelPath = roslib.packages.get_pkg_dir("drchubo-v2")+'/robots/drchubo-v2.robot.xml',
+                 HuboModelPath = roslib.packages.get_pkg_dir("drchubo_v2")+'/robots/drchubo-v2.robot.xml',
                  WheelModelPath = roslib.packages.get_pkg_dir("wpi_drc_sim")+'/../models/driving_wheel_tiny.robot.xml' ):
 
         BaseWheelTurning.__init__( self, HuboModelPath, WheelModelPath )        
-
+        
+        # 0: Not initialized
+        # 1: Initialized
+        # 2: At init
+        # 3: Ready to turn
+        # 4: Started turning
+        # 5: Finished turning
+        # 6: Finished task
+        self.state = 0
+        
+        self.T0_LH1 = None
+        self.T0_RH1 = None
+        self.initik = None
+        self.homeik = None
+        
         # Set those variables to show or hide the interface
         # Do it using the member functions
         self.StopAtKeyStrokes = False
@@ -62,13 +155,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         self.optWall = False
         self.optDemo = False
 
-    def getSign(self,num):
-        if(num < 0.0):
-            return -1
-        elif(num > 0.0):
-            return 1
-        elif(num == 0.0):
-            return 0
+        self.useIKFast = True
         
     def GenerateJointDict(self):
         self.jointDict = {}
@@ -84,6 +171,9 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             self.env.AddModule(self.probs_crankmover,self.crankid.GetName())
         except openrave_exception, e:
             print e
+
+        print "Getting Loaded Problems"
+        self.probs = self.env.GetLoadedProblems()
 
     def SetHandDOFs(self,hand,vals):
         if(hand == "LH"):
@@ -114,29 +204,6 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         else:
             self.SetHandDOFs(hand,self.bothhandscloseval)
 
-    def GetAxisAngleRot(self,T):
-        axisangle = axisAngleFromRotationMatrix(array(T))
-        print axisangle
-        angle = sqrt(axisangle[0]**2+axisangle[1]**2+axisangle[2]**2)
-        axisangle /= angle
-        print "T: rotation angle: "+str(angle*180/pi)+", axis=["+str(axisangle[0])+", "+str(axisangle[1])+", "+str(axisangle[2])+"]"
-    
-    def GetBVector(self,T1,T2):
-
-        margin = 0.1 # in radians
-
-        print "GetBVector"
-
-        print "Getting T1_T2 (goal transform in start transform's coord. frame."
-        T1_T2 = dot(linalg.inv(T1),T2)
-
-        axisangle = axisAngleFromRotationMatrix(array(T1_T2))
-        print axisangle
-        angle = sqrt(axisangle[0]**2+axisangle[1]**2+axisangle[2]**2)
-        axisangle /= angle
-        print "T1_T2: rotation angle: "+str(angle*180/pi)+", axis=["+str(axisangle[0])+", "+str(axisangle[1])+", "+str(axisangle[2])+"]"
-        
-
     def AvoidSingularity(self,robot):
         # This function sets the robot's joints to values
         # that are close to zero as much as possible, while
@@ -144,41 +211,12 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         for jIdx, j in enumerate(robot.GetJoints()):
             lims = j.GetLimits()
             if(lims[1] > 0.0):
-                robot.SetDOFValues([0.0001],[jIdx])
+                robot.SetDOFValues([0.001],[jIdx])
             else:
-                robot.SetDOFValues([-0.0001],[jIdx])
+                robot.SetDOFValues([-0.001],[jIdx])
 
-    def d(self, c1, c2):
-        diff = c1 - c2 # these have to be numpy arrays of dimension 1
-        euclideanDist = 0
+        robot.GetController().Reset(0)
 
-        for x in diff:
-            euclideanDist += pow(x,2)
-
-        euclideanDist = pow(euclideanDist,0.5)
-        
-        return euclideanDist
-
-    # Takes in a set of configurations and returns the ones 
-    # that have minimum distance between
-    def GetMinConf(self, sols1, sols2):
-        minD = sys.float_info.max
-        minS1Idx = None
-        minS2Idx = None
-
-        for s1Idx, s1 in enumerate(sols1):
-            for s2Idx, s2 in enumerate(sols2):
-                thisD = self.d(s1,s2)
-                if(thisD < minD):
-                    minD = thisD
-                    minS1Idx = s1Idx
-                    minS2Idx = s2Idx
-
-        return [minS1Idx, minS2Idx]
-
-    def GetClosestSols(self, manipname, set1, set2):
-        return GetMinConf(set1,set2)
-            
     def IKFast(self, manipname, T, allSolutions=True):
         self.robotid.SetActiveManipulator(manipname)
         ikmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
@@ -190,2169 +228,976 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         else:
             return ikmodel.manip.FindIKSolution(array(T),IkFilterOptions.CheckEnvCollisions)
 
-    # Returns all combinations of two sets of manipulator solutions
-    def GetTwoManipsFullBodyIKs(self, manipname1, sols1, manipname2, sols2):
-        manips = self.robotid.GetManipulators()
-        confs = []
-        m1Idx = None
-        m2Idx = None
-
-        for mIdx, m in enumerate(manips):
-            name = m.GetName()
-            if ( name == manipname1 ):
-                m1Idx = mIdx
-                
-            if ( name == manipname2 ):
-                m2Idx = mIdx
-
-        for s1 in sols1:
-            self.robotid.SetDOFValues(s1,self.robotid.GetManipulators()[m1Idx].GetArmIndices())
-            for s2 in sols2:
-                self.robotid.SetDOFValues(s2,self.robotid.GetManipulators()[m2Idx].GetArmIndices())
-                confs.append(self.robotid.GetDOFValues())
-
-        return confs
+    # Plans a trajectory using a CBiRRT problem and goaljoints (active dofs)
+    def PlanTrajectory(self, q_start, q_target, TSRChainString, smoothingitrs, error_code_str, mimicdof=None,psample=None):
         
+        if(type(q_start) == type("")):
+            q_start = str2num(q_start)
 
-    def GetFullBodyIKs(self, manipname, sols):
-        manips = self.robotid.GetManipulators()
-        confs = []
-        for mIdx, m in enumerate(manips):
-            if ( m.GetName() == manipname ):
-                for s in sols:
-                    self.robotid.SetDOFValues(s,self.robotid.GetManipulators()[mIdx].GetArmIndices())
-                    confs.append(self.robotid.GetDOFValues())
-        return confs
+        # First convert q_target to numbers
+        if(type(q_target) == type("")):
+            goaljoints = deepcopy(str2num(q_target))
+        else:
+            goaljoints = deepcopy(q_target)
 
-    def FindManipIKs(self, manipname, T):
-        return self.IKFast(manipname, T, True)
-
-    def FindManipIK(self, manipname, T):
-        return self.IKFast(manipname, T, False)
-        
-    def BothHands(self,radius,valveType,direction):
-        
-        self.RemoveFiles()
-
-        # This is a list of handles of the objects that are
-        # drawn on the screen in OpenRAVE Qt-Viewer.
-        # Keep appending to the end, and pop() if you want to delete.
-        handles = [] 
-
-        normalsmoothingitrs = 300;
-        fastsmoothingitrs = 20;        
-
-        # Wheel Joint Index  
-        crankjointind = 0
-        # Set the wheel joints back to 0 for replanning
-        self.crankid.SetDOFValues([0],[crankjointind])
-        self.crankid.GetController().Reset(0)
-
-        manips = self.robotid.GetManipulators()
-        crankmanip = self.crankid.GetManipulators()
-        
-        self.SetProblems()
-
-        print "Getting Loaded Problems"
-        probs = self.env.GetLoadedProblems()
-
-        # Keep Active Joint Indices
-        activedofs = []
-        for m in manips:
-            activedofs.extend(m.GetArmIndices())
-
-        # Sort Active Joint Indices
-        activedofs.sort()
-
-        ############################## DRCHUBO V2  ############################
-        
-        # elbows: Left Elbow Pitch: 3; Right Elbow Pitch: 29
-        self.robotid.SetDOFValues([-0.45,-0.45],[3,29]) 
-        self.robotid.SetActiveDOFs(activedofs)
-
-        leg_height = self.robotid.GetManipulators()[2].GetEndEffectorTransform()[2,3]
-        # Find a trajectory from 0 to initconfig
-        if( self.StopAtKeyStrokes ):
-            print "Leg height :  " + str(leg_height)
-            sys.stdin.readline()
-
-        print "activedofs:"
-        print activedofs
-
-        # Current configuration of the robot is its initial configuration
-        initconfig = self.robotid.GetActiveDOFValues()
-
-        # List of Robot Links
-        links = self.robotid.GetLinks()
-
-        # List of Wheel (Crank Links)
-        cranklinks = self.crankid.GetLinks()
-
-        # End Effector Transforms
-        Tee = []
-        for i in range(len(manips)):
-            # Returns End Effector Transform in World Coordinates
-            Tlink = manips[i].GetEndEffectorTransform()
-            # print Tlink
-            Tee.append(Tlink)
-
-        # Wheel Joint Index  
-        crankjointind = 0
-
-        # Get Transformation Matrix for the Wheel
-        # Note that crank's links are not rotated
-        # If you want use the wheel's end effector's transformation
-        # matrix (which is 23 degrees tilted) then see
-        # CTee matrix below.
-        #
-        # crank has two links: 
-        # 0) pole - the blue cylinder in the model, and, 
-        # 1) crank - the driving wheel itself.
-        jointtm = cranklinks[0].GetTransform()
-        # handles.append(misc.DrawAxes(self.env,matrix(jointtm),1))
-
-
-        # We can also get the transformation matrix
-        # with the following command as a string
-        # jointtm_str = self.probs_cbirrt.SendCommand('GetJointTransform name crank jointind '+str(crankjointind))
-        # And then we can convert the string to a 1x12 array
-        # jointtm_str = jointtm_str.replace(" ",",")
-        # jointtm_num = # eval('['+jointtm_str+']')
-
-        # In this script we will use jointtm.
-        # jointtm_str and jointtm_num are given as example.
-
-        # Crank Transform End Effector in World Coordinates
-        # This is the transformation matrix of the end effector 
-        # named "dummy" in the xml file.
-        # Note that dummy is tilted 23 degress around its X-Axis
-        CTee = crankmanip[0].GetEndEffectorTransform()
-
-        tilt_angle_deg = acos(dot(linalg.inv(CTee),jointtm)[1,1])*180/pi
-        tilt_angle_rad = acos(dot(linalg.inv(CTee),jointtm)[1,1])
-
-        # What is this?
-        handrot = rodrigues([0,-pi/2,0])
-
-        # Translation Offset from the wheel center for the hands
-        transoffset = [0, 0.15, 0];
-
-        # Figure out where to put the left hand on the wheel
-        temp = dot(CTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-        temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
-
-        # Left Hand Pose in World Coordinates
-        T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
-        #T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
-
-        # Uncomment if you want to see where T0_LH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(T0_LH1),1))
-
-        # Figure out where to put the right hand on the wheel
-        temp = dot(CTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-        temp = dot(temp, MakeTransform(rodrigues([0,pi,0]),transpose(matrix([0,0,0]))))
-        temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
-
-        # Right Hand Pose in World Coordinates
-        T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
-        #T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
-
-        # Uncomment if you want to see where T0_RH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(T0_RH1),1))
-
-        # Define Task Space Region strings
-        # Left Hand
-        TSRString1 = SerializeTSR(0,'NULL',T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        #TSRString1 = SerializeTSR(0,'NULL',T0_LH1,MakeTransform(T0_LH1[0:3,0:3],transpose(matrix(jointtm[0:3,3]))),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # Right Hand
-        TSRString2 = SerializeTSR(1,'NULL',T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        #TSRString2 = SerializeTSR(1,'NULL',T0_RH1,MakeTransform(T0_LH1[0:3,0:3],transpose(matrix(jointtm[0:3,3]))),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # Left Foot
-        TSRString3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
-        
-        # Right Foot
-        TSRString4 = SerializeTSR(3,'NULL',Tee[3],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
-
-        # Head
-        # Grasp transform in Head coordinates
-        Tw0_eH = eye(4) 
-        # How much freedom do we want to give to the Head
-        # [x,x,y,y,z,z,R,R,P,P,Y,Y]
-        Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
-        TSRString5 = SerializeTSR(4,'NULL',Tee[4],Tw0_eH,Bw0H)
-
-        TSRChainStringFeetandHead_home2init = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-        TSRChainStringFeetandHead_init2home = deepcopy(TSRChainStringFeetandHead_home2init)
-
-        
-        [T0_LFTarget, T0_RFTarget] = self.GetFeetTargets()
-
-        TSRString3 = SerializeTSR(2,'NULL',T0_LFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        TSRString4 = SerializeTSR(3,'NULL',T0_RFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # We defined Task Space Regions. Now let's concatenate them.
-        TSRChainStringGrasping = SerializeTSRChain(0,1,0,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[])#+' '+SerializeTSRChain(0,1,0,1,TSRString5,'NULL',[])
-
-        # Go home
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go home"
-            sys.stdin.readline()
-
-        self.BendTheKnees()
-
-        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-
-        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
-
-        self.AvoidSingularity(self.robotid)
-        #self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
-        home = self.robotid.GetActiveDOFValues()
-
-        # handles.append(misc.DrawAxes(self.env,matrix(self.T0_RefLink),0.5))
-        # handles.append(misc.DrawAxes(self.env,matrix(self.T0_WheelRViz),0.5))
-
-        # Find a trajectory from 0 to initconfig
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to plan home --> initconfig "
-            sys.stdin.readline()
-
-        # goaljoints = initconfig
-        goaljoints = deepcopy(initik)
-        goaljoints = str2num(goaljoints)
-
-        try:
-            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
-            print "RunCBiRRT answer: ",str(answer)
-            if(answer[0] != '1'):
-                return 10 # 1: cbirrt error, 0: home->init
-        except openrave_exception, e:
-            print "Cannot send command RunCBiRRT: "
-            print e
-
-        try:
-            os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj0.txt")
-            traj = RaveCreateTrajectory(self.env,'').deserialize(open('movetraj0.txt','r').read())
-
-            # print "conf spec for start2goal:"
-            cs = traj.GetConfigurationSpecification()
-
-            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-            # print "drchubo-v2 joint values offset"
-            # print drchuboJointValsGroup.offset
-
-            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-            # print "drchubo-v2 joint velocities offset"
-            # print drchuboJointVelocitiesGroup.offset
-
-            deltatimeGroup = cs.GetGroupFromName("deltatime")
-            # print "deltatime offset"
-            # print deltatimeGroup.offset
-
-            rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-        except OSError, e:
-            # No file cmovetraj
-            print e
-
-        try:
-            answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-
+        self.robotid.SetActiveDOFValues(q_start)
         self.robotid.GetController().Reset(0)
         time.sleep(2)
 
-        # print "TSRChainStringGrasping"
-        # print TSRChainStringGrasping
+        # Then add extra dofs for each TSRMimicDOF
+        if(mimicdof is not None):
+            for i in range(mimicdof):
+                goaljoints = append(goaljoints, [0], 0)        
+        
+        cmdStr = 'RunCBiRRT '
 
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go to startik"
-            sys.stdin.readline()
+        try:
+            if(psample != None):
+                cmdStr += 'psample '+str(psample)+' '
 
-        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-        startik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 0 '+trans_to_str(T0_LH1)+' maniptm 1 '+trans_to_str(T0_RH1))
+            cmdStr += 'supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(smoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString
 
-        if(startik == ''):
-            print "Error: could not find startik"
-            return 22 # 2: generalik error, 2: at startik
+            answer = self.probs_cbirrt.SendCommand(cmdStr)
+
+            print "RunCBiRRT answer: ",str(answer)
+            if(answer[0] != '1'):
+                return [False, error_code_str+" - "+answer[1:]]
+        except openrave_exception, e:
+            print "Cannot send command RunCBiRRT: "
+            print e
+            return [False, "CBiRRT Plug-in Exception."]
+
+        return [True, ""]
+
+    def ExportTraj2RealHubo(self,trajfilename):
+        traj = RaveCreateTrajectory(self.env,'').deserialize(open(trajfilename+'.txt','r').read())
+        cs = traj.GetConfigurationSpecification()
+        drchuboJointValsGroup = cs.GetGroupFromName("joint_values "+self.robotid.GetName())
+        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities "+self.robotid.GetName())
+        deltatimeGroup = cs.GetGroupFromName("deltatime")
+        rave2realhubo.traj2ach(self.env,self.robotid,traj,trajfilename,drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+    
+    def RenameTrajectory(self,src,dst):
+        try:
+            os.rename(src,dst)
+        except OSError, e:
+            # No file cmovetraj
+            print e
+            return [False, "OS exception in RenameTrajectory."]
+
+        return [True, ""]
+    
+    def EndTask(self, hands):
+        # Wherever you are,
+        currentik = self.robotid.GetActiveDOFValues()
+
+        # Set the TSRs for current --> initik
+        # Left Hand
+        TSRStringLH1 = SerializeTSR(0,'NULL',self.robotManips[0].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Hand
+        TSRStringRH1 = SerializeTSR(1,'NULL',self.robotManips[1].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Left Foot
+        TSRStringLF1 = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Foot
+        TSRStringRF1 = SerializeTSR(3,'NULL',self.robotManips[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Head
+        TSRStringH = SerializeTSR(4,'NULL',self.robotManips[4].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+
+        # Set the TSRs for initik --> home
+        # To do that, we need the end effector transforms at homeIK
+        self.AvoidSingularity(self.robotid)
+        self.homeik = self.robotid.GetActiveDOFValues()
+        
+        if(type(self.initik) == type("")):
+            self.robotid.SetActiveDOFValues(str2num(self.initik))
         else:
-            print "found startik"
-            # print startik
+            self.robotid.SetActiveDOFValues(self.initik)
+
+        self.robotid.GetController().Reset(0)
+        
+
+        # Left Foot
+        TSRStringLF2 = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
+        # Right Foot
+        TSRStringRF2 = SerializeTSR(3,'NULL',self.robotManips[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
+
+        # We have the strings. Let's chain them together.
+        
+        TSRChainStringFeetandHead_current2init_bh = SerializeTSRChain(0,0,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_current2init_lh = SerializeTSRChain(0,0,1,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_current2init_rh = SerializeTSRChain(0,0,1,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_init2home = SerializeTSRChain(0,0,1,1,TSRStringLF2,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringRF2,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+        
+        # We now have the TSRs
+        # Set the robot back to currentik
+        self.robotid.SetActiveDOFValues(currentik)
+                
+        # 1. make sure you open your hands
+        # 2. Go to a safe position
+
+        # Set the path element
+        cpe0 = ConstrainedPathElement("current2init")
+        cpe0.startik = currentik
+        cpe0.goalik = self.initik
+        if( hands == "BH" ):
+            cpe0.TSR = TSRChainStringFeetandHead_current2init_bh
+        elif( hands == "LH" ):
+            cpe0.TSR = TSRChainStringFeetandHead_current2init_lh
+        elif( hands == "RH" ):
+            cpe0.TSR = TSRChainStringFeetandHead_current2init_rh
+        cpe0.smoothing = self.normalsmoothingitrs
+        cpe0.errorCode = "14"
+        cpe0.psample = 0.2
+        cpe0.filename = "movetraj4"
+        cpe0.hands = "BH"
+        cpe0.cbirrtProblems = [self.probs_cbirrt]
+        cpe0.cbirrtRobots = [self.robotid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename]
+
+        # 3. open your hands before
+        cpe0.openHandsBefore = True
+        # 4. close your hands after
+        cpe0.closeHandsAfter = True
+
+        # 4. Go back home
+        cpe1 = ConstrainedPathElement("init2home")
+        cpe1.startik = self.initik
+        cpe1.goalik = self.homeik
+        cpe1.TSR = TSRChainStringFeetandHead_init2home
+        cpe1.smoothing = self.normalsmoothingitrs
+        cpe1.errorCode = "17"
+        cpe1.psample = 0.2
+        cpe1.filename = "movetraj7"
+        cpe1.hands = "BH"
+        cpe1.cbirrtProblems = [self.probs_cbirrt]
+        cpe1.cbirrtRobots = [self.robotid]
+        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename]
             
-            # GeneralIK does not check for collision, so let's make sure that we find IKs that don't collide
-            # with the environment
+        cp = ConstrainedPath("end task")
+        cp.elements.append(cpe0)
+        cp.elements.append(cpe1)
+        
+        [success, why] = self.PlanPath(cp)
+        if(not success):
+            return why
+        else:
+            return 0
+
+    def GetReady(self, hands, valveType):
+        
+        self.AvoidSingularity(self.robotid)
+
+        # Wherever you are, make sure you
+        # 1. Go to a safe position
+        handles = []
+
+        # Current configuration of the robot is its initial configuration
+        currentik = self.robotid.GetActiveDOFValues()
+
+        # Define TSR for this path
+        TSRStringLF0 = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
+        TSRStringRF0 = SerializeTSR(3,'NULL',self.robotManips[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
+        TSRStringH = SerializeTSR(4,'NULL',self.robotManips[4].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        TSRChainStringFeetandHead_current2init = SerializeTSRChain(0,0,1,1,TSRStringLF0,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringRF0,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        # Set a "safe pose"
+        # elbows: Left Elbow Pitch: 3; Right Elbow Pitch: 29
+        self.AvoidSingularity(self.robotid)
+        self.robotid.SetDOFValues([-0.65,-0.65],[3,29]) 
+        self.BendTheKnees()
+        [T0_LFTarget, T0_RFTarget] = self.GetFeetTargets()
+
+        self.initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
+
+        if( self.initik == ''):
+            print "Error: could not find initik"
+            return 21 # 2: generalik error, 1: at initik
+
+        self.robotid.SetActiveDOFValues(str2num(self.initik))
+
+        # Now try to find an IK to get ready to turn the valve
+        #
+        # Go through different grasp indices until one of them works
+        graspIndex = 0
+
+        # Left Hand Transform in World Coordinates
+        self.T0_LH1 = self.GetT0_LH1(hands, graspIndex ,valveType)
+
+        # Uncomment if you want to see where T0_LH1 is 
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
+
+        # Right Hand Pose in World Coordinates
+        self.T0_RH1 = self.GetT0_RH1(hands, graspIndex, valveType)
+
+        # Uncomment if you want to see where T0_RH1 is 
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_RH1),1))
+
+        # Define Task Space Region strings
+        # Left Hand
+        TSRStringLH1 = SerializeTSR(0,'NULL',self.T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Hand
+        TSRStringRH1 = SerializeTSR(1,'NULL',self.T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Define TSR for this path
+        TSRStringLF1 = SerializeTSR(2,'NULL', T0_LFTarget, eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        TSRStringRF1 = SerializeTSR(3,'NULL', T0_RFTarget, eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+
+        # We defined Task Space Regions. Now let's concatenate them.
+        TSRChainStringFeetandHead_init2start_bh = SerializeTSRChain(0,1,0,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_init2start_lh = SerializeTSRChain(0,1,0,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_init2start_rh = SerializeTSRChain(0,1,1,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        # Open the hand we will use to avoid collision:
+        if( hands == "BH" ):
             self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
             self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-
-            self.robotid.SetActiveManipulator('leftArm')
-            leftArmIkmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
-            leftArmIkmodel.load()
-
-            # check if ik solutions exist
-            sol0=leftArmIkmodel.manip.FindIKSolution(array(T0_LH1),IkFilterOptions.CheckEnvCollisions)
-            
-            self.robotid.SetActiveManipulator('rightArm')
-            rightArmIkmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
-            rightArmIkmodel.load()
-
-            # check if ik solutions exist
-            sol1=rightArmIkmodel.manip.FindIKSolution(array(T0_RH1),IkFilterOptions.CheckEnvCollisions)
-
-            if((sol0 is None) or (sol1 is None)):
-                print "could not found startik"
-                return 32 # 3: ikfast error, 2: startik
-            else:
-                self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())            
-                self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
-                startik = self.robotid.GetActiveDOFValues()
-                # print startik
-
-                # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
-                # How much do we want to rotate the wheel?
-                if(direction == "CCW"):
-                    multiplier = -1
-                elif(direction == "CW"):
-                    multiplier = 1
-
-                # crank_rot = (multiplier)*(pi/10)
-                crank_rot = (multiplier)*(pi/3)
-            
-                # T0_w0L = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
-                # print "tilt_angle_rad"
-                # print tilt_angle_rad
-                # print "self.tiltDiff"
-                # print self.tiltDiff
-                
-                # Reverse calculate T0_w from the left hand.
-                # T0_w0L = MakeTransform(T0_LH1[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
-                T0_w0L = dot(jointtm,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
-                T0_w0L = dot(T0_w0L,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-                
-                #T0_w0L = MakeTransform(rodrigues([acos(self.crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix(jointtm[0:3,3])))
-                # This is what's happening: 
-                #
-                # Tw0L_0 = linalg.inv(T0_w0L)
-                # Tw0L_LH1 = Tw0L_0*T0_LH1
-                #
-                # Left hand's transform in wheel's coordinates
-                Tw0L_LH1 = dot(linalg.inv(T0_w0L),T0_LH1)
-                # Transform of the left hand's end effector in wheel's coords.
-                # Required by CBiRRT
-                Tw0_eL = Tw0L_LH1
-                # How much freedom do we want to give to the left hand
-                
-                # Bw0L = matrix([0,0,0,0,0,0,0,pi,0,pi,0,pi])
-
-                # Right Hand's transforms:
-                T0_crankcrank = self.crankid.GetManipulators()[0].GetEndEffectorTransform()
-                # T0_w0R = MakeTransform(rodrigues([tilt_angle_rad,0,0]),transpose(matrix([0,0,0])))
-                T0_w0R = MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0])))
-                #T0_w0R = MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0])))
-                #T0_w0R = MakeTransform(rodrigues([acos(self.crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix([0,0,0])))
-                # End effector transform in wheel coordinates
-                Tw0_eR = dot(linalg.inv(T0_crankcrank),T0_RH1)
-
-                # handles.append(misc.DrawAxes(self.env,matrix(Tw0_eR),1))
-
-                # Which joint do we want the CBiRRT to mimic the TSR for?
-                TSRChainMimicDOF = 1
-                
-                # What is this?
-                temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
-                
-                # Where will the right hand go after turning the wheel?
-                # T0_RH2 = dot(T0_crankcrank,dot(temp,dot(linalg.inv(T0_crankcrank),T0_RH1)))
-                T0_crankcrank_rotated = dot(T0_crankcrank,temp)
-                Tcrankcrank_RH1 = dot(linalg.inv(T0_crankcrank),T0_RH1)
-                T0_RH2 = dot(T0_crankcrank_rotated, Tcrankcrank_RH1)
-                
-
-                # Uncomment to see T0_RH2
-                handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
-
-                # How much freedom? (note: in frame of crank)
-                Bw0R = matrix([0,0,0,0,0,0,0,0,0,0,0,0]) # --> THIS IS HOW IT USED TO BE...
-                # Bw0R = matrix([0,0,0,0,0,0,0,0,0,0,0,crank_rot])
-                
-                # Bw0R = self.GetBVector(T0_RH1,T0_RH2)
-
-                # Head's transforms:
-                T0_w0H =  Tee[4]
-                Tw0_eH = eye(4);
-                Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
-
-                # Create the transform for the wheel that we would like to reach to
-                # Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
-                # Tcrank_rot = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
-
-                # handles.append(misc.DrawAxes(self.env,self.crankid.GetManipulators()[0].GetEndEffectorTransform(),1))
-
-                # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
-                #T0_cranknew = dot(T0_w0L,Tcrank_rot)
-                T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
-                handles.append(misc.DrawAxes(self.env,matrix(T0_cranknew),1))
-
-                # Where will the left hand go after turning the wheel?
-                # This is what's happening:
-                #
-                # Tcranknew_LH2 = dot(Tw0L_0,T0_LH1) --> Left hand in wheel's coordinate
-                # T0_LH2 = dot(T0_cranknew,Tcranknew_LH2) --> Left hand rotated around wheel's origin
-                # T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
-                T0_LH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),T0_LH1))
-
-                print "GetAxisAngleRot TLH1_LH2"
-                self.GetBVector(T0_LH1,T0_LH2)
-               
-                if(direction == "CW"):
-                    Bw0L = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
-                elif(direction == "CCW"):
-                    Bw0L = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0])
-
-                # Uncomment to see T0_LH2
-                handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
-
-                # Define Task Space Regions
-                # Left Hand
-                TSRString1 = SerializeTSR(0,'NULL',T0_w0L,Tw0_eL,Bw0L)
-                # Right Hand
-                TSRString2 = SerializeTSR(1,'crank crank',T0_w0R,Tw0_eR,Bw0R)
-                # Left Foot
-                TSRString3 = SerializeTSR(2,'NULL',T0_LFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-                # Right Foot
-                TSRString4 = SerializeTSR(3,'NULL',T0_RFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-                # Head
-                TSRString5 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
-
-                TSRChainStringFeetandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-
-                TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([crankjointind]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',matrix([]))+' '+TSRChainStringFeetandHead_goal2start
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to find a goalIK"
-                    sys.stdin.readline()
-
-                arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-                arg2 = trans_to_str(T0_LH2)
-                arg3 = trans_to_str(T0_RH2)
-                arg4 = trans_to_str(T0_LFTarget)
-                arg5 = trans_to_str(T0_RFTarget)
-
-                self.crankid.SetDOFValues([crank_rot],[crankjointind])
-                self.crankid.GetController().Reset(0)
-
-                goalik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+' nummanips 4 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4+' maniptm 3 '+arg5)
-
-                if(goalik == ''):
-                    print "GeneralIK Error: No goalik found!"
-                    return 23 # 2: generalik error, 3: at goal ik
-                else:
-                    print "found goalik"
-                    # print goalik
-
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to go to goalik"
-                        sys.stdin.readline()
-
-                    self.robotid.SetActiveDOFValues(str2num(goalik))
+        if( hands == "LH" ):
+            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+        if( hands == "RH" ):
+            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
                     
-                    if (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()):
-                        # If robot is in collision, try to find an IK Fast solution
-                        # check if ik solutions exist
-                        self.robotid.SetActiveManipulator('leftArm')
-                        leftArmIkmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
-                        leftArmIkmodel.load()
-                        sol0=leftArmIkmodel.manip.FindIKSolution(array(T0_LH2),IkFilterOptions.CheckEnvCollisions)
+        startik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 2 maniptm 0 '+trans_to_str(self.T0_LH1)+' maniptm 1 '+trans_to_str(self.T0_RH1))
+        
+        #GeneralIK does not go collision check
+        if( startik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: GeneralIK could not find startik, or startik is in collision."
             
-                        self.robotid.SetActiveManipulator('rightArm')
-                        rightArmIkmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
-                        rightArmIkmodel.load()
-
-                        # check if ik solutions exist
-                        sol1=rightArmIkmodel.manip.FindIKSolution(array(T0_RH2),IkFilterOptions.CheckEnvCollisions)
-                        
-                        if((sol0 is None) or (sol1 is None)):
-                            print "could not found startik"
-                            return 33 # 3: ikfast error, 3: goalik
-                        else:
-                            self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())            
-                            self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
-                            goalik = self.robotid.GetActiveDOFValues()
-                        
-                    
-                    self.crankid.SetDOFValues([crank_rot],[crankjointind])
-                    self.crankid.GetController().Reset(0)
-
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to go to initik"
-                        sys.stdin.readline()
-
-                    self.crankid.SetDOFValues([0],[crankjointind])
-                    self.crankid.GetController().Reset(0)
-                    # self.robotid.SetActiveDOFValues(initconfig)
-                    self.robotid.SetActiveDOFValues(str2num(initik))
-
-                    # bh: both hands
-                    # lh: left hands
-                    # rh: right hands
-                    self.OpenHands("BH",self.default_trajectory_dir+"movetraj0_openhands")
-                    # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                    # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-
-
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to plan initconfig --> startik"
-                        sys.stdin.readline()
-
-                    # Get a trajectory from initial configuration to grasp configuration
-
-                    goaljoints = deepcopy(startik)
-                    #goaljoints = str2num(goaljoints)
-
-                    with self.robotid:
-                        try:
-                            answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
-                            # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
-                            print "RunCBiRRT answer: ",str(answer)
-                            if(answer[0] != '1'):
-                                return 11 # 1: cbirrt error, 1: init->start
-                        except openrave_exception, e:
-                            print "Cannot send command RunCBiRRT: "
-                            print e
-
-                    try:
-                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj1.txt")
-
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())
-
-                        # print "conf spec for start2goal:"
-                        cs = traj.GetConfigurationSpecification()
-
-                        drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                        # print "drchubo-v2 joint values offset"
-                        # print drchuboJointValsGroup.offset
-
-                        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                        # print "drchubo-v2 joint velocities offset"
-                        # print drchuboJointVelocitiesGroup.offset
-
-                        deltatimeGroup = cs.GetGroupFromName("deltatime")
-                        # print "deltatime offset"
-                        # print deltatimeGroup.offset
-
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                    except OSError, e:
-                        # No file cmovetraj
-                        print e
-
-                    # The following is the same as commented out try-except section
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())   
-
-                    self.robotid.GetController().SetPath(traj) 
-                    self.robotid.WaitForController(0)
-                    self.robotid.GetController().Reset(0) 
-
-                    self.CloseHands("BH",self.default_trajectory_dir+"movetraj1_closehands",True)
-                    # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-                    # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to plan startik --> goalik "
-                        sys.stdin.readline()
-
-                    # self.crankid.SetDOFValues([0],[crankjointind])
-
-                    # Get a trajectory from goalik to grasp configuration
-                    goaljoints = deepcopy(goalik)
-                    if(type(goalik) == type("")):
-                        for i in range(TSRChainMimicDOF):
-                            goaljoints += ' 0'
-
-                        goaljoints = str2num(goaljoints)
+            if( self.useIKFast  ):
+                print "Info: using IKFast."
+                
+                if( hands == "BH" or hands == "LH" ):
+                    sol0 = self.IKFast('leftArm', array(self.T0_LH1), False)
+                    if( sol0 is not None):
+                        self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())
                     else:
-                        for i in range(TSRChainMimicDOF):
-                            goaljoints = append(goaljoints, [0], 0)
+                        print "Error: IKFast Could not found startik."
+                        return 32 # 3: ikfast error, 2: startik
+       
+                if( hands == "BH" or hands == "RH" ):
+                    sol1 = self.IKFast('rightArm', array(self.T0_RH1), False)
+                    if( sol1 is not None):
+                        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
+                    else:
+                        print "Error: IKFast Could not found startik."
+                        return 32 # 3: ikfast error, 2: startik
 
-                    try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
-                        print "RunCBiRRT answer: ",str(answer)
-                        if(answer[0] != '1'):
-                            return 12 # 1: cbirrt error, 2: start->goal
-                    except openrave_exception, e:
-                        print "Cannot send command RunCBiRRT: "
-                        print e
+                startik = self.robotid.GetActiveDOFValues()
+            else:
+                return 22 # 2: generalik error, 2: at startik
+        else:
+            print "Info: GeneralIK found a startik."
 
-                    try:
-                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj2.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj2.txt','r').read())
+        # If all is good we have a currentik, an initik and a startik
+        # Close both hands to avoid collision at currentik
+        self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
-                        # print "conf spec for start2goal:"
-                        cs = traj.GetConfigurationSpecification()
+        cp = ConstrainedPath("current --> start")
+        
+        # Set the path elements
+        # From current configuration to a known init configuration
+        cpe0 = ConstrainedPathElement("current2init")
+        cpe0.startik = currentik
+        cpe0.goalik = self.initik
+        cpe0.TSR = TSRChainStringFeetandHead_current2init
+        cpe0.smoothing = self.normalsmoothingitrs
+        cpe0.errorCode = "10"
+        cpe0.psample = 0.2
+        cpe0.filename = "movetraj0"
+        cpe0.hands = hands
+        cpe0.cbirrtProblems = [self.probs_cbirrt]
+        cpe0.cbirrtRobots = [self.robotid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename]
 
-                        drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                        # print "drchubo-v2 joint values offset"
-                        # print drchuboJointValsGroup.offset
+        # 2. Open your hands after going to "ready" config.
+        cpe0.openHandsAfter = True
 
-                        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                        # print "drchubo-v2 joint velocities offset"
-                        # print drchuboJointVelocitiesGroup.offset
+        print "startik"
+        print startik
 
-                        deltatimeGroup = cs.GetGroupFromName("deltatime")
-                        # print "deltatime offset"
-                        # print deltatimeGroup.offset
+        # From a known init configuration to a known start configuration
+        cpe1 = ConstrainedPathElement("init2start")
+        cpe1.startik = self.initik
+        cpe1.goalik = startik
 
-                        # crankJointValsGroup = cs.GetGroupFromName("joint_values crank")
-                        # print "crank joint values offset:"
-                        # print crankJointValsGroup.offset
+        if( hands == "BH" ):
+            cpe1.TSR = TSRChainStringFeetandHead_init2start_bh
+        elif( hands == "LH" ):
+            cpe1.TSR = TSRChainStringFeetandHead_init2start_lh
+        elif( hands == "RH" ):
+            cpe1.TSR = TSRChainStringFeetandHead_init2start_rh
 
-                        # crankJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities crank")
-                        # print "crank joint velocities offset"
-                        # print crankJointVelocitiesGroup.offset
+        cpe1.smoothing = self.normalsmoothingitrs
+        cpe1.errorCode = "11"
+        cpe1.psample = 0.2
+        cpe1.filename = "movetraj1"
+        cpe1.hands = hands
+        cpe1.cbirrtProblems = [self.probs_cbirrt]
+        cpe1.cbirrtRobots = [self.robotid]
+        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename]
+
+        cp.elements.append(cpe0)
+        cp.elements.append(cpe1)
+        
+        [success, why] = self.PlanPath(cp)
+        if(not success):
+            return why
+        else:
+            return 0
 
 
+    def PlanPath(self, path):
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
+        if( self.StopAtKeyStrokes ):
+            print "Press Enter to plan "+path.name
+            sys.stdin.readline()
 
-                    except OSError, e:
-                        # No file cmovetraj
-                        print e
+        for pe in path.elements:
 
-                    try:
-                        answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
-                        answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
-                        self.robotid.WaitForController(0)
-                        # debug
-                        print "traj call answer: ",str(answer)
-                    except openrave_exception, e:
-                        print e
+            if( pe.openHandsBefore ):
+                # Open the hand we will use to avoid collision:
+                if( pe.hands == "BH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "LH" ):
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "RH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
 
-                    self.robotid.GetController().Reset(0)
-                    self.OpenHands("BH",self.default_trajectory_dir+"movetraj2_openhands")
-                    #self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                    #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                self.OpenHands(pe.hands,self.default_trajectory_dir+"openhands_before_"+pe.filename)
+            if( pe.closeHandsBefore ):
+                self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_before_"+pe.filename,True)
 
-                    time.sleep(2)
+            [success, why] = self.PlanTrajectory(pe.startik, pe.goalik, pe.TSR, pe.smoothing, pe.errorCode, pe.mimicdof, pe.psample)
+            if(not success):
+                return [False, why]
 
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to plan goalik --> startik "
-                        sys.stdin.readline()
+            [success, why] = self.RenameTrajectory("cmovetraj.txt",self.default_trajectory_dir+pe.filename+".txt")
+            if(not success):
+                return [False, why]
 
-                    # goaljoints = str2num(startik)
-                    goaljoints = deepcopy(startik)
+            self.ExportTraj2RealHubo(self.default_trajectory_dir+pe.filename)
+            
+            [success, why] = pe.PlayInOpenRAVE()
+            if(not success):
+                return [False, why]
 
-                    try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_goal2start)
-                        print "RunCBiRRT answer: ",str(answer)
-                        if(answer[0] != '1'):
-                            return 13 # 1: cbirrt error, 3: goal->start
-                    except openrave_exception, e:
-                        print "Cannot send command RunCBiRRT: "
-                        print e
+            if( pe.openHandsAfter ):
+                # Open the hand we will use to avoid collision:
+                if( pe.hands == "BH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "LH" ):
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "RH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+            
+                self.OpenHands(pe.hands,self.default_trajectory_dir+"openhands_after_"+pe.filename)
+            if( pe.closeHandsAfter ):
+                # super hacky way to keep the robot from being in self collision when going home
+                if(pe.name == "current2init"):
+                    self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_after_"+pe.filename,False)
+                else:
+                    self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_after_"+pe.filename,True)
 
-                    try:
-                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj3.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj3.txt','r').read())
+        self.trajectory = path
 
-                        # print "conf spec for start2goal:"
-                        cs = traj.GetConfigurationSpecification()
+        return [True, ""]
 
-                        drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                        # print "drchubo-v2 joint values offset"
-                        # print drchuboJointValsGroup.offset
+    def GetT0_LH1(self, hands, whichGrasp, valveType):
 
-                        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                        # print "drchubo-v2 joint velocities offset"
-                        # print drchuboJointVelocitiesGroup.offset
+        if( hands == "BH" ):
+            # Figure out where to put the left hand on the valve
+            if(valveType == "W"):
+                if(whichGrasp == 0):
+                    temp = dot(self.valveTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+                    temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
+                    return dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
+                
+        if( hands == "LH" ):
+            # Figure out where to put the left hand on the wheel
+            temp = dot(self.valveTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
+            temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
-                        deltatimeGroup = cs.GetGroupFromName("deltatime")
-                        # print "deltatime offset"
-                        # print deltatimeGroup.offset
+            # Left Hand Pose in World Coordinates
+            if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
+            if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,(self.r_Wheel-0.005)]))))
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                    except OSError, e:
-                        # No file cmovetraj
-                        print e
+            if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
 
-                    try:
-                        answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3.txt');
-                        self.robotid.WaitForController(0)
-                        # debug
-                        print "traj call answer: ",str(answer)
-                    except openrave_exception, e:
-                        print e
+        if( hands == "RH" ):
+            return self.robotManips[0].GetEndEffectorTransform()
 
-                    self.robotid.GetController().Reset(0)
+        return None
 
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to plan startik --> initconfig "
-                        sys.stdin.readline()
 
-                    # goaljoints = initconfig
-                    goaljoints = deepcopy(initik)
-                    goaljoints = str2num(goaljoints)
+    def GetT0_RH1(self, hands, whichGrasp, valveType):
+        if( hands == "BH" ):
+            # Figure out where to put the right hand on the valve
+            if(valveType == "W"):
+                if(whichGrasp == 0):
+                    temp = dot(self.valveTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+                    temp = dot(temp, MakeTransform(rodrigues([0,pi,0]),transpose(matrix([0,0,0]))))
+                    temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
+                    return dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))      
 
-                    print goaljoints
-                    try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_goal2start)
-                        print "RunCBiRRT answer: ",str(answer)
-                        if(answer[0] != '1'):
-                            return 14 # 1: cbirrt error, 4: start->init
-                    except openrave_exception, e:
-                        print "Cannot send command RunCBiRRT: "
-                        print e
+        if( hands == "LH" ):
+            return self.robotManips[1].GetEndEffectorTransform()
 
-                    try:
-                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj4.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj4.txt','r').read())
+        if( hands == "RH" ):
+            temp = dot(self.valveTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
+            temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
-                        # print "conf spec for start2goal:"
-                        cs = traj.GetConfigurationSpecification()
+            # Right Hand Pose in World Coordinates
+            if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
+            if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
+            if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
 
-                        drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                        # print "drchubo-v2 joint values offset"
-                        # print drchuboJointValsGroup.offset
+        return None
 
-                        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                        # print "drchubo-v2 joint velocities offset"
-                        # print drchuboJointVelocitiesGroup.offset
+    def BothHands(self, radius, valveType, direction):
 
-                        deltatimeGroup = cs.GetGroupFromName("deltatime")
-                        # print "deltatime offset"
-                        # print deltatimeGroup.offset
+        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                    except OSError, e:
-                        # No file cmovetraj
-                        print e
+        handles = []
 
-                    try:
-                        answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4.txt');
-                        self.robotid.WaitForController(0)
-                        # debug
-                        print "traj call answer: ",str(answer)
-                    except openrave_exception, e:
-                        print e
+        # Current configuration of the robot is its initial configuration
+        currentik = self.robotid.GetActiveDOFValues()
+        
+        print "currentik"
+        print currentik
 
-                    self.robotid.GetController().Reset(0)
+        # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
+        # How much do we want to rotate the wheel?
+        if(direction == "CCW"):
+            multiplier = -1
+        elif(direction == "CW"):
+            multiplier = 1
 
-                    self.CloseHands("BH",self.default_trajectory_dir+"movetraj4_closehands")
-                    # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-                    # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
+        crank_rot = (multiplier)*(pi/8)
 
-                    if( self.StopAtKeyStrokes ):
-                        print "Press Enter to plan initconfig --> home "
-                        sys.stdin.readline()
+        # The coordinate system of the valve model we're using is not aligned with the world.
+        # This means when we say "valve.SetTransform(eye(4))" XYZ axes don't match to the world's XYZ axes.
+        # If they did, we could simply do "T0_w0L = valve.GetTransform()"
+        # However, instead we have to fix the valve's transform to make it match world's transform when zeroed.
+        # This is totally for convenience, so it's easier to think of the limits and the TSR.
+        T0_w0L = dot(self.valveTroot,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
+        T0_w0L = dot(T0_w0L,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
-                    goaljoints = home
+        # Left hand's transform in wheel's coordinates
+        Tw0L_LH1 = dot(linalg.inv(T0_w0L),self.T0_LH1) # self.T0_LH1 is set in GetReady() method
 
-                    try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
-                        print "RunCBiRRT answer: ",str(answer)
-                        if(answer[0] != '1'):
-                            return 15 # 1: cbirrt error, 5: init->home
-                    except openrave_exception, e:
-                        print "Cannot send command RunCBiRRT: "
-                        print e
+        # Transform of the left hand's end effector in wheel's coords.
+        # Required by CBiRRT
+        Tw0_eL = Tw0L_LH1
 
-                    try:
-                        os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj5.txt")
-                        traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj5.txt','r').read())
+        # Right Hand's TSR:
+        # Note that the right hand is defined in the wheel coordinate frame
+        T0_crankHandle = self.crankid.GetManipulators()[0].GetEndEffectorTransform()
+        T0_w0R = MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0,0])))
 
-                        # print "conf spec for start2goal:"
-                        cs = traj.GetConfigurationSpecification()
+        # End effector transform in wheel coordinates
+        Tw0_eR = dot(linalg.inv(T0_crankHandle),self.T0_RH1)
 
-                        drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                        # print "drchubo-v2 joint values offset"
-                        # print drchuboJointValsGroup.offset
+        # Which joint do we want the CBiRRT to mimic the TSR for?
+        TSRChainMimicDOF = 1
+        TcrankHandle_crankHandleRotated = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
 
-                        drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                        # print "drchubo-v2 joint velocities offset"
-                        # print drchuboJointVelocitiesGroup.offset
+        # Where will the right hand go after turning the wheel?
+        T0_crankHandleRotated = dot(T0_crankHandle,TcrankHandle_crankHandleRotated)
+        TcrankHandle_RH1 = dot(linalg.inv(T0_crankHandle),self.T0_RH1)
+        T0_RH2 = dot(T0_crankHandleRotated, TcrankHandle_RH1)
 
-                        deltatimeGroup = cs.GetGroupFromName("deltatime")
-                        # print "deltatime offset"
-                        # print deltatimeGroup.offset
+        # How much freedom? (note: this end effector is mimicking, everything is defined 
+        # in the frame of crank)
+        Bw0R = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
 
-                        rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                    except OSError, e:
-                        # No file cmovetraj
-                        print e
+        # Head's transforms:
+        T0_w0H =  self.robotManips[4].GetEndEffectorTransform()
+        Tw0_eH = eye(4)
+        Bw0H = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
 
-                    try:
-                        answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5.txt');
-                        self.robotid.WaitForController(0)
-                        # debug
-                        print "traj call answer: ",str(answer)
-                    except openrave_exception, e:
-                        print e
+        # Create the transform for the wheel that we would like to reach to                
+        # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
+        T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
 
-                    self.robotid.GetController().Reset(0)
-                    time.sleep(2)
-                    
-                    return 0 # no error
-        ########################################################
+        handles.append(misc.DrawAxes(self.env,matrix(T0_cranknew),1))
+
+        # Where will the left hand go after turning the wheel?
+        T0_LH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.T0_LH1))
+
+        # Exit configurations
+        backOff = 0.02
+        T0_LH3 = dot(T0_LH2, MakeTransform(eye(3),transpose(matrix([0,backOff,0]))))
+        T0_RH3 = dot(T0_RH2, MakeTransform(eye(3),transpose(matrix([0,backOff,0]))))
+
+        T0_LH4 = dot(self.T0_LH1, MakeTransform(eye(3),transpose(matrix([0,backOff,0]))))
+        T0_RH4 = dot(self.T0_RH1, MakeTransform(eye(3),transpose(matrix([0,backOff,0]))))
+
+        if(direction == "CW"):
+            Bw0L = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
+        elif(direction == "CCW"):
+            Bw0L = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0])
+
+        # Uncomment to see T0_LH1,2,3
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))    
+        handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
+        handles.append(misc.DrawAxes(self.env,matrix(T0_LH3),1))
+
+        # Uncomment to see T0_RH1,2,3
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_RH1),1))
+        handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
+        handles.append(misc.DrawAxes(self.env,matrix(T0_RH3),1))
+        
+
+        # Define Task Space Regions
+        # Left Hand
+        TSRStringLH2 = SerializeTSR(0,'NULL',T0_w0L,Tw0_eL,Bw0L)
+        # Right Hand
+        TSRStringRH2 = SerializeTSR(1,'crank crank',T0_w0R,Tw0_eR,Bw0R)
+        # Left Foot
+        TSRStringLF = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Foot
+        TSRStringRF = SerializeTSR(3,'NULL',self.robotManips[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Head
+        TSRStringH = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
+
+        TSRChainStringFeetandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRStringLF,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringRF,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRStringH,'NULL',[])
+
+        TSRChainString_start2goal = SerializeTSRChain(0,0,1,1,TSRStringLH2,'crank',matrix([self.valveJointInd]))+' '+SerializeTSRChain(0,0,1,1,TSRStringRH2,'NULL',matrix([]))+' '+TSRChainStringFeetandHead_goal2start
+
+        arg2 = trans_to_str(T0_LH2)
+        arg3 = trans_to_str(T0_RH2)
+        arg4 = trans_to_str(self.robotManips[2].GetEndEffectorTransform())
+        arg5 = trans_to_str(self.robotManips[3].GetEndEffectorTransform())
+
+        self.crankid.SetDOFValues([crank_rot],[self.valveJointInd])
+        self.crankid.GetController().Reset(0)
+
+        goalik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 4 maniptm 0 '+arg2+' maniptm 1 '+arg3+' maniptm 2 '+arg4+' maniptm 3 '+arg5)
+
+
+        if(goalik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: GeneralIK could not find goalik, or goalik is in collision."
+
+            if( self.useIKFast ):
+                print "Info: sing IKFast."
+                sol0 = self.IKFast('leftArm', array(T0_LH2), False)
+                sol1 = self.IKFast('rightArm', array(T0_RH2), False)
+                if( (sol0 is not None) and (sol1 is not None) ):
+                    self.robotid.SetDOFValues(sol0, self.robotid.GetManipulators()[0].GetArmIndices())
+                    self.robotid.SetDOFValues(sol1, self.robotid.GetManipulators()[1].GetArmIndices())
+                else:
+                    print "Error: IKFast could not find goalik."
+                    return 33 # 3: ikfast error, 3: goalik
+
+                goalik = self.robotid.GetActiveDOFValues()
+            else:
+                return 23 # 2: generalik error, 3: at goal ik
+        else:
+            print "Info: GeneralIK found a goalik."
+            self.robotid.SetActiveDOFValues(str2num(goalik))
+            self.robotid.GetController().Reset(0)            
+
+
+        arg6 = trans_to_str(T0_LH3)
+        arg7 = trans_to_str(T0_RH3)
+            
+        # Find an exit IK to clear the hands before going back to startik
+        exitik1 = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 4 maniptm 0 '+arg6+' maniptm 1 '+arg7+' maniptm 2 '+arg4+' maniptm 3 '+arg5)
+
+        if(exitik1 == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: GeneralIK could not find exitik1, or exitik1 is in collision."
+
+            if( self.useIKFast ):
+                print "Info: sing IKFast."
+                sol0 = self.IKFast('leftArm', array(T0_LH3), False)
+                sol1 = self.IKFast('rightArm', array(T0_RH3), False)
+                if( (sol0 is not None) and (sol1 is not None) ):
+                    self.robotid.SetDOFValues(sol0, self.robotid.GetManipulators()[0].GetArmIndices())
+                    self.robotid.SetDOFValues(sol1, self.robotid.GetManipulators()[1].GetArmIndices())
+                else:
+                    print "Error: IKFast could not find exitik1."
+                    return 34 # 3: ikfast error, 3: exitik1
+
+                exit = self.robotid.GetActiveDOFValues()
+            else:
+                return 24 # 2: generalik error, 4: at exitik1
+        else:
+            print "Info: GeneralIK found an exitik."
+            self.robotid.SetActiveDOFValues(str2num(exitik1))
+            self.robotid.GetController().Reset(0)
+
+        arg8 = trans_to_str(T0_LH4)
+        arg9 = trans_to_str(T0_RH4)
+            
+        # Find an exit IK to clear the hands before going back to startik
+        exitik2 = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 4 maniptm 0 '+arg8+' maniptm 1 '+arg9+' maniptm 2 '+arg4+' maniptm 3 '+arg5)
+
+        if(exitik2 == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: GeneralIK could not find exitik2, or exitik2 is in collision."
+
+            if( self.useIKFast ):
+                print "Info: sing IKFast."
+                sol0 = self.IKFast('leftArm', array(T0_LH4), False)
+                sol1 = self.IKFast('rightArm', array(T0_RH4), False)
+                if( (sol0 is not None) and (sol1 is not None) ):
+                    self.robotid.SetDOFValues(sol0, self.robotid.GetManipulators()[0].GetArmIndices())
+                    self.robotid.SetDOFValues(sol1, self.robotid.GetManipulators()[1].GetArmIndices())
+                else:
+                    print "Error: IKFast could not find exitik2."
+                    return 35 # 3: ikfast error, 5: exitik2
+
+                exit = self.robotid.GetActiveDOFValues()
+            else:
+                return 25 # 2: generalik error, 5: at exitik2
+        else:
+            print "Info: GeneralIK found an exitik."
+            self.robotid.SetActiveDOFValues(str2num(exitik2))
+            self.robotid.GetController().Reset(0)
+
+        self.crankid.SetDOFValues([0],[0])
+        self.crankid.GetController().Reset(0)
+
+        sys.stdin.readline()
+
+        # At this point we should have a currentik and a goalik
+        cp = ConstrainedPath("close hands --> current --> goal --> openhands --> current")
+
+        # Define start to goal
+        cpe0 = ConstrainedPathElement("current2goal")
+        cpe0.startik = currentik
+        cpe0.goalik = goalik
+        cpe0.TSR = TSRChainString_start2goal
+        cpe0.smoothing = self.fastsmoothingitrs
+        cpe0.errorCode = "12"
+        cpe0.mimicdof = TSRChainMimicDOF
+        cpe0.filename = "movetraj2"
+        cpe0.hands = "BH"
+        cpe0.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
+        cpe0.cbirrtRobots = [self.robotid, self.crankid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename, self.default_trajectory_dir+cpe0.filename]
+        cpe0.closeHandsBefore = True
+        cpe0.openHandsAfter = True
+
+        # Define goal to exit1
+        cpe1 = ConstrainedPathElement("goal2exit1")
+        cpe1.startik = goalik
+        cpe1.goalik = exitik1
+        cpe1.TSR = TSRChainStringFeetandHead_goal2start
+        cpe1.smoothing = self.normalsmoothingitrs
+        cpe1.errorCode = "14"
+        cpe1.filename = "movetraj3"
+        cpe1.hands = "BH"
+        cpe1.cbirrtProblems = [self.probs_cbirrt]
+        cpe1.cbirrtRobots = [self.robotid]
+        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename]
+
+        # Define exit1 to exit2
+        cpe2 = ConstrainedPathElement("goal2exit1")
+        cpe2.startik = exitik1
+        cpe2.goalik = exitik2
+        cpe2.TSR = TSRChainStringFeetandHead_goal2start
+        cpe2.smoothing = self.normalsmoothingitrs
+        cpe2.errorCode = "15"
+        cpe2.filename = "movetraj4"
+        cpe2.hands = "BH"
+        cpe2.cbirrtProblems = [self.probs_cbirrt]
+        cpe2.cbirrtRobots = [self.robotid]
+        cpe2.cbirrtTrajectories = [self.default_trajectory_dir+cpe2.filename]
+
+        # Define goal to start
+        cpe3 = ConstrainedPathElement("exit2start")
+        cpe3.startik = exitik2
+        cpe3.goalik = currentik
+        cpe3.TSR = TSRChainStringFeetandHead_goal2start
+        cpe3.smoothing = self.normalsmoothingitrs
+        cpe3.errorCode = "16"
+        cpe3.filename = "movetraj5"
+        cpe3.hands = "BH"
+        cpe3.cbirrtProblems = [self.probs_cbirrt]
+        cpe3.cbirrtRobots = [self.robotid]
+        cpe3.cbirrtTrajectories = [self.default_trajectory_dir+cpe3.filename]
+
+        # Add both elements to the path
+        cp.elements.append(cpe0)
+        cp.elements.append(cpe1)
+        cp.elements.append(cpe2)
+        cp.elements.append(cpe3)
+
+        # Plan for start -> goal -> start
+        [success, why] = self.PlanPath(cp)
+        if(not success):
+            return why
+
+        return 0
 
     def LeftHand(self,radius,valveType,direction):
-        self.robotid.SetActiveManipulator('leftArm')
 
-        self.RemoveFiles()
-
+        currentik = self.robotid.GetActiveDOFValues()
+        
         # This is a list of handles of the objects that are
         # drawn on the screen in OpenRAVE Qt-Viewer.
         # Keep appending to the end, and pop() if you want to delete.
         handles = [] 
 
-        normalsmoothingitrs = 300;
-        fastsmoothingitrs = 20;        
+        # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
+        # How much do we want to rotate the wheel?
+        if(direction == "CCW"):
+            multiplier = -1
+        elif(direction == "CW"):
+            multiplier = 1
+            
+        crank_rot = (multiplier)*pi/4
 
-        # Wheel Joint Index  
-        crankjointind = 0
-        # Set the wheel joints back to 0 for replanning
-        self.crankid.SetDOFValues([0],[crankjointind])
-        self.crankid.GetController().Reset(0)
+        T0_w0L = dot(self.valveTroot,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
+        T0_w0L = dot(T0_w0L,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
 
-        manips = self.robotid.GetManipulators()
-        crankmanip = self.crankid.GetManipulators()
-        
-        self.SetProblems()
+        # Left hand's transform in wheel's coordinates
+        Tw0L_LH1 = dot(linalg.inv(T0_w0L),self.T0_LH1)
 
-        print "Getting Loaded Problems"
-        probs = self.env.GetLoadedProblems()
+        # Transform of the left hand's end effector in wheel's coords.
+        # Required by CBiRRT
+        Tw0_eL = Tw0L_LH1
 
-        # Keep Active Joint Indices
-        activedofs = []
-        for m in manips:
-            activedofs.extend(m.GetArmIndices())
+        # How much freedom do we want to give to the left hand
+        if(direction == "CW"):
+            Bw0L = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
+        elif(direction == "CCW"):
+            Bw0L = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0])
 
-        # Sort Active Joint Indices
-        activedofs.sort()
+        # Right Hand's transforms:
+        T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
 
-        ############################## DRCHUBO V2  ############################
-        
-        # elbows: Left Elbow Pitch: 3; Right Elbow Pitch: 29
-        self.robotid.SetDOFValues([-0.45,-0.45],[3,29]) 
-        self.robotid.SetActiveDOFs(activedofs)
+        # Head's transforms:
+        T0_w0H =  self.robotManips[4].GetEndEffectorTransform()
+        Tw0_eH = eye(4)
+        Bw0H = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
 
-        leg_height = self.robotid.GetManipulators()[2].GetEndEffectorTransform()[2,3]
-        # Find a trajectory from 0 to initconfig
-        if( self.StopAtKeyStrokes ):
-            print "Leg height :  " + str(leg_height)
-            sys.stdin.readline()
+        # Define Task Space Regions
+        # Left Hand
+        TSRString1 = SerializeTSR(0,'NULL',T0_w0L,Tw0_eL,Bw0L)
+        # Right Hand
+        TSRString2 = SerializeTSR(1,'NULL',self.T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Left Foot
+        TSRString3 = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Foot
 
-        print "activedofs:"
-        print activedofs
+        TSRString4 = SerializeTSR(3,'NULL',self.robotManips[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Head
+        TSRString5 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
 
-        # Current configuration of the robot is its initial configuration
-        initconfig = self.robotid.GetActiveDOFValues()
-    
+        TSRChainStringFeetHeadandRightHand_start2init = SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
 
-        # List of Robot Links
-        links = self.robotid.GetLinks()
+        TSRChainStringFeetRightHandandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
 
-        # List of Wheel (Crank Links)
-        cranklinks = self.crankid.GetLinks()
+        TSRChainStringFeetandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
 
-        # End Effector Transforms
-        Tee = []
-        for i in range(len(manips)):
-            # Returns End Effector Transform in World Coordinates
-            Tlink = manips[i].GetEndEffectorTransform()
-            # print Tlink
-            Tee.append(Tlink)
+        TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([self.valveJointInd]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',matrix([]))+' '+TSRChainStringFeetandHead_goal2start
 
-        # Wheel Joint Index  
-        crankjointind = 0
+        # Which joint do we want the CBiRRT to mimic the TSR for?
+        TSRChainMimicDOF = 1
 
-        # Get Transformation Matrix for the Wheel
-        # Note that crank's links are not rotated
-        # If you want use the wheel's end effector's transformation
-        # matrix (which is 23 degrees tilted) then see
-        # CTee matrix below.
-        #
-        # crank has two links: 
-        # 0) pole - the blue cylinder in the model, and, 
-        # 1) crank - the driving wheel itself.
-        jointtm = cranklinks[0].GetTransform()
-        # handles.append(misc.DrawAxes(self.env,matrix(jointtm),1))
-
-
-        # We can also get the transformation matrix
-        # with the following command as a string
-        # jointtm_str = self.probs_cbirrt.SendCommand('GetJointTransform name crank jointind '+str(crankjointind))
-        # And then we can convert the string to a 1x12 array
-        # jointtm_str = jointtm_str.replace(" ",",")
-        # jointtm_num = # eval('['+jointtm_str+']')
-
-        # In this script we will use jointtm.
-        # jointtm_str and jointtm_num are given as example.
-
-        # Crank Transform End Effector in World Coordinates
-        # This is the transformation matrix of the end effector 
-        # named "dummy" in the xml file.
-        # Note that dummy is tilted 23 degress around its X-Axis
-        CTee = crankmanip[0].GetEndEffectorTransform()
-
-        tilt_angle_deg = acos(dot(linalg.inv(CTee),jointtm)[1,1])*180/pi
-        tilt_angle_rad = acos(dot(linalg.inv(CTee),jointtm)[1,1])
+        # Create the transform for the wheel that we would like to reach to
+        Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
 
         # What is this?
-        handrot = rodrigues([0,-pi/2,0])
+        temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
 
-        # Translation Offset from the wheel center for the hands
-        transoffset = [0, 0.15, 0];
+        # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
+        T0_cranknew = dot(T0_w0L,Tcrank_rot)
 
-        # Figure out where to put the left hand on the wheel
-        temp = dot(CTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
-        temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+        T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
 
-        # Left Hand Pose in World Coordinates
-        if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
-            T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
-        if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
-            T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,(self.r_Wheel-0.005)]))))
-        if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
-            T0_LH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
+        # Where will the left hand go after turning the wheel?
+        T0_LH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.T0_LH1))
 
-        # TODO: Error checking! What if we accidentally send a huge valve to 1 hand?
+        # Uncomment to see T0_LH2
+        handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
 
-
-        # Uncomment if you want to see where T0_LH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(T0_LH1),1))
-
-        # Uncomment if you want to see where T0_RH1 is 
-        # handles.append(misc.DrawAxes(self.env,matrix(T0_RH1),1))
-
-        # Define Task Space Region strings
-        # Left Hand
-        TSRString1 = SerializeTSR(0,'NULL',T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # Right Hand
-        TSRString2 = SerializeTSR(1,'NULL',Tee[1],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # Left Foot
-        TSRString3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
-        
-        # Right Foot
-        TSRString4 = SerializeTSR(3,'NULL',Tee[3],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
-
-        # Head
-        # Grasp transform in Head coordinates
-        Tw0_eH = eye(4) 
-        # How much freedom do we want to give to the Head
-        # [x,x,y,y,z,z,R,R,P,P,Y,Y]
-        Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
-        TSRString5 = SerializeTSR(4,'NULL',Tee[4],Tw0_eH,Bw0H)
-
-        TSRChainStringFeetandHead_home2init = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-        TSRChainStringFeetandHead_init2home = deepcopy(TSRChainStringFeetandHead_home2init)
-
-        
-        [T0_LFTarget, T0_RFTarget] = self.GetFeetTargets()
-
-        TSRString3 = SerializeTSR(2,'NULL',T0_LFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        TSRString4 = SerializeTSR(3,'NULL',T0_RFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # We defined Task Space Regions. Now let's concatenate them.
-        TSRChainStringGrasping = SerializeTSRChain(0,1,0,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[])#+' '+SerializeTSRChain(0,1,0,1,TSRString5,'NULL',[])
-
-        # Go home
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go home"
-            sys.stdin.readline()
-
-        self.BendTheKnees()
-
-        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-
-        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
-
-        if(initik == ''):
-            return 21 # 2: generalik error, 1: at init
-
-        self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
-        home = self.robotid.GetActiveDOFValues()
-
-        # Find a trajectory from 0 to initconfig
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to plan home --> initconfig "
-            sys.stdin.readline()
-
-        # goaljoints = initconfig
-        goaljoints = deepcopy(initik)
-        goaljoints = str2num(goaljoints)
-
-        try:
-            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
-            print "RunCBiRRT answer: ",str(answer)
-            if (str(answer) != '1'):
-                return 10 # 1: cbirrt error, 0: home->init
-        except openrave_exception, e:
-            print "Cannot send command RunCBiRRT: "
-            print e
-
-        try:
-            os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj0.txt")
-            traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj0.txt','r').read())
-
-            # print "conf spec for start2goal:"
-            cs = traj.GetConfigurationSpecification()
-
-            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-            # print "drchubo-v2 joint values offset"
-            # print drchuboJointValsGroup.offset
-
-            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-            # print "drchubo-v2 joint velocities offset"
-            # print drchuboJointVelocitiesGroup.offset
-
-            deltatimeGroup = cs.GetGroupFromName("deltatime")
-            # print "deltatime offset"
-            # print deltatimeGroup.offset
-
-            rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-        except OSError, e:
-            # No file cmovetraj
-            print e
-
-        try:
-            answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-
-        self.robotid.GetController().Reset(0)
-        time.sleep(2)
-
-        T0_RH1 = self.robotid.GetManipulators()[1].GetEndEffectorTransform()
-        handles.append(misc.DrawAxes(self.env,T0_RH1,1))
-        # print "TSRChainStringGrasping"
-        # print TSRChainStringGrasping
-
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go to startik"
-            sys.stdin.readline()
-
-        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-        
-        # GeneralIK does not check for collision, so let's make sure that we find IKs that don't collide
-        # with the environment
-        # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-        self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-        
-        self.robotid.SetActiveManipulator('leftArm')
-        leftArmIkmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
-        leftArmIkmodel.load()
         # check if ik solutions exist
-        sol0=leftArmIkmodel.manip.FindIKSolution(array(T0_LH1),IkFilterOptions.CheckEnvCollisions)
+        sol1 = self.IKFast('leftArm',array(T0_LH2), False)
 
-        if(sol0 is None):
-            print "could not found startik"
-            return 32 # 3: ikfast error, 2: startik
+        if(sol1 is None):
+            print "Error: No goalik found!"
+            return 33 # 2: ikfast error, 3: at goal
+
+        print "found goalik"
+
+        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[0].GetArmIndices())
+        goalik = self.robotid.GetActiveDOFValues()
+            
+        cp = ConstrainedPath("close hands --> current --> goal --> open hands")
+        
+        cpe0 = ConstrainedPathElement("current2goal")
+        cpe0.startik = currentik
+        cpe0.goalik = goalik
+        cpe0.TSR = TSRChainString
+        cpe0.smoothing = self.fastsmoothingitrs
+        cpe0.errorCode = "12"
+        cpe0.mimicdof = TSRChainMimicDOF
+        cpe0.filename = "movetraj2"
+        cpe0.hands = "LH"
+        cpe0.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
+        cpe0.cbirrtRobots = [self.robotid, self.crankid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename, self.default_trajectory_dir+cpe0.filename]
+
+        cpe0.closeHandsBefore = True
+        cpe0.openHandsAfter = True
+
+        cp.elements.append(cpe0)
+        
+        [success, why] = self.PlanPath(cp)
+        if(not success):
+            return why
         else:
-            print "found startik"
-            self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())
-            startik = self.robotid.GetActiveDOFValues()
+            return 0 # no error
 
-            # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
-            # How much do we want to rotate the wheel?
-            if(direction == "CCW"):
-                multiplier = -1
-            elif(direction == "CW"):
-                multiplier = 1
-
-            crank_rot = (multiplier)*pi/4
-
-            # print startik
-
-            ##################
-            
-            #print "Checking support in startik: "
-            #print self.probs_cbirrt.SendCommand('CheckSupport')
-
-            # Rotate the wheel's transform to a suitable pose
-            # for the Left Hand
-            # T0_w0L stands for: 
-            # left hand's transform on wheel in world coordinates
-            # ForTw0L = dot(T0_LH1,MakeTransform(rodrigues([-pi,0,0]),transpose(matrix([0,0,0]))))
-            # T0_w0L = MakeTransform(ForTw0L[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
-            T0_w0L = dot(jointtm,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
-            T0_w0L = dot(T0_w0L,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-            #T0_w0L = dot(temp,MakeTransform(rodrigues([0,0,0]),transpose(matrix(jointtm[0:3,3]))))
-
-            #T0_w0L = MakeTransform(rodrigues([acos(self.crankid.GetManipulators()[0].GetTransform()[1,1]),0,0]),transpose(matrix(jointtm[0:3,3])))
-            # This is what's happening: 
-            #
-            # Tw0L_0 = linalg.inv(T0_w0L)
-            # Tw0L_LH1 = Tw0L_0*T0_LH1
-            #
-            # Left hand's transform in wheel's coordinates
-            Tw0L_LH1 = dot(linalg.inv(T0_w0L),T0_LH1)
-            # Transform of the left hand's end effector in wheel's coords.
-            # Required by CBiRRT
-            Tw0_eL = Tw0L_LH1
-            # How much freedom do we want to give to the left hand
-            if(direction == "CW"):
-                Bw0L = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
-            elif(direction == "CCW"):
-                Bw0L = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0]
-
-            # Right Hand's transforms:
-            T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
-
-            # Head's transforms:
-            T0_w0H =  Tee[4]
-            Tw0_eH = eye(4);
-            Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
-
-            # Define Task Space Regions
-            # Left Hand
-            TSRString1 = SerializeTSR(0,'NULL',T0_w0L,Tw0_eL,Bw0L)
-            # Right Hand
-            TSRString2 = SerializeTSR(1,'NULL',T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            # Left Foot
-            # TSRString3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            TSRString3 = SerializeTSR(2,'NULL',T0_LFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            # Right Foot
-            # TSRString4 = SerializeTSR(3,'NULL',Tee[3],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            TSRString4 = SerializeTSR(3,'NULL',T0_RFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            # Head
-            TSRString5 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
-
-            TSRChainStringFeetHeadandRightHand_start2init = SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-
-            TSRChainStringFeetRightHandandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString2,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-
-            TSRChainStringFeetandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-            
-            TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'crank',matrix([crankjointind]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'NULL',matrix([]))+' '+TSRChainStringFeetandHead_goal2start
-
-
-
-            # Which joint do we want the CBiRRT to mimic the TSR for?
-            TSRChainMimicDOF = 1
-
-            # Create the transform for the wheel that we would like to reach to
-            Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
-
-            # What is this?
-            temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
-
-            # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
-            T0_cranknew = dot(T0_w0L,Tcrank_rot)
-
-            T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
-
-            # Where will the left hand go after turning the wheel?
-            # This is what's happening:
-            #
-            # Tcranknew_LH2 = dot(Tw0L_0,T0_LH1) --> Left hand in wheel's coordinate
-            # T0_LH2 = dot(T0_cranknew,Tcranknew_LH2) --> Left hand rotated around wheel's origin
-            # T0_LH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0L),T0_LH1))
-            T0_LH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),T0_LH1))
-
-            # Uncomment to see T0_LH2
-            handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
-
-            ################################
-
-            handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
-
-            # check if ik solutions exist
-            sol1=leftArmIkmodel.manip.FindIKSolution(array(T0_LH2),IkFilterOptions.CheckEnvCollisions)
-
-            if(sol1 is None):
-                print "Error: No goalik found!"
-                return 23 # 2: generalik error, 3: at goal
-            else:
-                print "found goalik"
-                # print goalik
-                self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[0].GetArmIndices())
-                goalik = self.robotid.GetActiveDOFValues()
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to go to goalik"
-                    sys.stdin.readline()
-
-
-                self.robotid.SetActiveDOFValues(goalik)
-                self.crankid.SetDOFValues([crank_rot],[crankjointind])
-                self.crankid.GetController().Reset(0)
-
-                self.crankid.SetDOFValues([0],[crankjointind])
-                self.crankid.GetController().Reset(0)
-                # self.robotid.SetActiveDOFValues(initconfig)
-                self.robotid.SetActiveDOFValues(str2num(initik))
-
-                # bh: both hands
-                # lh: left hands
-                # rh: right hands
-                self.OpenHands("LH",self.default_trajectory_dir+"movetraj0_openhands")
-                # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-                
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan initconfig --> startik"
-                    sys.stdin.readline()
-
-                # Get a trajectory from initial configuration to grasp configuration
-                
-                goaljoints = deepcopy(startik)
-                #goaljoints = str2num(goaljoints)
-                
-                with self.robotid:
-                    try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
-                        # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
-                        print "RunCBiRRT answer: ",str(answer)
-                        if (str(answer) != '1'):
-                            return 11 # 1: cbirrt error, 1: init->start
-                    except openrave_exception, e:
-                        print "Cannot send command RunCBiRRT: "
-                        print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj1.txt")
-
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                # The following is the same as commented out try-except section
-                traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())   
-
-                self.robotid.GetController().SetPath(traj) 
-                self.robotid.WaitForController(0)
-                self.robotid.GetController().Reset(0) 
-
-                self.CloseHands("LH",self.default_trajectory_dir+"movetraj1_closehands",True)
-                # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-                # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan startik --> goalik "
-                    sys.stdin.readline()
-
-                # Get a trajectory from goalik to grasp configuration
-                goaljoints = deepcopy(goalik)
-
-                goaljoints = goaljoints.tolist()
-
-                for i in range(TSRChainMimicDOF):
-                    goaljoints.append(0)
-                
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if (str(answer) != '1'):
-                        return 12 # 1: cbirrt error, 2: start->goal
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj2.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj2.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    # crankJointValsGroup = cs.GetGroupFromName("joint_values crank")
-                    # print "crank joint values offset:"
-                    # print crankJointValsGroup.offset
-
-                    # crankJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities crank")
-                    # print "crank joint velocities offset"
-                    # print crankJointVelocitiesGroup.offset
-
-
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
-                    answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-                self.OpenHands("LH",self.default_trajectory_dir+"movetraj2_openhands")
-                #self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-
-                time.sleep(2)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan goalik --> startik "
-                    sys.stdin.readline()
-
-                # goaljoints = str2num(startik)
-                goaljoints = deepcopy(startik)
-
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetRightHandandHead_goal2start)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if (str(answer) != '1'):
-                        return 13 # 1: cbirrt error, 3: goal->start
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj3.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj3.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan startik --> initconfig "
-                    sys.stdin.readline()
-
-                # goaljoints = initconfig
-                goaljoints = deepcopy(initik)
-                goaljoints = str2num(goaljoints)
-
-                print goaljoints
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetHeadandRightHand_start2init)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if (str(answer) != '1'):
-                        return 14 # 1: cbirrt error, 4: start->init
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj4.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj4.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-
-                self.CloseHands("LH",self.default_trajectory_dir+"movetraj4_closehands")
-                # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-                # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan initconfig --> home "
-                    sys.stdin.readline()
-
-                goaljoints = home
-
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if (str(answer) != '1'):
-                        return 15 # 1: cbirrt error, 5: init->home
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj5.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj5.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-                time.sleep(2)
-
-                return 0 # no error
-        ########################################################
     
     def RightHand(self,radius,valveType,direction):
-        self.robotid.SetActiveManipulator('rightArm')
 
-        self.RemoveFiles()
+        currentik = self.robotid.GetActiveDOFValues()
 
         # This is a list of handles of the objects that are
         # drawn on the screen in OpenRAVE Qt-Viewer.
         # Keep appending to the end, and pop() if you want to delete.
         handles = [] 
 
-        normalsmoothingitrs = 300;
-        fastsmoothingitrs = 20;        
+        if(direction == "CCW"):
+            multiplier = -1
+        elif(direction == "CW"):
+            multiplier = 1
 
-        # Wheel Joint Index  
-        crankjointind = 0
-        # Set the wheel joints back to 0 for replanning
-        self.crankid.SetDOFValues([0],[crankjointind])
-        self.crankid.GetController().Reset(0)
+        crank_rot = (multiplier)*pi/4
 
-        manips = self.robotid.GetManipulators()
-        crankmanip = self.crankid.GetManipulators()
+        T0_w0R = dot(self.valveTroot,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
+        T0_w0R = dot(T0_w0R,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+
+        Tw0R_RH1 = dot(linalg.inv(T0_w0R),self.T0_RH1)
+
+        Tw0_eR = Tw0R_RH1
         
-        self.SetProblems()
+        if(direction == "CW"):
+            Bw0R = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
+        elif(direction == "CCW"):
+            Bw0R = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0])
 
-        print "Getting Loaded Problems"
-        probs = self.env.GetLoadedProblems()
+        # Right Hand's transforms:
+        T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
+            
+        # Head's transforms:
+        T0_w0H =  self.robotManips[4].GetEndEffectorTransform()
+        Tw0_eH = eye(4);
+        Bw0H = matrix([0,0,0,0,0,0,0,0,0,0,0,0])
 
-        # Keep Active Joint Indices
-        activedofs = []
-        for m in manips:
-            activedofs.extend(m.GetArmIndices())
+        # Define Task Space Regions
+        # Left Hand
+        TSRString1 = SerializeTSR(0,'NULL',self.T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Hand
+        TSRString2 = SerializeTSR(1,'NULL',T0_w0R,Tw0_eR,Bw0R)
+        # Left Foot
+        TSRString3 = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Foot
+        TSRString4 = SerializeTSR(3,'NULL',self.robotManips[3].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Head
+        TSRString5 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
 
-        # Sort Active Joint Indices
-        activedofs.sort()
+        TSRChainStringFeetHeadandLeftHand_start2init = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
 
-        ############################## DRCHUBO V2  ############################
+        TSRChainStringFeetandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
         
-        # elbows: Left Elbow Pitch: 3; Right Elbow Pitch: 29
-        self.robotid.SetDOFValues([-0.45,-0.45],[3,29]) 
-        self.robotid.SetActiveDOFs(activedofs)
+        TSRChainStringFeetLeftHandandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
 
-        leg_height = self.robotid.GetManipulators()[2].GetEndEffectorTransform()[2,3]
-        # Find a trajectory from 0 to initconfig
-        if( self.StopAtKeyStrokes ):
-            print "Leg height :  " + str(leg_height)
-            sys.stdin.readline()
+        TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',matrix([]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'crank',matrix([self.valveJointInd]))+' '+TSRChainStringFeetandHead_goal2start
 
-        print "activedofs:"
-        print activedofs
+        # Which joint do we want the CBiRRT to mimic the TSR for?
+        TSRChainMimicDOF = 1
 
-        # Current configuration of the robot is its initial configuration
-        initconfig = self.robotid.GetActiveDOFValues()
-    
-
-        # List of Robot Links
-        links = self.robotid.GetLinks()
-
-        # List of Wheel (Crank Links)
-        cranklinks = self.crankid.GetLinks()
-
-        # End Effector Transforms
-        Tee = []
-        for i in range(len(manips)):
-            # Returns End Effector Transform in World Coordinates
-            Tlink = manips[i].GetEndEffectorTransform()
-            # print Tlink
-            Tee.append(Tlink)
-
-        # Wheel Joint Index  
-        crankjointind = 0
-
-        # Get Transformation Matrix for the Wheel
-        # Note that crank's links are not rotated
-        # If you want use the wheel's end effector's transformation
-        # matrix (which is 23 degrees tilted) then see
-        # CTee matrix below.
-        #
-        # crank has two links: 
-        # 0) pole - the blue cylinder in the model, and, 
-        # 1) crank - the driving wheel itself.
-        jointtm = cranklinks[0].GetTransform()
-        # handles.append(misc.DrawAxes(self.env,matrix(jointtm),1))
-
-
-        # We can also get the transformation matrix
-        # with the following command as a string
-        # jointtm_str = self.probs_cbirrt.SendCommand('GetJointTransform name crank jointind '+str(crankjointind))
-        # And then we can convert the string to a 1x12 array
-        # jointtm_str = jointtm_str.replace(" ",",")
-        # jointtm_num = # eval('['+jointtm_str+']')
-
-        # In this script we will use jointtm.
-        # jointtm_str and jointtm_num are given as example.
-
-        # Crank Transform End Effector in World Coordinates
-        # This is the transformation matrix of the end effector 
-        # named "dummy" in the xml file.
-        # Note that dummy is tilted 23 degress around its X-Axis
-        CTee = crankmanip[0].GetEndEffectorTransform()
-
-        tilt_angle_deg = acos(dot(linalg.inv(CTee),jointtm)[1,1])*180/pi
-        tilt_angle_rad = acos(dot(linalg.inv(CTee),jointtm)[1,1])
+        # Create the transform for the wheel that we would like to reach to
+        Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
 
         # What is this?
-        handrot = rodrigues([0,-pi/2,0])
+        temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
 
-        # Translation Offset from the wheel center for the hands
-        transoffset = [0, 0.15, 0];
-
-        # Figure out where to put the left hand on the wheel
-        temp = dot(CTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
-        temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-
-        # Right Hand Pose in World Coordinates
-        if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
-            T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
-        if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
-            T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
-        if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
-            T0_RH1 = dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
-
-        # TODO: Error checking! What if we accidentally send a huge valve to 1 hand?
+        # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
+        T0_cranknew = dot(T0_w0R,Tcrank_rot)
 
 
-        # Uncomment if you want to see where T0_RH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(T0_RH1),1))
+        T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
 
-        # Define Task Space Region strings
-        # Left Hand
-        TSRString1 = SerializeTSR(0,'NULL',Tee[0],eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # Right Hand
-        TSRString2 = SerializeTSR(1,'NULL',T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # Left Foot
-        TSRString3 = SerializeTSR(2,'NULL',Tee[2],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
+        T0_RH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.T0_RH1))
         
-        # Right Foot
-        TSRString4 = SerializeTSR(3,'NULL',Tee[3],eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
-
-        # Head
-        # Grasp transform in Head coordinates
-        Tw0_eH = eye(4) 
-        # How much freedom do we want to give to the Head
-        # [x,x,y,y,z,z,R,R,P,P,Y,Y]
-        Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
-        TSRString5 = SerializeTSR(4,'NULL',Tee[4],Tw0_eH,Bw0H)
-
-        TSRChainStringFeetandHead_home2init = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-        TSRChainStringFeetandHead_init2home = deepcopy(TSRChainStringFeetandHead_home2init)
+        # Uncomment to see T0_RH2
+        handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
 
         
-        [T0_LFTarget, T0_RFTarget] = self.GetFeetTargets()
-
-        TSRString3 = SerializeTSR(2,'NULL',T0_LFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        TSRString4 = SerializeTSR(3,'NULL',T0_RFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # We defined Task Space Regions. Now let's concatenate them.
-        TSRChainStringGrasping = SerializeTSRChain(0,1,1,1,TSRString1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRString2,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRString4,'NULL',[])#+' '+SerializeTSRChain(0,1,0,1,TSRString5,'NULL',[])
-
-        # Go home
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go home"
-            sys.stdin.readline()
-
-        self.BendTheKnees()
-
-        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-
-        initik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+arg1+'nummanips 2 maniptm 2 '+trans_to_str(T0_LFTarget)+' maniptm 3 '+trans_to_str(T0_RFTarget))
-        
-        if(initik == ''):
-            return 21 # 2: generalik error, 1: initik
-
-        self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
-        home = self.robotid.GetActiveDOFValues()
-
-        # Find a trajectory from 0 to initconfig
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to plan home --> initconfig "
-            sys.stdin.readline()
-
-        # goaljoints = initconfig
-        goaljoints = deepcopy(initik)
-        goaljoints = str2num(goaljoints)
-
-        try:
-            answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_home2init)
-            print "RunCBiRRT answer: ",str(answer)
-            if(answer[0] != '1'):
-                return 10 # 1: cbirrt error, 0: home->init
-        except openrave_exception, e:
-            print "Cannot send command RunCBiRRT: "
-            print e
-
-        try:
-            os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj0.txt")
-            traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj0.txt','r').read())
-
-            # print "conf spec for start2goal:"
-            cs = traj.GetConfigurationSpecification()
-
-            drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-            # print "drchubo-v2 joint values offset"
-            # print drchuboJointValsGroup.offset
-
-            drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-            # print "drchubo-v2 joint velocities offset"
-            # print drchuboJointVelocitiesGroup.offset
-
-            deltatimeGroup = cs.GetGroupFromName("deltatime")
-            # print "deltatime offset"
-            # print deltatimeGroup.offset
-
-            rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj0",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-        except OSError, e:
-            # No file cmovetraj
-            print e
-
-        try:
-            answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj0.txt');
-            self.robotid.WaitForController(0)
-            # debug
-            print "traj call answer: ",str(answer)
-        except openrave_exception, e:
-            print e
-
-        self.robotid.GetController().Reset(0)
-        time.sleep(2)
-
-        T0_LH1 = self.robotid.GetManipulators()[0].GetEndEffectorTransform()
-        handles.append(misc.DrawAxes(self.env,T0_LH1,1))
-        # print "TSRChainStringGrasping"
-        # print TSRChainStringGrasping
-
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go to startik"
-            sys.stdin.readline()
-
-        arg1 = str(self.cogtarg).strip("[]").replace(', ',' ')
-        
-        # GeneralIK does not check for collision, so let's make sure that we find IKs that don't collide
-        # with the environment
-        self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-        #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-        
-        self.robotid.SetActiveManipulator('rightArm')
-        rightArmIkmodel = databases.inversekinematics.InverseKinematicsModel(self.robotid,iktype=IkParameterizationType.Transform6D)
-        rightArmIkmodel.load()
         # check if ik solutions exist
-        sol0=rightArmIkmodel.manip.FindIKSolution(array(T0_RH1),IkFilterOptions.CheckEnvCollisions)
-   
-        if(sol0 is None):
-            print "could not found startik"
-            return 32 # 3: ikfast error, 2: 
+        sol1 = self.IKFast('rightArm', array(T0_RH2), False)
+
+        if(sol1 is None):
+            print "Error: No goalik found!"
+            return 33 # 3: ikfast error, 3: at goal
+
+        print "found goalik"
             
+        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
+        goalik = self.robotid.GetActiveDOFValues()
+
+        if( self.StopAtKeyStrokes ):
+            print "Press Enter to go to goalik"
+            sys.stdin.readline()
+
+        cp = ConstrainedPath("close hands --> current --> goal --> open hands")
+        
+        cpe0 = ConstrainedPathElement("current2goal")
+        cpe0.startik = currentik
+        cpe0.goalik = goalik
+        cpe0.TSR = TSRChainString
+        cpe0.smoothing = self.fastsmoothingitrs
+        cpe0.mimicdof = TSRChainMimicDOF
+        cpe0.filename = "movetraj2"
+        cpe0.hands = "RH"
+        cpe0.errorCode = "12"
+        cpe0.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
+        cpe0.cbirrtRobots = [self.robotid, self.crankid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename, self.default_trajectory_dir+cpe0.filename]
+        cpe0.closeHandsBefore = True
+        cpe0.openHandsAfter = True
+
+        cp.elements.append(cpe0)
+
+        [success, why] = self.PlanPath(cp)
+        if(not success):
+            return why
         else:
-            print "found startik"
-            self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[1].GetArmIndices())
-            startik = self.robotid.GetActiveDOFValues()
-            # print startik
-
-            ##################
-
-            if(direction == "CCW"):
-                multiplier = -1
-            elif(direction == "CW"):
-                multiplier = 1
-
-            crank_rot = (multiplier)*pi/4
-
-            # T0_w0R = MakeTransform(rodrigues([0,tilt_angle_rad-self.tiltDiff+self.worldPitch,0]),transpose(matrix(jointtm[0:3,3])))
-            # ForTw0R = dot(T0_RH1,MakeTransform(rodrigues([-pi,0,0]),transpose(matrix([0,0,0]))))
-            # T0_w0R = MakeTransform(ForTw0R[0:3,0:3],transpose(matrix(jointtm[0:3,3])))
-
-            # FIX THIS TRANSFORMS!!!
-            T0_w0R = dot(jointtm,MakeTransform(rodrigues([0,-pi/2,0]),transpose(matrix([0,0,0]))))
-            T0_w0R = dot(T0_w0R,MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-
-            Tw0R_RH1 = dot(linalg.inv(T0_w0R),T0_RH1)
-
-            Tw0_eR = Tw0R_RH1
-
-            if(direction == "CW"):
-                Bw0R = matrix([0,0,0,0,0,0,0,crank_rot,0,0,0,0])
-            elif(direction == "CCW"):
-                Bw0R = matrix([0,0,0,0,0,0,crank_rot,0,0,0,0,0])
-
-            # Right Hand's transforms:
-            T0_crankcrank = self.crankid.GetManipulators()[0].GetTransform()
-
-            # Head's transforms:
-            T0_w0H =  Tee[4]
-            Tw0_eH = eye(4);
-            Bw0H = matrix([-0.05,0.05,-0.1,0.1,-100,100,-pi,pi,-pi,pi,-pi,pi])
-
-            # Define Task Space Regions
-            # Left Hand
-            TSRString1 = SerializeTSR(0,'NULL',T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            # Right Hand
-            TSRString2 = SerializeTSR(1,'NULL',T0_w0R,Tw0_eR,Bw0R)
-            # Left Foot
-            TSRString3 = SerializeTSR(2,'NULL',T0_LFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            # Right Foot
-            TSRString4 = SerializeTSR(3,'NULL',T0_RFTarget,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-            # Head
-            TSRString5 = SerializeTSR(4,'NULL',T0_w0H,Tw0_eH,Bw0H)
-
-            TSRChainStringFeetHeadandLeftHand_start2init = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-
-            TSRChainStringFeetandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-            
-            TSRChainStringFeetLeftHandandHead_goal2start = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',[])+SerializeTSRChain(0,0,1,1,TSRString3,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString4,'NULL',[])+' '+SerializeTSRChain(0,0,1,1,TSRString5,'NULL',[])
-
-            TSRChainString = SerializeTSRChain(0,0,1,1,TSRString1,'NULL',matrix([]))+' '+SerializeTSRChain(0,0,1,1,TSRString2,'crank',matrix([crankjointind]))+' '+TSRChainStringFeetandHead_goal2start
-
-            # Which joint do we want the CBiRRT to mimic the TSR for?
-            TSRChainMimicDOF = 1
-
-            # Create the transform for the wheel that we would like to reach to
-            Tcrank_rot = MakeTransform(rodrigues([crank_rot,0,0]),transpose(matrix([0,0,0])))
-
-            # What is this?
-            temp = MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0])))
-
-            # Rotate the left hand's transform on the wheel in world transform "crank_rot" radians around it's Z-Axis
-            T0_cranknew = dot(T0_w0R,Tcrank_rot)
-
-
-            T0_cranknew = dot(self.crankid.GetManipulators()[0].GetEndEffectorTransform(), MakeTransform(rodrigues([0,0,crank_rot]),transpose(matrix([0,0,0]))))
-
-            #T0_RH2 = dot(T0_cranknew,dot(linalg.inv(T0_w0R),T0_RH1))
-            T0_RH2 = dot(T0_cranknew,dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),T0_RH1))
-
-            # Uncomment to see T0_RH2
-            handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
-
-            ################################
-
-            # check if ik solutions exist
-            sol1=rightArmIkmodel.manip.FindIKSolution(array(T0_RH2),IkFilterOptions.CheckEnvCollisions)            
-
-            if(sol1 is None):
-                print "Error: No goalik found!"
-                return 23 # 2: generalik error, 3: at goal
-            else:
-                print "found goalik"
-                # print goalik
-
-                self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
-                goalik = self.robotid.GetActiveDOFValues()
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to go to goalik"
-                    sys.stdin.readline()
-
-                self.robotid.SetActiveDOFValues(goalik)
-                self.crankid.SetDOFValues([crank_rot],[crankjointind])
-                self.crankid.GetController().Reset(0)
-
-                self.crankid.SetDOFValues([0],[crankjointind])
-                self.crankid.GetController().Reset(0)
-                # self.robotid.SetActiveDOFValues(initconfig)
-                self.robotid.SetActiveDOFValues(str2num(initik))
-
-                # bh: both hands
-                # lh: left hands
-                # rh: right hands
-                self.OpenHands("RH",self.default_trajectory_dir+"movetraj0_openhands")
-                # self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                # self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-                
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan initconfig --> startik"
-                    sys.stdin.readline()
-
-                # Get a trajectory from initial configuration to grasp configuration
-                
-                goaljoints = deepcopy(startik)
-                #goaljoints = str2num(goaljoints)
-                
-                with self.robotid:
-                    try:
-                        answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringGrasping)
-                        # answer = self.probs_cbirrt.SendCommand('RunCBiRRT psample 0.2 supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' '+TSRChainStringGrasping)
-                        print "RunCBiRRT answer: ",str(answer)
-                        if(answer[0] != '1'):
-                            return 11 # 1: cbirrt error, 1: init->start
-                    except openrave_exception, e:
-                        print "Cannot send command RunCBiRRT: "
-                        print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj1.txt")
-
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj1",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                # The following is the same as commented out try-except section
-                traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj1.txt','r').read())   
-
-                self.robotid.GetController().SetPath(traj) 
-                self.robotid.WaitForController(0)
-                self.robotid.GetController().Reset(0) 
-
-                self.CloseHands("RH",self.default_trajectory_dir+"movetraj1_closehands",True)
-                # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-                # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan startik --> goalik "
-                    sys.stdin.readline()
-
-                # Get a trajectory from goalik to grasp configuration
-                goaljoints = deepcopy(goalik)
-
-                goaljoints = goaljoints.tolist()
-
-                for i in range(TSRChainMimicDOF):
-                    goaljoints.append(0)
-                
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(fastsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainString)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if(answer[0] != '1'):
-                        return 12 # 1: cbirrt error, 2: start->goal
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj2.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj2.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    # crankJointValsGroup = cs.GetGroupFromName("joint_values crank")
-                    # print "crank joint values offset:"
-                    # print crankJointValsGroup.offset
-
-                    # crankJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities crank")
-                    # print "crank joint velocities offset"
-                    # print crankJointVelocitiesGroup.offset
-
-
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj2",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
-                    answer= self.probs_crankmover.SendCommand('traj '+self.default_trajectory_dir+'movetraj2.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-                self.OpenHands("RH",self.default_trajectory_dir+"movetraj2_openhands")
-                #self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                #self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-
-                time.sleep(2)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan goalik --> startik "
-                    sys.stdin.readline()
-
-                # goaljoints = str2num(startik)
-                goaljoints = deepcopy(startik)
-
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetLeftHandandHead_goal2start)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if(answer[0] != '1'):
-                        return 13 # 1: cbirrt error, 1: start->goal
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj3.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj3.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj3",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj3.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan startik --> initconfig "
-                    sys.stdin.readline()
-
-                # goaljoints = initconfig
-                goaljoints = deepcopy(initik)
-                goaljoints = str2num(goaljoints)
-
-                print goaljoints
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetHeadandLeftHand_start2init)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if(answer[0] != '1'):
-                        return 14 # 1: cbirrt error, 4: start->init
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj4.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj4.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj4",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer= self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj4.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-
-                self.CloseHands("RH",self.default_trajectory_dir+"movetraj4_closehands")
-                # self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
-                # self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
-
-                if( self.StopAtKeyStrokes ):
-                    print "Press Enter to plan initconfig --> home "
-                    sys.stdin.readline()
-
-                goaljoints = home
-
-                try:
-                    answer = self.probs_cbirrt.SendCommand('RunCBiRRT supportlinks 2 '+self.footlinknames+' smoothingitrs '+str(normalsmoothingitrs)+' jointgoals '+str(len(goaljoints))+' '+Serialize1DMatrix(matrix(goaljoints))+' '+TSRChainStringFeetandHead_init2home)
-                    print "RunCBiRRT answer: ",str(answer)
-                    if(answer[0] != '1'):
-                        return 15 # 1: cbirrt error, 5: init->home
-                except openrave_exception, e:
-                    print "Cannot send command RunCBiRRT: "
-                    print e
-
-                try:
-                    os.rename("cmovetraj.txt",self.default_trajectory_dir+"movetraj5.txt")
-                    traj = RaveCreateTrajectory(self.env,'').deserialize(open(self.default_trajectory_dir+'movetraj5.txt','r').read())
-
-                    # print "conf spec for start2goal:"
-                    cs = traj.GetConfigurationSpecification()
-
-                    drchuboJointValsGroup = cs.GetGroupFromName("joint_values drchubo-v2")
-                    # print "drchubo-v2 joint values offset"
-                    # print drchuboJointValsGroup.offset
-
-                    drchuboJointVelocitiesGroup = cs.GetGroupFromName("joint_velocities drchubo-v2")
-                    # print "drchubo-v2 joint velocities offset"
-                    # print drchuboJointVelocitiesGroup.offset
-
-                    deltatimeGroup = cs.GetGroupFromName("deltatime")
-                    # print "deltatime offset"
-                    # print deltatimeGroup.offset
-
-                    rave2realhubo.traj2ach(self.env,self.robotid,traj,self.default_trajectory_dir+"movetraj5",drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
-                except OSError, e:
-                    # No file cmovetraj
-                    print e
-
-                try:
-                    answer=self.probs_cbirrt.SendCommand('traj '+self.default_trajectory_dir+'movetraj5.txt');
-                    self.robotid.WaitForController(0)
-                    # debug
-                    print "traj call answer: ",str(answer)
-                except openrave_exception, e:
-                    print e
-
-                self.robotid.GetController().Reset(0)
-                time.sleep(2)
-                
-                return 0 # no error
-        ########################################################
-
-    def MaxBend(self):
-        pass
-    
-    def MaxCrouch(self):
-        pass
+            return 0
 
     def SetRobotConfiguration(self,q):
-        for jIdx, jName in enumerate(q.name):
-            rosValue = q.position[jIdx]
-            openraveIdx  =self.jointDict[jName]
-            self.robotid.SetDOFValues([rosValue],[openraveIdx])
+        # q is a dictionary
+        #
+        # This method matches the joint indices
+        # between ROS and OpenRAVE.
+        # For planning purposes, we skip head and finger
+        # joints.
+        for jName, jValue in q.iteritems():
+            if( jName[0:2] != 'RF' and jName[0:2] != 'LF' and jName[0:2] != 'NK' ):
+                rosValue = jValue
+                openraveIdx  = self.jointDict[jName]
+                self.robotid.SetDOFValues([rosValue],[openraveIdx])
+                self.robotid.GetController().Reset(0)
+            else:
+                print "Info: set robot config is skipping :"+jName
 
     def GetFeetTargets(self):
         T0_TSY = self.robotid.GetLinks()[12].GetTransform()
@@ -2390,9 +1235,7 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
             self.robotid.SetDOFValues([-howMuch,-howMuch],[15,40])
             
 
-    def Plan(self,handles=[],radius=None,manipulator=None,direction="CW",valveType=None):
-
-        # self.StartViewerAndSetValvePos( handles, valveType)
+    def Plan(self, handles=[], radius=None, manipulator=None, direction="CW", valveType=None, taskStage=None):
 
         if(radius != None):
             self.r_Wheel = radius
@@ -2400,17 +1243,63 @@ class DrcHuboWheelTurning( BaseWheelTurning ):
         if(self.optWall):
             self.AddWall()
 
-        if(manipulator=="LH"):
-            error_code = self.LeftHand(radius,valveType,direction)
-        elif(manipulator=="RH"):
-            error_code = self.RightHand(radius,valveType,direction)
-        elif(manipulator=="BH"):
-            error_code = self.BothHands(radius,valveType,direction)
+        # Clean-Up old trajectory files
+        self.RemoveFiles()
+
+        # Set planning variables
+        self.normalsmoothingitrs = 300
+        self.fastsmoothingitrs = 20
+
+        # keep manipulator objects for easy access
+        self.robotManips = self.robotid.GetManipulators()
+        self.valveManip = self.crankid.GetManipulators()
+
+        # Valve Transform End Effector in World Coordinates
+        # This is the transformation matrix of the end effector 
+        self.valveTee = self.valveManip[0].GetEndEffectorTransform()
+
+        # keep link objects for easy access
+        self.robotLinks = self.robotid.GetLinks()
+        self.valveLinks = self.crankid.GetLinks()
+
+        # valve has two links: 
+        # 0) pole - the blue cylinder in the model, and, 
+        # 1) crank - handle
+        self.valveTroot = self.valveLinks[0].GetTransform()
+
+        # keep valve's only joint index for mimicking later
+        self.valveJointInd = 0
+
+        # add cbirrt problems
+        self.SetProblems()
+
+        # Keep Active Joint Indices
+        self.activedofs = []
+        for m in self.robotManips:
+            self.activedofs.extend(m.GetArmIndices())
+
+        self.robotid.SetActiveDOFs(self.activedofs)
+             
+        # Sort Active Joint Indices
+        self.activedofs.sort()
+        print "activedofs:"
+        print self.activedofs
+
+        if( taskStage == 'GETREADY' ):
+            error_code = self.GetReady(manipulator,valveType)
+        elif( taskStage == 'TURNVALVE' ):
+            if( manipulator == "LH" ):
+                error_code = self.LeftHand(radius,valveType,direction)
+            elif( manipulator == "RH" ):
+                error_code = self.RightHand(radius,valveType,direction)
+            elif( manipulator == "BH" ):
+                error_code = self.BothHands(radius,valveType,direction)
+        elif( taskStage == 'END' ):
+            error_code = self.EndTask(manipulator)
 
         print "Planning, done."
 
-        return error_code
-            
+        return error_code    
 
 if __name__ == "__main__":
     # One can run this script from terminal passing a radius value in
@@ -2433,8 +1322,7 @@ if __name__ == "__main__":
                 wall = True
             elif(sys.argv[index] == "-demo"):
                 demo = True
-                
-    
+
     planner = DrcHuboWheelTurning()   
 
     planner.optPlay = play
@@ -2444,197 +1332,19 @@ if __name__ == "__main__":
 
     planner.SetViewer(True)
 
-    handles = [] 
+    handles = []    
     
-    if demo:
-        # Let's show off our task wall
-        planner.InitFromTaskWallEnv()
-
-        # get the valves defined in the env file
-        valves = planner.env.GetRobots()
-        T1_1 = valves[2].GetTransform()
-        T2_1 = valves[3].GetTransform()
-        T3_1 = valves[4].GetTransform()
-        T4_1 = valves[5].GetTransform()
-        T5_1 = valves[6].GetTransform()
-        T6_1 = valves[7].GetTransform()
-        T7_1 = valves[8].GetTransform()
-
-        # Put the wheel in 8 different poses (4 flat, 4 straight-up)
-        #
-        # Set robot's transform accordingly
-        #
-        # demonstrate RH - lever
-        planner.SetWheelPoseFromTransform(T7_1)
-        planner.Plan(handles, radius=0.2, manipulator="RH", valveType="RL")
-
-        # demonstrate RH - wheel
-        planner.SetWheelPoseFromTransform(T2_1)
-        planner.Plan(handles, radius=0.2, manipulator="RH", valveType="W")
-
-        # demonstrate LH - wheel
-        planner.SetWheelPoseFromTransform(T3_1)
-        planner.Plan(handles, radius=0.05, manipulator="LH", valveType="W")
-
-        # demonstrate LH - lever
-        planner.SetWheelPoseFromTransform(T4_1)
-        planner.Plan(handles, radius=0.02, manipulator="LH", valveType="RL")
-
-        # demonstrate both hands - wheel
-        planner.SetWheelPoseFromTransform(T5_1)
-        
-        planner.Plan(handles, radius=0.1, manipulator="BH", valveType="W")
-
-        ############## TODO ##################################
-        # 
-        ######################################################
-        
+    if play:
+        planner.SetStopKeyStrokes(True)
+        planner.StartViewerAndSetValvePos( handles )
+        planner.SetProblems()
+        planner.Playback(True)        
     else:
-        if play:
-            planner.SetStopKeyStrokes(True)
-            planner.StartViewerAndSetValvePos( handles )
-            planner.SetProblems()
-            planner.Playback(True)        
-        else:
-            planner.SetStopKeyStrokes(True)
-            if taskwall:
-                planner.InitFromTaskWallEnv()
-
-            # Uncomment the following for the main valve code
-            # planner.Plan(handles,r,manipulator="BH",valveType="W")
-
-            #################################################################################
-            # # Uncomment the following for the vertical ball valve code (left hand - clockwise)
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.1,manipulator="LH",direction="CW",valveType="RL")
-            ####################################################################################
-
-            #################################################################################
-            # # Uncomment the following for the vertical ball valve code (left hand - counter clockwise)
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.1,manipulator="LH",direction="CCW",valveType="RL")
-            ####################################################################################
-
-            # #################################################################################
-            # # Uncomment the following for the vertical tiny valve code (left hand - clockwise)
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.02,manipulator="LH",direction="CW",valveType="W")
-            # ####################################################################################
-
-            # #################################################################################
-            # # Uncomment the following for the vertical tiny valve code (left hand - counterclockwise)
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.02,manipulator="LH",direction="CCW",valveType="W")
-            # ####################################################################################
-
-            #################################################################################
-            # # Uncomment the following for the vertical ball valve code (right hand - clockwise) 
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.1,manipulator="RH",direction="CW",valveType="RL")
-            ####################################################################################
-
-            #################################################################################
-            # # Uncomment the following for the vertical ball valve code (right hand - counterclockwise) 
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.1,manipulator="RH",direction="CCW",valveType="RL")
-            ####################################################################################
-
-
-            # #################################################################################
-            # # Uncomment the following for the vertical tiny valve code (right hand - clockwise)
-            # planner.wheelHeightFromTSY = 0.1
-            # planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            # planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            # wheelY = 0.0
-            # planner.worldPitch = 0.0
-            # # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # # We should only do this if we're using the logitech wheel.
-            # planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            # planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            # planner.Plan(handles,0.02,manipulator="RH",direction="CW",valveType="W")
-            # ####################################################################################
-
-            # #################################################################################
-            # # Uncomment the following for the vertical tiny valve code (right hand - counterclockwise)
-            planner.wheelHeightFromTSY = 0.1
-            planner.TSYHeight = planner.robotid.GetLinks()[12].GetTransform()[2,3]
-            planner.wheelHeight = planner.TSYHeight + planner.wheelHeightFromTSY - planner.crouch
-            wheelY = 0.0
-            planner.worldPitch = 0.0
-            # Find the difference of angle between the wheel's end effector and the link (23 degrees)
-            # We should only do this if we're using the logitech wheel.
-            planner.tiltDiff = acos(dot(linalg.inv(planner.crankid.GetManipulators()[0].GetEndEffectorTransform()),planner.crankid.GetLinks()[0].GetTransform())[1,1])
-
-            planner.SetWheelPoseFromTransform(MakeTransform(dot(rodrigues([0,0,pi/2]),rodrigues([pi/2-planner.tiltDiff+planner.worldPitch,0,0])),transpose(matrix([planner.wheelDistFromTSY+0.05, wheelY, planner.wheelHeight]))))
-            planner.Plan(handles,0.02,manipulator="RH",direction="CCW",valveType="W")
-            # ####################################################################################
-            
-            # Uncomment the following for the vertical ball valve code (right hand)
-            # planner.SetWheelPoseFromTransform()
-            # planner.Plan(handles,r,manipulator="RH",valveType="RL")
-
-            # Uncomment the following for the horizontal ball valve code (left hand)
-            # planner.SetWheelPoseFromTransform()
-            # planner.Plan(handles,r,manipulator="LH",valveType="RL")
-
-            # Uncomment the following for the horizontal ball valve code (right hand)
-            # planner.SetWheelPoseFromTransform()
-            # planner.Plan(handles,r,manipulator="RH",valveType="RL")
+        planner.SetStopKeyStrokes(True)
+        if taskwall:
+            planner.InitFromTaskWallEnv()
 
     planner.KillOpenrave()
+
+
 
