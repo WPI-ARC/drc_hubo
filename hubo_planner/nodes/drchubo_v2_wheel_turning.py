@@ -184,7 +184,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         BaseWheelTurning.__init__( self, HuboModelPath, WheelModelPath )        
         
         # 0: Not initialized
-        # 1: Initialized
+        # 1: GetReady() successful
         # 2: At init
         # 3: Ready to turn
         # 4: Started turning
@@ -1493,22 +1493,42 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
              
         # Sort Active Joint Indices
         self.activedofs.sort()
-        print "activedofs:"
-        print self.activedofs
+        # print "activedofs:"
+        # print self.activedofs
+
+        error_code = -1
 
         if( taskStage == 'GETREADY' ):
-            error_code = self.GetReady(manipulator, valveType)
-        elif( taskStage == 'TURNVALVE' ):
-            if( manipulator == "LH" ):
-                error_code = self.LeftHand(radius, valveType, direction)
-            elif( manipulator == "RH" ):
-                error_code = self.RightHand(radius, valveType, direction)
-            elif( manipulator == "BH" ):
-                error_code = self.BothHands(radius, valveType, direction)
-        elif( taskStage == 'END' ):
-            error_code = self.EndTask(manipulator, valveType)
+            if (self.state == 0):
+                error_code = self.GetReady(manipulator, valveType)
+                if( error_code == 0):
+                    self.state = 1 # GetReady() Done.
+            else:
+                print "Warning: You can not plan for GetReady in this state. Please plan for Finish Task first."
 
-        print "Planning, done."
+        elif( taskStage == 'TURNVALVE' ):
+            if (self.state > 0):
+                if( manipulator == "LH" ):
+                    error_code = self.LeftHand(radius, valveType, direction)
+                elif( manipulator == "RH" ):
+                    error_code = self.RightHand(radius, valveType, direction)
+                elif( manipulator == "BH" ):
+                    error_code = self.BothHands(radius, valveType, direction)
+
+                if( error_code == 0 ):
+                    self.state = 2
+            else:
+                print "Warning: You can not plan for Turn Valve in this state. Please plan for getting ready first."
+
+        elif( taskStage == 'END' ):
+            if (self.state > 0):
+                error_code = self.EndTask(manipulator, valveType)
+                if( error_code == 0):
+                    self.state = 0
+            else:
+                print "Warning: You can not plan for End Task in this state. Please plan for getting ready first."
+
+        print "Info: planner is waiting for the next call..."
 
         return error_code    
 

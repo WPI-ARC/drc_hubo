@@ -4,5 +4,6 @@
     <param name="robot_model" value="$(find drchubo_v2)/robots/drchubo-v2.robot.xml"/>
     <param name="tiny_wheel_model" value="$(find hubo_planner)/models/driving_wheel_tiny.robot.xml"/>
     <param name="read_joint_states" type="bool" value="false"/>
+    <param name="use_ikfast" type="bool" value="false"/>
   </group>
 </launch>
