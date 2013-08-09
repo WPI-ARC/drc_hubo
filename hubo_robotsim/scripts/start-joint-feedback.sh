@@ -5,8 +5,8 @@
 # the RobotSim necessary files can be found in hubo_robotsim
 # configure RVIZ with the file found in hubo_rviz_config
 # Start hubo-ach and RobotSim in simulation mode then :
-roslaunch hubo_launch full_body_feedback_node.launch &
-roslaunch hubo_launch display_drchubo_state.launch &
-rosrun valve_localization valve_localizer.py &
+roslaunch hubo_launch full_body_feedback_node.launch sim:=true
+#roslaunch hubo_launch display_drchubo_state.launch
+#rosrun valve_localization valve_localizer.py &
 #roslaunch hubo_planner valve_planner.launch &
-rosrun rviz rviz &
+#rosrun rviz rviz &

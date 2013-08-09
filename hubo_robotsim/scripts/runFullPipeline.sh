@@ -7,7 +7,10 @@ export command4="./start-joint-feedback.sh; bash"
 
 gnome-terminal -x sh -c "$command1" --title="hubo-motion"
 read -p "Press any key to continue... " -n1 -s
+echo "start robot-sim..."
 gnome-terminal -x sh -c "$command2" --title="robot-sim"
 read -p "Press any key to continue... " -n1 -s
-gnome-terminal -x sh -c "$command3" --title="trajectory-interface"
+echo "start ros..."
 gnome-terminal -x sh -c "$command4" --title="joint-feedback"
+echo "start joint trajectory..."
+gnome-terminal -x sh -c "$command3" --title="trajectory-interface"
