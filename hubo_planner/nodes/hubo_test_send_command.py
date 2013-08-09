@@ -14,13 +14,14 @@ from std_msgs.msg import *
 from hubo_robot_msgs.msg import *
 from hubo_planner.srv import *
 from geometry_msgs.msg import *
-from trajectory_msgs.msg import *
 #from ach_srvers.msg import *
+from copy import *
+
 
 
 class HuboTestSendCommand:
 
-    def __init__(self):
+    def __init__(self,my_robot_name=None):
         self.traj = None
         self.hand_pub = rospy.Publisher("hand_command", Bool)
         self.default_pose = Pose()
@@ -31,6 +32,87 @@ class HuboTestSendCommand:
         self.default_pose.orientation.y = 0.5
         self.default_pose.orientation.z = 0.5 
         self.default_pose.orientation.w = 0.5
+        self.joint_names = None
+        self.joint_mapping = None
+        self.robot_name = my_robot_name
+
+        ns = "/" + self.robot_name + "_fullbody_controller/hubo_trajectory_action/"
+        # Gets joint mapping from parameter server
+        self.joint_mapping = {}
+        self.joint_names = rospy.get_param( ns + "joints")
+        for i in range(0,len(self.joint_names)):
+            self.joint_names[i] = self.joint_names[i].strip( '/' )
+            self.joint_mapping[ self.joint_names[i] ] = int(i)
+        
+        self.dt = 0.04
+
+    def set_trajectory(self, trajectory=None, joint_dict=None):
+ 
+        print "filing message"
+                       
+        self.hubo_traj = JointTrajectory()
+        self.hubo_traj.header.stamp = rospy.Time.now()
+        self.hubo_traj.joint_names = self.joint_names
+        self.hubo_traj.compliance.joint_names = []
+
+        t = 0.0
+
+        for q in trajectory: # reads all lines in the file
+
+            print "q"
+            print q
+
+            # Ane configuration per line
+            current_point = JointTrajectoryPoint()
+            current_point.time_from_start = rospy.Duration(t)
+
+            # Advance in time by dt
+            t += float( self.dt )
+
+            # ---------------------------------------
+            # Fills position buffer
+            p_buffer = [0.0] * len(self.joint_mapping)
+                       
+            for jName, jIdx in joint_dict.iteritems():
+
+                try:
+                    # reverse joint dict ['joint name'] = joint val
+                    urdfIndex = self.joint_mapping[ jName ]
+                except KeyError:
+                    urdfIndex = None
+
+                if ((urdfIndex is not None) and (urdfIndex < len(self.joint_mapping)) ):
+                    p_buffer[urdfIndex] = float(q[jIdx])
+                    
+                else:
+                    continue
+            #print len(p_buffer)
+
+            # ---------------------------------------
+            # Fills velocity buffer using finite deferencing
+            v_buffer = []
+            v_buffer.append( (p_buffer[0]-p_buffer[1])/self.dt )
+            for i in range( 1 , len(p_buffer)-1 ):
+                v_buffer.append( (p_buffer[i+1]-p_buffer[i-1])/self.dt )
+            v_buffer.append( (p_buffer[len(p_buffer)-1]-p_buffer[len(p_buffer)-2])/self.dt )
+
+            # ---------------------------------------
+            # Fills acceleration buffer using finite deferencing
+            a_buffer = []
+            a_factor = 10;
+            a_buffer.append( a_factor*(v_buffer[0]-v_buffer[1])/self.dt )
+            for i in range( 1 , len(v_buffer)-1 ):
+                a_buffer.append( a_factor*(v_buffer[i+1]-v_buffer[i-1])/self.dt )
+            a_buffer.append( a_factor*(v_buffer[len(v_buffer)-1]-v_buffer[len(v_buffer)-2])/self.dt )
+
+            # Appends trajectory point
+            current_point.positions = deepcopy(p_buffer)
+            current_point.velocities = deepcopy(v_buffer)
+            current_point.accelerations = deepcopy(a_buffer)
+
+            self.hubo_traj.points.append(current_point)
+        
+        return True
 
     def call_to_planner(self, valve_pose=None):
 
@@ -60,81 +142,31 @@ class HuboTestSendCommand:
 
     def joint_traj_client(self):
         
-        if (self.traj == [] or self.traj == None):
-            print "No trajectories to execute!"
-            return None
+        if( self.hubo_traj is None ):
+            print "cannot execute empty trajectory"
+            return
 
-        print "create action client..."
-
-        # Creates the SimpleActionClient, passing the type of the action
-        # (JointTrajectoryAction) to the constructor.
-        client = actionlib.SimpleActionClient('/hubo_fullbody_controller/joint_trajectory_action', hubo_robot_msgs.msg.JointTrajectoryAction )
-
+        # Creates a SimpleActionClient, passing the type of action to the constructor.
+        client = actionlib.SimpleActionClient('/drchubo_fullbody_controller/joint_trajectory_action', hubo_robot_msgs.msg.JointTrajectoryAction )
+        
+        # Waits until the action server has started
         print "waiting for action server..."
-
-        # Waits until the action server has started up and started
-        # listening for goals.
         client.wait_for_server()
-
-        print "client started"
-
+        
+        # Sends trajectory as a goal
+        print "client started, sending trajectory!"
         res = None
+        #rospy.sleep(1.0)
+        self.hubo_traj.header.stamp = rospy.Time.now()
+        traj_goal = JointTrajectoryGoal()
+        traj_goal.trajectory = self.hubo_traj
+        traj_goal.trajectory.header.stamp = rospy.Time.now() + rospy.Duration.from_sec(1.0)
+        client.send_goal( traj_goal )
 
-        # Execute the start -> wheel trajectory
-        self.hand_pub.publish(False)
-        rospy.sleep(1.0)
-        t0_goal = JointTrajectoryGoal()
-        t0 = self.traj[0]
-        t0.header.stamp = rospy.Time.now()
-        t0_goal.trajectory = t0
-        client.send_goal( t0_goal )
+        print "Wait for result!"
         client.wait_for_result()
         res = client.get_result()
-        print "end execution of trajectory 0"
-        # Execute the turning trajectory
-        self.hand_pub.publish(True)
-        rospy.sleep(1.0)
-        t1_goal = JointTrajectoryGoal()
-        t1 = self.traj[1]
-        t1.header.stamp = rospy.Time.now()
-        t1_goal.trajectory = t1
-        client.send_goal( t1_goal )
-        client.wait_for_result()
-        res = client.get_result()
-        print "end execution of trajectory 1"
-        # Execute the return trajectory
-        self.hand_pub.publish(False)
-        rospy.sleep(1.0)
-        t2_goal = JointTrajectoryGoal()
-        t2 = self.traj[2]
-        t2.header.stamp = rospy.Time.now()
-        t2_goal.trajectory = t2
-        client.send_goal( t2_goal )
-        client.wait_for_result()
-        res = client.get_result()
-        print "end execution of trajectory 2"
-        # Execute the turning trajectory
-        self.hand_pub.publish(True)
-        rospy.sleep(1.0)
-        t3_goal = JointTrajectoryGoal()
-        t3 = self.traj[3]
-        t3.header.stamp = rospy.Time.now()
-        t3_goal.trajectory = t3
-        client.send_goal( t3_goal )
-        client.wait_for_result()
-        res = client.get_result()
-        print "end execution of trajectory 3"
-        # Execute the wheel -> start trajectory
-        self.hand_pub.publish(False)
-        rospy.sleep(1.0)
-        t4_goal = JointTrajectoryGoal()
-        t4 = self.traj[4]
-        t4.header.stamp = rospy.Time.now()
-        t4_goal.trajectory = t4
-        client.send_goal( t4_goal )
-        client.wait_for_result()
-        res = client.get_result()
-        print "end execution of trajectory 4"
+        print res
 
         '''
         try:

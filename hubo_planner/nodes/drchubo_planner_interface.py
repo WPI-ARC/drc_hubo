@@ -22,6 +22,7 @@ from valve_planner_msgs.srv import *
 
 #import hubo_traj_reader
 import drchubo_v2_wheel_turning
+import hubo_test_send_command
 
 class HuboPlannerInterface:
 
@@ -39,11 +40,24 @@ class HuboPlannerInterface:
         path_to_wheel = rospy.get_param("tiny_wheel_model")
         self.read_joint_states = rospy.get_param("read_joint_states")
 
+        print "Info: Using robot model: "
         print path_to_robot
+        
+        print "Info: Using valve model: "
         print path_to_wheel
-        print self.read_joint_states
 
+        print "Info: sim mode: "
+        print (not self.read_joint_states)
+
+
+        if( self.read_joint_states ):
+            self.backend = hubo_test_send_command.HuboTestSendCommand("drchubo")
+        
+        
         self.planner = drchubo_v2_wheel_turning.DrcHuboV2WheelTurning( path_to_robot, path_to_wheel )
+        
+        # Clean-Up old trajectory files on initialization
+        self.planner.RemoveFiles()
 
         self.planner.SetViewer(True)
         self.planner.SetStopKeyStrokes(False)
@@ -65,10 +79,55 @@ class HuboPlannerInterface:
         print req.Identifier
         res = ExecuteTurningResponse()
 
+        why = ""
+        success = True
+
         if( req.Identifier == "PREVIEW" ):
-            [success, why] = self.planner.trajectory.PlayInOpenRAVE()
+            
+            try:
+                [success, why] = self.planner.trajectory.PlayInOpenRAVE()
+            except:
+                success = False
+                why = "Error: No trajectory to preview. You must run the planner first."
+                print why
+
         elif( req.Identifier == "EXECUTE" ):
-            [success, why] = self.planner.trajectory.PlayOnTheRobot()
+            
+            if( self.read_joint_states ):
+                
+                try:
+                    # Convert OpenRAVE format trajectory to ROS Action Lib.
+                    listofq = self.planner.trajectory.GetOpenRAVETrajectory(self.planner.robotid, self.planner.default_trajectory_dir)
+
+
+
+                    # TODO: Error handling for set trajectory [success, why] = set_trajectory
+                    self.backend.set_trajectory(listofq, self.planner.jointDict)
+                    #[success, why] = self.backend.set_trajectory()
+                    #if(not success):
+                    #    return why
+
+                    # Call Action Lib. Client to play the trajectory on the robot
+                    # TODO: Error handling for traj client
+                    # [success, why] = self.backend.joint_traj_client()
+                    self.backend.joint_traj_client()
+
+                    # If:
+                    # i)   you played the trajectory successfully, and,
+                    # ii)  if the trajectory was planned for GetReady or EndTask
+                    # iii) or if the trajectory was planned for any other valve type than round valve
+                    #
+                    # then erase the trajectory for safety purposes.
+                    #
+                    if( self.planner.trajectory.name == "GetReady" or self.planner.trajectory.name == "EndTask" or self.planner.trajectory.valveType != "W" ):
+                        self.planner.trajectory = None
+
+                except:
+                    success = False
+                    why = "Error: No trajectory to execute. You must run the planner first."
+
+            else:
+                print "Info: you can't execute a trajectory in sim mode. Use preview option."
 
         if(not success):
             res.ErrorCode = "error :"+why

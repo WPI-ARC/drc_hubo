@@ -99,6 +99,7 @@ class BaseWheelTurning:
 
         # Center of Gravity Target
         self.cogtarg = [0, 0, 0]
+        self.cogTargStr = str(self.cogtarg).strip("[]").replace(', ',' ')
 
     def KillOpenrave(self):
         self.env.Destroy()
@@ -128,6 +129,9 @@ class BaseWheelTurning:
             
         if(self.env.GetKinBody("1by1") is not None):
             self.env.RemoveKinBody(self.my1by1)
+
+        if(self.env.GetKinBody("supportbeams") is not None):
+            self.env.RemoveKinBody(self.mysupport)
         
         if(self.infocylinder != None):
             self.infocylinder = None
@@ -141,24 +145,29 @@ class BaseWheelTurning:
             self.env.Remove(self.probs_crankmover)
             self.probs_crankmover = None
 
-        # Reset the robot's joints
-        self.robotid.SetDOFValues(zeros(len(self.robotid.GetJoints())),range(len(self.robotid.GetJoints())))
-
-        # Reset the driving wheel's joint
+        # Reset the valve's joint for replanning
         self.crankid.SetDOFValues([0],[0])
         self.crankid.GetController().Reset(0)
+
+    def GetT0_RefLink(self, frame):
+        T0_RefLink = None
+
+        for l in self.robotid.GetLinks():
+            if(l.GetName() == frame):
+                T0_RefLink = l.GetTransform()
+
+        return T0_RefLink
         
 
     def SetValvePoseFromQuaternionInFrame(self,frame,trans,rot):
         print "SetWheelPoseFromQuaternion"
 
-        self.tiltDiff = acos(dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.crankid.GetLinks()[0].GetTransform())[1,1])
+        #self.tiltDiff = acos(dot(linalg.inv(self.crankid.GetManipulators()[0].GetEndEffectorTransform()),self.crankid.GetLinks()[0].GetTransform())[1,1])
+        
+        self.tiltDiff = 0
 
-        self.T0_RefLink = None
-
-        for l in self.robotid.GetLinks():
-            if(l.GetName() == frame):
-                self.T0_RefLink = l.GetTransform()
+        self.refLinkName = frame # For future reference
+        self.T0_RefLink = self.GetT0_RefLink(self.refLinkName)
         
         if(self.T0_RefLink == None):
             rospy.logerr("In base_wheel_turning, SetWheelPoseFromQuaternion: Couldn't find the reference link name.")
@@ -173,10 +182,12 @@ class BaseWheelTurning:
             self.T0_WheelRave = dot(self.T0_WheelRViz,self.TWheelRViz_WheelRave)
 
             # Set wheel location
-            # TODO We shall plan after crouchin. But until then just think that the valve 
-            # is self.crouch higher. This should be the height of the real wheel after the 
-            # robot crouches.
-            self.T0_WheelRave[2,3] += self.crouch
+            #
+            # deprecated
+            # # TODO We shall plan after crouchin. But until then just think that the valve 
+            # # is self.crouch higher. This should be the height of the real wheel after the 
+            # # robot crouches.
+            # self.T0_WheelRave[2,3] += self.crouch
 
             self.crankid.SetTransform(array(self.T0_WheelRave))
 
@@ -205,13 +216,39 @@ class BaseWheelTurning:
         
         self.myValveHandle.SetTransform(self.crankid.GetManipulators()[0].GetTransform())
         # self.Add4by4()
+        # self.Add1by1()
+        self.AddWPIWheelSupport()
+
+    
+    def AddWPIWheelSupport(self):
         self.Add1by1()
+        self.AddSupportBeams()
+
+    def AddSupportBeams(self):
+        print "adding support beams"
+        self.mysupport = RaveCreateKinBody(self.env,'')
+        self.mysupport.SetName('supportbeams')
+        behindValveClearance = 0.15
+
+        # Tall narrow support beams
+        # self.mysupport.InitFromBoxes(numpy.array([[behindValveClearance,0,0,0.001,0.1525,1.0]]),True) # False for not visible
+        
+        # Tall wide wall
+        self.mysupport.InitFromBoxes(numpy.array([[behindValveClearance,0,0,0.001,1.0,1.0]]),True) # False for not visible
+
+        self.mysupport.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(array((0,0,1,0.5)))
+        x = self.crankid.GetManipulators()[0].GetEndEffectorTransform()[0,3]
+        y = self.crankid.GetManipulators()[0].GetEndEffectorTransform()[1,3]
+        z = self.crankid.GetManipulators()[0].GetEndEffectorTransform()[2,3]
+        self.mysupport.SetTransform(array(MakeTransform(rodrigues([0,0,0]),transpose(matrix([x,y,z])))))
+        self.env.Add(self.mysupport,True)
+    
 
     def Add1by1(self):
         print "adding a wall"
         self.my1by1 = RaveCreateKinBody(self.env,'')
         self.my1by1.SetName('1by1')
-        behindValveClearance = 0.1
+        behindValveClearance = 0.075
         self.my1by1.InitFromBoxes(numpy.array([[0,0,behindValveClearance,0.1525,0.1525,0.001]]),True) # False for not visible
         self.my1by1.GetLinks()[0].GetGeometries()[0].SetDiffuseColor(array((0,0,1,0.5)))
         self.my1by1.SetTransform(self.crankid.GetManipulators()[0].GetEndEffectorTransform())
@@ -235,50 +272,17 @@ class BaseWheelTurning:
 
     def RemoveFiles(self):
 
-        max_traj_num = 10
-
         # Try to delete all existing trajectory files
         try:
             print "Removing qhullout.txt"
             os.remove("qhullout.txt")
         except OSError, e:
-            print e    
+            print e
 
-        for i in range(max_traj_num):
-            try:
-                print "Removing movetraj"+str(i)+".txt"
-                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+".txt")
-            except OSError, e:
-                print e
-
-        for i in range(max_traj_num):
-            try:
-                print "Removing movetraj"+str(i)+".traj"
-                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+".traj")
-            except OSError, e:
-                print e
-
-        for i in range(max_traj_num):
-            try:
-                print "Removing movetraj"+str(i)+"_retimed.txt"
-                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+"_retimed.txt")
-            except OSError, e:
-                print e
-
-
-        for i in range(max_traj_num):
-            try:
-                print "Removing movetraj"+str(i)+"_openhands.traj"
-                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+"_openhands.traj")
-            except OSError, e:
-                print e
-                
-        for i in range(max_traj_num):
-            try:
-                print "Removing movetraj"+str(i)+"_closehands.traj"
-                os.remove(self.default_trajectory_dir+"movetraj"+str(i)+"_closehands.traj")
-            except OSError, e:
-                print e
+        for fname in os.listdir(self.default_trajectory_dir):
+            if( fname.find("movetraj") != -1 ):
+                print "Info: Removing old trajectory file: "+fname
+                os.remove(self.default_trajectory_dir+fname)
 
     def StartViewer(self):
         # Start the Viewer and draws the world frame
