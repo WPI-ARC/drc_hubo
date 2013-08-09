@@ -31,6 +31,7 @@ class ConstrainedPath():
     def __init__(self, myName):
         self.name = myName
         self.elements = []
+        self.valveType = None
         
     def PlayInOpenRAVE(self):
         for e in self.elements:
@@ -40,15 +41,15 @@ class ConstrainedPath():
 
         return [True, ""]
 
-    def PlayOnTheRobot(self):
-        # Fill this out with the action lib.
-        pass
-        return [True, ""]
-        
-    def Execute(self):
-        # execute this trajectory
-        # on the robot
-        return [True, ""]    
+    def GetOpenRAVETrajectory(self, robot, filepath):
+        myPath = [] # a list of configurations for the whole path
+        for e in self.elements:
+            # populate the path with the list of configurations
+            # of each path element.
+            listOfQs = e.GetOpenRAVETrajectory(robot, filepath)
+            myPath.extend(listOfQs)
+
+        return myPath
 
 class ConstrainedPathElement():
     def __init__(self, myName):
@@ -77,6 +78,74 @@ class ConstrainedPathElement():
         self.closeHandsBefore = False
         self.closeHandsAfter = False
         self.hands = None
+
+    def GetOpenRAVETrajectory(self, robot, filepath):
+        myPathElementQs = []
+        traj = RaveCreateTrajectory(robot.GetEnv(),'').deserialize(open(filepath+self.filename+'.txt','r').read())
+        cs = traj.GetConfigurationSpecification()
+        robotJointValsGroup = cs.GetGroupFromName("joint_values "+robot.GetName())
+        trajLength = traj.GetNumWaypoints()
+
+        wpFirst = traj.GetWaypoint(0)
+        qFirst = wpFirst[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
+
+        wpLast = traj.GetWaypoint(trajLength-1)
+        qLast = wpLast[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
+
+        for jIdx, joint in enumerate(robot.GetJoints()):
+            if ( joint.GetName()[0:3] == 'LF1' ):
+                leftHandFinger1Idx = jIdx
+            if ( joint.GetName()[0:3] == 'RF1' ):
+                rightHandFinger1Idx = jIdx
+            if ( joint.GetName()[0:3] == 'RF2' ):
+                rightHandFinger2Idx = jIdx
+
+        freq = 25 # Play speed in Hz.
+        howManySeconds = 6 # Play time in sec.
+        howManyTimes = howManySeconds*freq
+                
+        # This is where we open/close the hands before the trajectory
+        if( self.openHandsBefore ):
+            qOpenHandsBefore = deepcopy(qFirst)
+            qOpenHandsBefore[leftHandFinger1Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger1Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger2Idx] = -1.45
+            for i in range(howManyTimes):
+                myPathElementQs.append(qOpenHandsBefore)
+
+        if( self.closeHandsBefore ):
+            qCloseHandsBefore = deepcopy(qFirst)
+            qCloseHandsBefore[leftHandFinger1Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger1Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger2Idx] = 0.1
+            for i in range(howManyTimes):
+                myPathElementQs.append(qCloseHandsBefore)
+
+        # This is where we get the trajectory
+        for i in range(trajLength):
+             wp = traj.GetWaypoint(i)
+             q = wp[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
+             myPathElementQs.append(q)
+
+             
+        # This is where we open/close the hands after the trajectory
+        if( self.openHandsAfter ):
+            qOpenHandsAfter = deepcopy(qLast)
+            qOpenHandsAfter[leftHandFinger1Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger1Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger2Idx] = -1.45
+            for i in range(howManyTimes):
+                myPathElementQs.append(qOpenHandsAfter)
+
+        if( self.closeHandsAfter ):
+            qCloseHandsAfter = deepcopy(qLast)
+            qCloseHandsAfter[leftHandFinger1Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger1Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger2Idx] = 0.1
+            for i in range(howManyTimes):
+                myPathElementQs.append(qCloseHandsAfter)
+
+        return myPathElementQs
 
     def PlayInOpenRAVE(self):
         # play this path element
@@ -287,7 +356,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         return [True, ""]
     
-    def EndTask(self, hands):
+    def EndTask(self, hands, valveType):
         # Wherever you are,
         currentik = self.robotid.GetActiveDOFValues()
 
@@ -315,7 +384,6 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         self.robotid.GetController().Reset(0)
         
-
         # Left Foot
         TSRStringLF2 = SerializeTSR(2,'NULL',self.robotManips[2].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,-100,100,0,0,0,0,0,0]))
         # Right Foot
@@ -349,10 +417,10 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         elif( hands == "RH" ):
             cpe0.TSR = TSRChainStringFeetandHead_current2init_rh
         cpe0.smoothing = self.normalsmoothingitrs
-        cpe0.errorCode = "14"
+        cpe0.errorCode = "17"
         cpe0.psample = 0.2
-        cpe0.filename = "movetraj4"
-        cpe0.hands = "BH"
+        cpe0.filename = "movetraj7"
+        cpe0.hands = hands
         cpe0.cbirrtProblems = [self.probs_cbirrt]
         cpe0.cbirrtRobots = [self.robotid]
         cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename]
@@ -368,15 +436,17 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         cpe1.goalik = self.homeik
         cpe1.TSR = TSRChainStringFeetandHead_init2home
         cpe1.smoothing = self.normalsmoothingitrs
-        cpe1.errorCode = "17"
+        cpe1.errorCode = "18"
         cpe1.psample = 0.2
-        cpe1.filename = "movetraj7"
-        cpe1.hands = "BH"
+        cpe1.filename = "movetraj8"
+        cpe1.hands = hands
         cpe1.cbirrtProblems = [self.probs_cbirrt]
         cpe1.cbirrtRobots = [self.robotid]
         cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename]
             
-        cp = ConstrainedPath("end task")
+        cp = ConstrainedPath("EndTask")
+        cp.valveType = valveType
+
         cp.elements.append(cpe0)
         cp.elements.append(cpe1)
         
@@ -385,6 +455,88 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
             return why
         else:
             return 0
+
+    def FindStartIK(self, hands, valveType):
+        handles = []
+
+        # Now try to find an IK to get ready to turn the valve
+        #
+        # Go through different grasp indices until one of them works
+        graspIndex = 0
+
+        # Left Hand Transform in World Coordinates
+        self.T0_LH1 = self.GetT0_LH1(hands, graspIndex ,valveType)
+
+        # Uncomment if you want to see where T0_LH1 is 
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
+
+        # Right Hand Pose in World Coordinates
+        self.T0_RH1 = self.GetT0_RH1(hands, graspIndex, valveType)
+
+        # Uncomment if you want to see where T0_RH1 is 
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_RH1),1))
+
+        # Define Task Space Region strings
+        # Left Hand
+        TSRStringLH1 = SerializeTSR(0,'NULL',self.T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Hand
+        TSRStringRH1 = SerializeTSR(1,'NULL',self.T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Define TSR for this path
+        # Left Foot
+        TSRStringLF1 = SerializeTSR(2,'NULL', self.robotManips[2].GetEndEffectorTransform(), eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Right Foot
+        TSRStringRF1 = SerializeTSR(3,'NULL', self.robotManips[3].GetEndEffectorTransform(), eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+        # Head
+        TSRStringH = SerializeTSR(4,'NULL',self.robotManips[4].GetEndEffectorTransform(),eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
+
+        # We defined Task Space Regions. Now let's concatenate them.
+        TSRChainStringFeetandHead_init2start_bh = SerializeTSRChain(0,1,0,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_init2start_lh = SerializeTSRChain(0,1,0,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        TSRChainStringFeetandHead_init2start_rh = SerializeTSRChain(0,1,1,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
+
+        # Open the hand we will use to avoid collision:
+        if( hands == "BH" ):
+            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+        if( hands == "LH" ):
+            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+        if( hands == "RH" ):
+            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+                    
+        startik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 2 maniptm 0 '+trans_to_str(self.T0_LH1)+' maniptm 1 '+trans_to_str(self.T0_RH1))
+        
+        #GeneralIK does not go collision check
+        if( startik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: GeneralIK could not find startik, or startik is in collision."
+            
+            if( self.useIKFast  ):
+                print "Info: using IKFast."
+                
+                if( hands == "BH" or hands == "LH" ):
+                    sol0 = self.IKFast('leftArm', array(self.T0_LH1), False)
+                    if( sol0 is not None):
+                        self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())
+                    else:
+                        print "Error: IKFast Could not found startik."
+                        return [False, 32, "", "", "", ""] # 3: ikfast error, 2: startik
+       
+                if( hands == "BH" or hands == "RH" ):
+                    sol1 = self.IKFast('rightArm', array(self.T0_RH1), False)
+                    if( sol1 is not None):
+                        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
+                    else:
+                        print "Error: IKFast Could not found startik."
+                        return [False, 32, "", "", "", ""] # 3: ikfast error, 2: startik
+
+                startik = self.robotid.GetActiveDOFValues()
+            else:
+                return [False, 22, "", "", "", ""] # 2: generalik error, 2: at startik
+        else:
+            print "Info: GeneralIK found a startik."
+
+        return [True, "", startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh]
 
     def GetReady(self, hands, valveType):
         
@@ -418,85 +570,18 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         self.robotid.SetActiveDOFValues(str2num(self.initik))
 
-        # Now try to find an IK to get ready to turn the valve
-        #
-        # Go through different grasp indices until one of them works
-        graspIndex = 0
-
-        # Left Hand Transform in World Coordinates
-        self.T0_LH1 = self.GetT0_LH1(hands, graspIndex ,valveType)
-
-        # Uncomment if you want to see where T0_LH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
-
-        # Right Hand Pose in World Coordinates
-        self.T0_RH1 = self.GetT0_RH1(hands, graspIndex, valveType)
-
-        # Uncomment if you want to see where T0_RH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(self.T0_RH1),1))
-
-        # Define Task Space Region strings
-        # Left Hand
-        TSRStringLH1 = SerializeTSR(0,'NULL',self.T0_LH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        # Right Hand
-        TSRStringRH1 = SerializeTSR(1,'NULL',self.T0_RH1,eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        # Define TSR for this path
-        TSRStringLF1 = SerializeTSR(2,'NULL', T0_LFTarget, eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-        TSRStringRF1 = SerializeTSR(3,'NULL', T0_RFTarget, eye(4),matrix([0,0,0,0,0,0,0,0,0,0,0,0]))
-
-        # We defined Task Space Regions. Now let's concatenate them.
-        TSRChainStringFeetandHead_init2start_bh = SerializeTSRChain(0,1,0,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
-
-        TSRChainStringFeetandHead_init2start_lh = SerializeTSRChain(0,1,0,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
-
-        TSRChainStringFeetandHead_init2start_rh = SerializeTSRChain(0,1,1,1,TSRStringLH1,'NULL',[])+' '+SerializeTSRChain(0,1,0,1,TSRStringRH1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringLF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringRF1,'NULL',[])+' '+SerializeTSRChain(0,1,1,1,TSRStringH,'NULL',[])
-
-        # Open the hand we will use to avoid collision:
-        if( hands == "BH" ):
-            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-        if( hands == "LH" ):
-            self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-        if( hands == "RH" ):
-            self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                    
-        startik = self.probs_cbirrt.SendCommand('DoGeneralIK exec supportlinks 2 '+self.footlinknames+' movecog '+self.cogTargStr+' nummanips 2 maniptm 0 '+trans_to_str(self.T0_LH1)+' maniptm 1 '+trans_to_str(self.T0_RH1))
+        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK(hands, valveType)
         
-        #GeneralIK does not go collision check
-        if( startik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
-            print "Error: GeneralIK could not find startik, or startik is in collision."
-            
-            if( self.useIKFast  ):
-                print "Info: using IKFast."
-                
-                if( hands == "BH" or hands == "LH" ):
-                    sol0 = self.IKFast('leftArm', array(self.T0_LH1), False)
-                    if( sol0 is not None):
-                        self.robotid.SetDOFValues(sol0,self.robotid.GetManipulators()[0].GetArmIndices())
-                    else:
-                        print "Error: IKFast Could not found startik."
-                        return 32 # 3: ikfast error, 2: startik
-       
-                if( hands == "BH" or hands == "RH" ):
-                    sol1 = self.IKFast('rightArm', array(self.T0_RH1), False)
-                    if( sol1 is not None):
-                        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
-                    else:
-                        print "Error: IKFast Could not found startik."
-                        return 32 # 3: ikfast error, 2: startik
-
-                startik = self.robotid.GetActiveDOFValues()
-            else:
-                return 22 # 2: generalik error, 2: at startik
-        else:
-            print "Info: GeneralIK found a startik."
+        if(not success):
+            return why
 
         # If all is good we have a currentik, an initik and a startik
         # Close both hands to avoid collision at currentik
         self.robotid.SetDOFValues(self.rhandclosevals,self.rhanddofs)
         self.robotid.SetDOFValues(self.lhandclosevals,self.lhanddofs)
 
-        cp = ConstrainedPath("current --> start")
+        cp = ConstrainedPath("GetReady")
+        cp.valveType = valveType
         
         # Set the path elements
         # From current configuration to a known init configuration
@@ -665,18 +750,42 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         return None
 
+    def CheckHands(self, radius, valveType, direction):
+        # Check if, because of compliance, or some other reason (active balancing / sensor error etc.)
+        # the end effectors of the robot matches to {R,L}H1 for the most recent valve pose.
+        # 
+        # If the end effector's are not where they should be, then plan a trajectory in between
+        # and go to start configuration.
+        T0_CurrentLH = self.robotManips[0].GetEndEffectorTransform()
+        T0_CurrentRH = self.robotManips[1].GetEndEffectorTransform()
+
+        # set the result to false first
+        goToStartIK = False
+
+        if(not allclose(self.T0_LH1, T0_CurrentLH) ):
+            print "Warning: leftArm end effector has moved."
+            goToStartIK = True
+
+        if(not allclose(self.T0_RH1, T0_CurrentRH) ):
+            print "Warning: rightArm end effector has moved."
+            goToStartIK = True
+
+        return goToStartIK
+
     def BothHands(self, radius, valveType, direction):
 
+        handles = []
+        
         self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
         self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
 
-        handles = []
-
         # Current configuration of the robot is its initial configuration
         currentik = self.robotid.GetActiveDOFValues()
+
+        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK("BH", valveType)
         
-        print "currentik"
-        print currentik
+        if(not success):
+            return why
 
         # Calculate hand transforms after rotating the wheel (they will help us find the goalik):
         # How much do we want to rotate the wheel?
@@ -792,7 +901,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
             print "Error: GeneralIK could not find goalik, or goalik is in collision."
 
             if( self.useIKFast ):
-                print "Info: sing IKFast."
+                print "Info: using IKFast."
                 sol0 = self.IKFast('leftArm', array(T0_LH2), False)
                 sol1 = self.IKFast('rightArm', array(T0_RH2), False)
                 if( (sol0 is not None) and (sol1 is not None) ):
@@ -870,71 +979,85 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         self.crankid.SetDOFValues([0],[0])
         self.crankid.GetController().Reset(0)
 
-        sys.stdin.readline()
-
         # At this point we should have a currentik and a goalik
-        cp = ConstrainedPath("close hands --> current --> goal --> openhands --> current")
+        cp = ConstrainedPath("TurnValveBH")
+        cp.valveType = valveType
 
-        # Define start to goal
-        cpe0 = ConstrainedPathElement("current2goal")
+        # Define current to a known start configuration
+        cpe0 = ConstrainedPathElement("current2start")
         cpe0.startik = currentik
-        cpe0.goalik = goalik
-        cpe0.TSR = TSRChainString_start2goal
-        cpe0.smoothing = self.fastsmoothingitrs
+        cpe0.goalik = startik
+        cpe0.TSR = TSRChainStringFeetandHead_init2start_bh
+        cpe0.smoothing = self.normalsmoothingitrs
         cpe0.errorCode = "12"
-        cpe0.mimicdof = TSRChainMimicDOF
+        cpe0.psample = 0.2
         cpe0.filename = "movetraj2"
         cpe0.hands = "BH"
-        cpe0.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
-        cpe0.cbirrtRobots = [self.robotid, self.crankid]
-        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename, self.default_trajectory_dir+cpe0.filename]
-        cpe0.closeHandsBefore = True
-        cpe0.openHandsAfter = True
+        cpe0.cbirrtProblems = [self.probs_cbirrt]
+        cpe0.cbirrtRobots = [self.robotid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename]
 
-        # Define goal to exit1
-        cpe1 = ConstrainedPathElement("goal2exit1")
-        cpe1.startik = goalik
-        cpe1.goalik = exitik1
-        cpe1.TSR = TSRChainStringFeetandHead_goal2start
-        cpe1.smoothing = self.normalsmoothingitrs
-        cpe1.errorCode = "14"
+        # Define start to goal
+        cpe1 = ConstrainedPathElement("start2goal")
+        cpe1.startik = startik
+        cpe1.goalik = goalik
+        cpe1.TSR = TSRChainString_start2goal
+        cpe1.smoothing = self.fastsmoothingitrs
+        cpe1.errorCode = "13"
+        cpe1.mimicdof = TSRChainMimicDOF
         cpe1.filename = "movetraj3"
         cpe1.hands = "BH"
-        cpe1.cbirrtProblems = [self.probs_cbirrt]
-        cpe1.cbirrtRobots = [self.robotid]
-        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename]
+        cpe1.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
+        cpe1.cbirrtRobots = [self.robotid, self.crankid]
+        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename, self.default_trajectory_dir+cpe1.filename]
+        cpe1.closeHandsBefore = True
+        cpe1.openHandsAfter = True
 
-        # Define exit1 to exit2
+        # Define goal to exit1
         cpe2 = ConstrainedPathElement("goal2exit1")
-        cpe2.startik = exitik1
-        cpe2.goalik = exitik2
+        cpe2.startik = goalik
+        cpe2.goalik = exitik1
         cpe2.TSR = TSRChainStringFeetandHead_goal2start
         cpe2.smoothing = self.normalsmoothingitrs
-        cpe2.errorCode = "15"
+        cpe2.errorCode = "14"
         cpe2.filename = "movetraj4"
         cpe2.hands = "BH"
         cpe2.cbirrtProblems = [self.probs_cbirrt]
         cpe2.cbirrtRobots = [self.robotid]
         cpe2.cbirrtTrajectories = [self.default_trajectory_dir+cpe2.filename]
 
-        # Define goal to start
-        cpe3 = ConstrainedPathElement("exit2start")
-        cpe3.startik = exitik2
-        cpe3.goalik = currentik
+        # Define exit1 to exit2
+        cpe3 = ConstrainedPathElement("goal2exit1")
+        cpe3.startik = exitik1
+        cpe3.goalik = exitik2
         cpe3.TSR = TSRChainStringFeetandHead_goal2start
         cpe3.smoothing = self.normalsmoothingitrs
-        cpe3.errorCode = "16"
+        cpe3.errorCode = "15"
         cpe3.filename = "movetraj5"
         cpe3.hands = "BH"
         cpe3.cbirrtProblems = [self.probs_cbirrt]
         cpe3.cbirrtRobots = [self.robotid]
         cpe3.cbirrtTrajectories = [self.default_trajectory_dir+cpe3.filename]
 
+        # Define goal to start
+        cpe4 = ConstrainedPathElement("exit2start")
+        cpe4.startik = exitik2
+        cpe4.goalik = currentik
+        cpe4.TSR = TSRChainStringFeetandHead_goal2start
+        cpe4.smoothing = self.normalsmoothingitrs
+        cpe4.errorCode = "16"
+        cpe4.filename = "movetraj6"
+        cpe4.hands = "BH"
+        cpe4.cbirrtProblems = [self.probs_cbirrt]
+        cpe4.cbirrtRobots = [self.robotid]
+        cpe4.cbirrtTrajectories = [self.default_trajectory_dir+cpe4.filename]
+
         # Add both elements to the path
         cp.elements.append(cpe0)
         cp.elements.append(cpe1)
         cp.elements.append(cpe2)
         cp.elements.append(cpe3)
+        cp.elements.append(cpe4)
 
         # Plan for start -> goal -> start
         [success, why] = self.PlanPath(cp)
@@ -943,9 +1066,45 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         return 0
 
-    def LeftHand(self,radius,valveType,direction):
+    def FindActiveQ(self, manipIndices, manipTransforms):
+        # Try to find a GeneralIK solution for the manipulators
+        # if it fails, try finding an IKFast solution
+        cmdStr = 'DoGeneralIK exec supportlinks 2'+self.footlinknames+' movecog '+self.cogTargStr+' nummanips '+str(len(manipIndices))+' maniptm'
+        for i, manipIdx in enumerate(manipIndices):
+            cmdStr += ' '+str(manipIdx)+' '+trans_to_str(manipTransforms[i])
+        
+        # command string is ready. Solve GeneralIK
+        generalik = self.probs_cbirrt.SendCommand(cmdStr)
+
+        # check if generalik succeeded without any collision
+        if( generalik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: generalik failed, or the solution found is in collision"
+
+            if( self.useIKFast ):
+                for i, manipIdx in enumerate(manipIndices):
+                    print "Info: using IKFast."
+                    sol = self.IKFast(self.robotManips[manipIdx], array(manipTransforms[i]), False)
+                    if( sol is not None):
+                        self.robotid.SetDOFValues(sol, self.robotManips[manipIdx].GetArmIndices())
+                    else:
+                        print "Error: IKFast could not find a solution."
+                        return None
+        else:
+            return generalik
+
+        # if we are here, it means generalik failed, or there was a collision
+        # so, we tried IKFast, and it succeeded, let's return active dof configuration
+        return self.robotid.GetActiveDOFValues()
+            
+
+    def LeftHand(self, radius, valveType, direction):
 
         currentik = self.robotid.GetActiveDOFValues()
+
+        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK("LH", valveType)
+        
+        if(not success):
+            return why
         
         # This is a list of handles of the objects that are
         # drawn on the screen in OpenRAVE Qt-Viewer.
@@ -1027,36 +1186,64 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         handles.append(misc.DrawAxes(self.env,matrix(T0_LH2),1))
 
         # check if ik solutions exist
-        sol1 = self.IKFast('leftArm',array(T0_LH2), False)
-
-        if(sol1 is None):
+        goalik = self.FindActiveQ([0],[array(T0_LH2)])
+        if( goalik == None ):
             print "Error: No goalik found!"
-            return 33 # 2: ikfast error, 3: at goal
-
-        print "found goalik"
-
-        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[0].GetArmIndices())
-        goalik = self.robotid.GetActiveDOFValues()
+            return 33 # 3: 
             
-        cp = ConstrainedPath("close hands --> current --> goal --> open hands")
-        
-        cpe0 = ConstrainedPathElement("current2goal")
+        cp = ConstrainedPath("TurnValveLH")
+        cp.valveType = valveType
+
+        # Define current to a known start configuration
+        cpe0 = ConstrainedPathElement("current2start")
         cpe0.startik = currentik
-        cpe0.goalik = goalik
-        cpe0.TSR = TSRChainString
-        cpe0.smoothing = self.fastsmoothingitrs
+        cpe0.goalik = startik
+        cpe0.TSR = TSRChainStringFeetandHead_init2start_lh
+        cpe0.smoothing = self.normalsmoothingitrs
         cpe0.errorCode = "12"
-        cpe0.mimicdof = TSRChainMimicDOF
+        cpe0.psample = 0.2
         cpe0.filename = "movetraj2"
         cpe0.hands = "LH"
-        cpe0.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
-        cpe0.cbirrtRobots = [self.robotid, self.crankid]
-        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename, self.default_trajectory_dir+cpe0.filename]
+        cpe0.cbirrtProblems = [self.probs_cbirrt]
+        cpe0.cbirrtRobots = [self.robotid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename]
+        
+        cpe1 = ConstrainedPathElement("start2goal")
+        cpe1.startik = startik
+        cpe1.goalik = goalik
+        cpe1.TSR = TSRChainString
+        cpe1.smoothing = self.fastsmoothingitrs
+        cpe1.errorCode = "13"
+        cpe1.mimicdof = TSRChainMimicDOF
+        cpe1.filename = "movetraj3"
+        cpe1.hands = "LH"
+        cpe1.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
+        cpe1.cbirrtRobots = [self.robotid, self.crankid]
+        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename, self.default_trajectory_dir+cpe1.filename]
 
-        cpe0.closeHandsBefore = True
-        cpe0.openHandsAfter = True
+        cpe1.closeHandsBefore = True
+        cpe1.openHandsAfter = True
+
+        # Define goal to current
+        cpe2 = ConstrainedPathElement("goal2current")
+        cpe2.startik = goalik
+        cpe2.goalik = currentik
+        cpe2.TSR = TSRChainStringFeetandHead_init2start_lh
+        cpe2.smoothing = self.normalsmoothingitrs
+        cpe2.errorCode = "14"
+        cpe2.psample = 0.2
+        cpe2.filename = "movetraj4"
+        cpe2.hands = "LH"
+        cpe2.cbirrtProblems = [self.probs_cbirrt]
+        cpe2.cbirrtRobots = [self.robotid]
+        cpe2.cbirrtTrajectories = [self.default_trajectory_dir+cpe2.filename]
 
         cp.elements.append(cpe0)
+        cp.elements.append(cpe1)
+
+        # If the valve is round, then go back to currentik after goal
+        if( valveType == "W" ):
+            cp.elements.append(cpe2)
         
         [success, why] = self.PlanPath(cp)
         if(not success):
@@ -1065,9 +1252,14 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
             return 0 # no error
 
     
-    def RightHand(self,radius,valveType,direction):
+    def RightHand(self, radius, valveType, direction):
 
         currentik = self.robotid.GetActiveDOFValues()
+
+        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK("RH", valveType)
+        
+        if(not success):
+            return why
 
         # This is a list of handles of the objects that are
         # drawn on the screen in OpenRAVE Qt-Viewer.
@@ -1141,41 +1333,63 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         # Uncomment to see T0_RH2
         handles.append(misc.DrawAxes(self.env,matrix(T0_RH2),1))
 
-        
         # check if ik solutions exist
-        sol1 = self.IKFast('rightArm', array(T0_RH2), False)
-
-        if(sol1 is None):
+        goalik = self.FindActiveQ([1],[array(T0_RH2)])
+        if( goalik == None ):
             print "Error: No goalik found!"
-            return 33 # 3: ikfast error, 3: at goal
+            return 33
 
-        print "found goalik"
-            
-        self.robotid.SetDOFValues(sol1,self.robotid.GetManipulators()[1].GetArmIndices())
-        goalik = self.robotid.GetActiveDOFValues()
+        cp = ConstrainedPath("TurnValveRH")
+        cp.valveType = valveType
 
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to go to goalik"
-            sys.stdin.readline()
-
-        cp = ConstrainedPath("close hands --> current --> goal --> open hands")
-        
-        cpe0 = ConstrainedPathElement("current2goal")
+        # Define current to a known start configuration
+        cpe0 = ConstrainedPathElement("current2start")
         cpe0.startik = currentik
-        cpe0.goalik = goalik
-        cpe0.TSR = TSRChainString
-        cpe0.smoothing = self.fastsmoothingitrs
-        cpe0.mimicdof = TSRChainMimicDOF
+        cpe0.goalik = startik
+        cpe0.TSR = TSRChainStringFeetandHead_init2start_rh
+        cpe0.smoothing = self.normalsmoothingitrs
+        cpe0.errorCode = "12"
+        cpe0.psample = 0.2
         cpe0.filename = "movetraj2"
         cpe0.hands = "RH"
-        cpe0.errorCode = "12"
-        cpe0.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
-        cpe0.cbirrtRobots = [self.robotid, self.crankid]
-        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename, self.default_trajectory_dir+cpe0.filename]
-        cpe0.closeHandsBefore = True
-        cpe0.openHandsAfter = True
+        cpe0.cbirrtProblems = [self.probs_cbirrt]
+        cpe0.cbirrtRobots = [self.robotid]
+        cpe0.cbirrtTrajectories = [self.default_trajectory_dir+cpe0.filename]
+        
+        cpe1 = ConstrainedPathElement("start2goal")
+        cpe1.startik = startik
+        cpe1.goalik = goalik
+        cpe1.TSR = TSRChainString
+        cpe1.smoothing = self.fastsmoothingitrs
+        cpe1.mimicdof = TSRChainMimicDOF
+        cpe1.filename = "movetraj3"
+        cpe1.hands = "RH"
+        cpe1.errorCode = "13"
+        cpe1.cbirrtProblems = [self.probs_cbirrt, self.probs_crankmover]
+        cpe1.cbirrtRobots = [self.robotid, self.crankid]
+        cpe1.cbirrtTrajectories = [self.default_trajectory_dir+cpe1.filename, self.default_trajectory_dir+cpe1.filename]
+        cpe1.closeHandsBefore = True
+        cpe1.openHandsAfter = True
+
+        # Define goal to current
+        cpe2 = ConstrainedPathElement("goal2current")
+        cpe2.startik = goalik
+        cpe2.goalik = currentik
+        cpe2.TSR = TSRChainStringFeetandHead_init2start_rh
+        cpe2.smoothing = self.normalsmoothingitrs
+        cpe2.errorCode = "14"
+        cpe2.psample = 0.2
+        cpe2.filename = "movetraj4"
+        cpe2.hands = "RH"
+        cpe2.cbirrtProblems = [self.probs_cbirrt]
+        cpe2.cbirrtRobots = [self.robotid]
+        cpe2.cbirrtTrajectories = [self.default_trajectory_dir+cpe2.filename]
 
         cp.elements.append(cpe0)
+        cp.elements.append(cpe1)
+        # If the valve is round, then go back to currentik after goal
+        if( valveType == "W" ):
+            cp.elements.append(cpe2)
 
         [success, why] = self.PlanPath(cp)
         if(not success):
@@ -1243,9 +1457,6 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         if(self.optWall):
             self.AddWall()
 
-        # Clean-Up old trajectory files
-        self.RemoveFiles()
-
         # Set planning variables
         self.normalsmoothingitrs = 300
         self.fastsmoothingitrs = 20
@@ -1286,16 +1497,16 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         print self.activedofs
 
         if( taskStage == 'GETREADY' ):
-            error_code = self.GetReady(manipulator,valveType)
+            error_code = self.GetReady(manipulator, valveType)
         elif( taskStage == 'TURNVALVE' ):
             if( manipulator == "LH" ):
-                error_code = self.LeftHand(radius,valveType,direction)
+                error_code = self.LeftHand(radius, valveType, direction)
             elif( manipulator == "RH" ):
-                error_code = self.RightHand(radius,valveType,direction)
+                error_code = self.RightHand(radius, valveType, direction)
             elif( manipulator == "BH" ):
-                error_code = self.BothHands(radius,valveType,direction)
+                error_code = self.BothHands(radius, valveType, direction)
         elif( taskStage == 'END' ):
-            error_code = self.EndTask(manipulator)
+            error_code = self.EndTask(manipulator, valveType)
 
         print "Planning, done."
 

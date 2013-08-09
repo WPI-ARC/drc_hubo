@@ -14,8 +14,8 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
 
     myAchTraj=openravepy.RaveCreateTrajectory(robot.GetEnv(),'')
     config=deepcopy(traj.GetConfigurationSpecification())
-    robotJointValsDOF = traj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").dof
-    robotJointVelsDOF = traj.GetConfigurationSpecification().GetGroupFromName("joint_velocities drchubo-v2").dof
+    robotJointValsDOF = traj.GetConfigurationSpecification().GetGroupFromName("joint_values "+robot.GetName()).dof
+    robotJointVelsDOF = traj.GetConfigurationSpecification().GetGroupFromName("joint_velocities "+robot.GetName()).dof
     
     #config.AddDeltaTimeGroup()
     myAchTraj.Init(config)
@@ -92,10 +92,10 @@ def traj2ach(env,robot,traj,fname,robotJointValsOffset,robotJointVelsOffset,delt
 
     achTrajLength = myAchTraj.GetNumWaypoints()
 
-    retimedRobotJointValsOffset = myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").offset
-    retimedRobotJointValsDOF = myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").dof
+    retimedRobotJointValsOffset = myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values "+robot.GetName()).offset
+    retimedRobotJointValsDOF = myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values "+robot.GetName()).dof
     
-    activedofs = str2num(myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values drchubo-v2").name[len("joint_values drchubo-v2"):]).astype(int)
+    activedofs = str2num(myAchTraj.GetConfigurationSpecification().GetGroupFromName("joint_values "+robot.GetName()).name[len("joint_values "+robot.GetName()):]).astype(int)
     fRaveRetimed = open(fname+'_retimed.txt','w')
     fRaveRetimed.write(myAchTraj.serialize(0))
     fRaveRetimed.close()
