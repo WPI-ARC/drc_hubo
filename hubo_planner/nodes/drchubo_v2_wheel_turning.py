@@ -93,12 +93,26 @@ class ConstrainedPathElement():
         qLast = wpLast[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
 
         for jIdx, joint in enumerate(robot.GetJoints()):
-            if ( joint.GetName()[0:3] == 'LF1' ):
+            if ( joint.GetName() == 'LF11' ):
                 leftHandFinger1Idx = jIdx
-            if ( joint.GetName()[0:3] == 'RF1' ):
+            if ( joint.GetName() == 'LF12' ):
+                leftHandFinger2Idx = jIdx
+            if ( joint.GetName() == 'LF13' ):
+                leftHandFinger3Idx = jIdx
+
+            if ( joint.GetName() == 'RF11' ):
                 rightHandFinger1Idx = jIdx
-            if ( joint.GetName()[0:3] == 'RF2' ):
+            if ( joint.GetName() == 'RF12' ):
                 rightHandFinger2Idx = jIdx
+            if ( joint.GetName() == 'RF13' ):
+                rightHandFinger3Idx = jIdx
+            if ( joint.GetName() == 'RF21' ):
+                rightHandFinger4Idx = jIdx
+            if ( joint.GetName() == 'RF22' ):
+                rightHandFinger5Idx = jIdx
+            if ( joint.GetName() == 'RF23' ):
+                rightHandFinger6Idx = jIdx
+                
 
         freq = 25 # Play speed in Hz.
         howManySeconds = 6 # Play time in sec.
@@ -108,16 +122,33 @@ class ConstrainedPathElement():
         if( self.openHandsBefore ):
             qOpenHandsBefore = deepcopy(qFirst)
             qOpenHandsBefore[leftHandFinger1Idx] = -1.45
+            qOpenHandsBefore[leftHandFinger2Idx] = -1.45
+            qOpenHandsBefore[leftHandFinger3Idx] = -1.45
+
             qOpenHandsBefore[rightHandFinger1Idx] = -1.45
             qOpenHandsBefore[rightHandFinger2Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger3Idx] = -1.45
+            
+            qOpenHandsBefore[rightHandFinger4Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger5Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger6Idx] = -1.45
+            
             for i in range(howManyTimes):
                 myPathElementQs.append(qOpenHandsBefore)
 
         if( self.closeHandsBefore ):
             qCloseHandsBefore = deepcopy(qFirst)
             qCloseHandsBefore[leftHandFinger1Idx] = 0.1
+            qCloseHandsBefore[leftHandFinger2Idx] = 0.1
+            qCloseHandsBefore[leftHandFinger3Idx] = 0.1
+            
             qCloseHandsBefore[rightHandFinger1Idx] = 0.1
             qCloseHandsBefore[rightHandFinger2Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger3Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger4Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger5Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger6Idx] = 0.1
+            
             for i in range(howManyTimes):
                 myPathElementQs.append(qCloseHandsBefore)
 
@@ -125,6 +156,16 @@ class ConstrainedPathElement():
         for i in range(trajLength):
              wp = traj.GetWaypoint(i)
              q = wp[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
+             q[leftHandFinger1Idx] = 0.0
+             q[leftHandFinger2Idx] = 0.0
+             q[leftHandFinger3Idx] = 0.0
+            
+             q[rightHandFinger1Idx] = 0.0
+             q[rightHandFinger2Idx] = 0.0
+             q[rightHandFinger3Idx] = 0.0
+             q[rightHandFinger4Idx] = 0.0
+             q[rightHandFinger5Idx] = 0.0
+             q[rightHandFinger6Idx] = 0.0
              myPathElementQs.append(q)
 
              
@@ -132,16 +173,34 @@ class ConstrainedPathElement():
         if( self.openHandsAfter ):
             qOpenHandsAfter = deepcopy(qLast)
             qOpenHandsAfter[leftHandFinger1Idx] = -1.45
+            qOpenHandsAfter[leftHandFinger2Idx] = -1.45
+            qOpenHandsAfter[leftHandFinger3Idx] = -1.45
+            
+            
             qOpenHandsAfter[rightHandFinger1Idx] = -1.45
             qOpenHandsAfter[rightHandFinger2Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger3Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger4Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger5Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger6Idx] = -1.45
+            
             for i in range(howManyTimes):
                 myPathElementQs.append(qOpenHandsAfter)
 
         if( self.closeHandsAfter ):
             qCloseHandsAfter = deepcopy(qLast)
             qCloseHandsAfter[leftHandFinger1Idx] = 0.1
+            qCloseHandsAfter[leftHandFinger2Idx] = 0.1
+            qCloseHandsAfter[leftHandFinger3Idx] = 0.1
+
             qCloseHandsAfter[rightHandFinger1Idx] = 0.1
             qCloseHandsAfter[rightHandFinger2Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger3Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger4Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger5Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger6Idx] = 0.1
+
+
             for i in range(howManyTimes):
                 myPathElementQs.append(qCloseHandsAfter)
 
@@ -456,7 +515,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         else:
             return 0
 
-    def FindStartIK(self, hands, valveType):
+    def FindStartIK(self, hands, valveType, adjust=False):
         handles = []
 
         # Now try to find an IK to get ready to turn the valve
@@ -467,11 +526,17 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         # Left Hand Transform in World Coordinates
         self.T0_LH1 = self.GetT0_LH1(hands, graspIndex ,valveType)
 
-        # Uncomment if you want to see where T0_LH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
-
         # Right Hand Pose in World Coordinates
         self.T0_RH1 = self.GetT0_RH1(hands, graspIndex, valveType)
+
+        if( adjust ):
+            if( hands == "BH" or hands == "LH" ):
+                self.T0_LH1[2,3] += self.crouch
+            if( hands == "BH" or hands == "RH" ):
+                self.T0_RH1[2,3] += self.crouch
+
+        # Uncomment if you want to see where T0_LH1 is 
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
 
         # Uncomment if you want to see where T0_RH1 is 
         handles.append(misc.DrawAxes(self.env,matrix(self.T0_RH1),1))
@@ -570,7 +635,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         self.robotid.SetActiveDOFValues(str2num(self.initik))
 
-        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK(hands, valveType)
+        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK(hands, valveType, True)
         
         if(not success):
             return why
