@@ -45,6 +45,7 @@ class BaseWheelTurning:
 
     def __init__(self, HuboModelPath, WheelModelPath ):
         
+		# Height for crouching
         self.crouch = 0.05
 
         self.default_trajectory_dir = roslib.packages.get_pkg_dir('hubo_planner')+"/trajectories/"

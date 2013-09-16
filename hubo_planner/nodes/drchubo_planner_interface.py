@@ -202,6 +202,7 @@ class HuboPlannerInterface:
 
         # Call to CBiRRT if no planning simply read the current files
         if( self.no_planning ):
+            # Obsolete !!! (number of files changed)
             trajectory_files = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt']
         else:
             error_code = self.planner.Plan([],req.Request.ValveSize,req.Request.Hands,req.Request.Direction,req.Request.ValveType, req.Request.TaskStage)
