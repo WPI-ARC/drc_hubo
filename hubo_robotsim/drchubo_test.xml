@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<world>
+	<robot name="drchubo" file="DRC/drchubo-v2/drchubo_v3_no_friction.rob" config = "61 0 0 0 0 0 0 0 0 0 0 0 0 -0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "/>
+    <!--  <robot name="drchubo" file="DRC/drchubo-v2/drchubo_v2.rob" config = "61 0 0 0 0 0 0 0 0 0 -0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"/> -->
+	<!-- <robot name="wheel" file="driving_wheel.rob" /> -->
+	<terrain name="floor" file="data/terrains/plane.tri"/>
+</world>

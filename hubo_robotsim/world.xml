@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<world>
+
+  <robot name="pr2" file="DRC_Jingru/pr2_description/pr2_clean.rob" config="100	0.906156 -0.000696 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.85 -0.1 0.114 0 -1.9 0 0 0 0 -1 1 0 0.548 0 0 0 0 0 0.548 0 0 0 0 0 0 -0.85 -0.1 0.114 0 -1.9 0 0 0 0 -1 -1 0 0.548 0 0 0 0 0 0.548 0 0 0 0 0" />
+
+  <robot name="driving_wheel" file="DRC_Jingru/Pr2WheelScenario/driving_wheel_full.rob" />
+<<<<<<< .mine
+
+  <robot name="table" file="DRC_Jingru/Pr2WheelScenario/table.rob" />
+
+  <terrain file="data/terrains/plane.tri" />
+
+  <simulation>
+     <robot index="0" body="64">
+       <geometry kFriction="0.7" kRestitution="0.0" padding="0.001" stiffness="80000" damping="20000" />
+     </robot>
+     <robot index="0" body="70">
+       <geometry kFriction="0.7" kRestitution="0.0" padding="0.001" stiffness="80000" damping="20000" />
+     </robot>
+     <robot index="0" body="89">
+       <geometry kFriction="0.7" kRestitution="0.0" padding="0.001" stiffness="80000" damping="20000" />
+     </robot>
+     <robot index="0" body="95">
+       <geometry kFriction="0.7" kRestitution="0.0" padding="0.001" stiffness="80000" damping="20000" />
+     </robot>
+     <robot index="1" body="1">
+       <geometry kFriction="0.7" kRestitution="0.0" padding="0.001" stiffness="80000" damping="20000" />
+     </robot>
+  </simulation>
+</world>
+
+<!--
+  to load urdf models directly, use below
+  <robot name="pr2" file="DRC_Jingru/pr2_description/robots/pr2.urdf" config="100	0.906156 -0.000696 -0.005524 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.85 -0.1 0.114 0 -1.9 0 0 0 0 -1 1 0 0.548 0 0 0 0 0 0.548 0 0 0 0 0 0 -0.85 -0.1 0.114 0 -1.9 0 0 0 0 -1 -1 0 0.548 0 0 0 0 0 0.548 0 0 0 0 0" />
+
+  <robot name="table" file="DRC_Jingru/GazeboBadTrajectory/Relevant_data_files/table.urdf" translation="1 0 0" />
+  <robot name="driving_wheel" file="DRC_Jingru/GazeboBadTrajectory/Relevant_data_files/driving_wheel_full.urdf" translation="1.41 0 1.0" rotateZ="3.14159265359" />
+
+
+to load .rob format, use below
+  <robot name="pr2" file="DRC_Jingru/pr2_description/pr2_clean.rob" config="100	0.906156 -0.000696 -0.04 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.85 -0.1 0.114 0 -1.9 0 0 0 0 -1 1 0 0.548 0 0 0 0 0 0.548 0 0 0 0 0 0 -0.85 -0.1 0.114 0 -1.9 0 0 0 0 -1 -1 0 0.548 0 0 0 0 0 0.548 0 0 0 0 0" />
+  <robot name="driving_wheel" file="DRC_Jingru/Pr2WheelScenario/driving_wheel_full.rob" />
+
+  <robot name="table" file="DRC_Jingru/Pr2WheelScenario/table.rob" />
+-->

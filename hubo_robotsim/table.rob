@@ -1,0 +1,42 @@
+links	"table_top_link" "leg1_link" "leg2_link" "leg3_link" "leg4_link" 
+
+parents	-1 0 0 0 0  
+
+translation 1 0 0
+
+axis	0 0 1	0 0 1	0 0 1	0 0 1	0 0 1	
+
+jointtype	r r r r r 
+
+Tparent	1 0 0	0 1 0	0 0 1	0 0 0 \
+1 0 0	0 1 0	0 0 1	1.48 1 0.860231 \
+1 0 0	0 1 0	0 0 1	0.48 1 0.860231 \
+1 0 0	0 1 0	0 0 1	1.48 -1 0.860231 \
+1 0 0	0 1 0	0 0 1	0.48 -1 0.860231
+
+qmin	0 0 0 0 0
+
+qmax	0 0 0 0 0
+
+geometry	"DRC_Jingru/PrimitiveGeom/box_ori_center.tri" "DRC_Jingru/PrimitiveGeom/cylinder_ori_center.tri" "DRC_Jingru/PrimitiveGeom/cylinder_ori_center.tri" "DRC_Jingru/PrimitiveGeom/cylinder_ori_center.tri" "DRC_Jingru/PrimitiveGeom/cylinder_ori_center.tri" 
+
+mass	1 1 1 1 1 
+
+com	0.98 0 0.847531	0 0 -0.430116	0 0 -0.430116	0 0 -0.430116	0 0 -0.430116	
+
+inertia	1 0 0 0 1 0 0 0 1	0.1 0 0 0 0.1 0 0 0 0.01	0.1 0 0 0 0.1 0 0 0 0.01	0.1 0 0 0 0.1 0 0 0 0.01	0.1 0 0 0 0.1 0 0 0 0.01	
+torquemax	inf inf inf inf inf 
+
+velmax	inf inf inf inf inf 
+
+accmax	inf inf inf inf inf 
+
+
+geomTransform	0	1 0 0 0.98	0 2 0 0	0 0 0.0254 0.847531	0 0 0 1
+geomTransform	1	0.02 0 0 0	0 0.02 0 0	0 0 0.860232 -0.430116	0 0 0 1
+geomTransform	2	0.02 0 0 0	0 0.02 0 0	0 0 0.860232 -0.430116	0 0 0 1
+geomTransform	3	0.02 0 0 0	0 0.02 0 0	0 0 0.860232 -0.430116	0 0 0 1
+geomTransform	4	0.02 0 0 0	0 0.02 0 0	0 0 0.860232 -0.430116	0 0 0 1
+
+
+

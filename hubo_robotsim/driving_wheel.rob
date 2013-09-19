@@ -1,0 +1,43 @@
+links	"base" "handle" 
+
+parents	-1 0 
+
+axis	1 0 0	1 0 0	
+
+jointtype	r r 
+
+Tparent	-1 0 0	0 -1 0	0 0 1	0 0 0 \
+1 0 0	0 1 0	0 0 1	0.10 0 0
+
+translation 0.45 0 0.95
+
+qmin	0 -inf 
+
+qmax	0 inf 
+
+geometry	"valve_models/logitech_driving_force_pro_wheel_base.stl" "valve_models/logitech_driving_force_pro_wheel.stl" 
+
+mass	100 0.1 
+
+com	-0.127 0 0	0 0 0	
+
+inertia	1 0 0 0 1 0 0 0 1	1 0 0 0 1 0 0 0 1	
+
+torquemax	inf 0 
+
+velmax	inf 100 
+
+accmax	inf 100 
+
+joint weld 0
+joint spin 1
+
+driver normal 1
+servoP 0
+servoI 0
+servoD 0
+dryFriction	0.1
+
+geomTransform	0	0.0254 0 0 0	0 0.0254 0 0	0 0 0.0254 0	0 0 0 1
+geomTransform	1	0.0254 0 0 0	0 0.0254 0 0	0 0 0.0254 0	0 0 0 1
+
