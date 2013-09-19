@@ -39,6 +39,7 @@ class HuboPlannerInterface:
         path_to_robot = rospy.get_param("robot_model")
         path_to_wheel = rospy.get_param("tiny_wheel_model")
         self.read_joint_states = rospy.get_param("read_joint_states")
+        self.useIKFast = rospy.get_param("use_ikfast")
 
         print "Info: Using robot model: "
         print path_to_robot
@@ -49,12 +50,16 @@ class HuboPlannerInterface:
         print "Info: sim mode: "
         print (not self.read_joint_states)
 
+        print "Info: IK-Fast enabled: "
+        print self.useIKFast
+
 
         if( self.read_joint_states ):
             self.backend = hubo_test_send_command.HuboTestSendCommand("drchubo")
         
         
         self.planner = drchubo_v2_wheel_turning.DrcHuboV2WheelTurning( path_to_robot, path_to_wheel )
+        self.planner.useIKFast = self.useIKFast
         
         # Clean-Up old trajectory files on initialization
         self.planner.RemoveFiles()
@@ -181,7 +186,7 @@ class HuboPlannerInterface:
 
         self.planner.ResetEnv()
 
-        self.PrintReqInfo(req)
+        # self.PrintReqInfo(req)
 
         self.planner.StartViewer()
 
@@ -197,6 +202,7 @@ class HuboPlannerInterface:
 
         # Call to CBiRRT if no planning simply read the current files
         if( self.no_planning ):
+            # Obsolete !!! (number of files changed)
             trajectory_files = [ 'movetraj0.txt','movetraj1.txt','movetraj2.txt','movetraj3.txt','movetraj4.txt','movetraj5.txt']
         else:
             error_code = self.planner.Plan([],req.Request.ValveSize,req.Request.Hands,req.Request.Direction,req.Request.ValveType, req.Request.TaskStage)

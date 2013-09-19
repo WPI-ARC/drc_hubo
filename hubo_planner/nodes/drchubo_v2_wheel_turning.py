@@ -93,12 +93,26 @@ class ConstrainedPathElement():
         qLast = wpLast[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
 
         for jIdx, joint in enumerate(robot.GetJoints()):
-            if ( joint.GetName()[0:3] == 'LF1' ):
+            if ( joint.GetName() == 'LF11' ):
                 leftHandFinger1Idx = jIdx
-            if ( joint.GetName()[0:3] == 'RF1' ):
+            if ( joint.GetName() == 'LF12' ):
+                leftHandFinger2Idx = jIdx
+            if ( joint.GetName() == 'LF13' ):
+                leftHandFinger3Idx = jIdx
+
+            if ( joint.GetName() == 'RF11' ):
                 rightHandFinger1Idx = jIdx
-            if ( joint.GetName()[0:3] == 'RF2' ):
+            if ( joint.GetName() == 'RF12' ):
                 rightHandFinger2Idx = jIdx
+            if ( joint.GetName() == 'RF13' ):
+                rightHandFinger3Idx = jIdx
+            if ( joint.GetName() == 'RF21' ):
+                rightHandFinger4Idx = jIdx
+            if ( joint.GetName() == 'RF22' ):
+                rightHandFinger5Idx = jIdx
+            if ( joint.GetName() == 'RF23' ):
+                rightHandFinger6Idx = jIdx
+                
 
         freq = 25 # Play speed in Hz.
         howManySeconds = 6 # Play time in sec.
@@ -108,16 +122,33 @@ class ConstrainedPathElement():
         if( self.openHandsBefore ):
             qOpenHandsBefore = deepcopy(qFirst)
             qOpenHandsBefore[leftHandFinger1Idx] = -1.45
+            qOpenHandsBefore[leftHandFinger2Idx] = -1.45
+            qOpenHandsBefore[leftHandFinger3Idx] = -1.45
+
             qOpenHandsBefore[rightHandFinger1Idx] = -1.45
             qOpenHandsBefore[rightHandFinger2Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger3Idx] = -1.45
+            
+            qOpenHandsBefore[rightHandFinger4Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger5Idx] = -1.45
+            qOpenHandsBefore[rightHandFinger6Idx] = -1.45
+            
             for i in range(howManyTimes):
                 myPathElementQs.append(qOpenHandsBefore)
 
         if( self.closeHandsBefore ):
             qCloseHandsBefore = deepcopy(qFirst)
             qCloseHandsBefore[leftHandFinger1Idx] = 0.1
+            qCloseHandsBefore[leftHandFinger2Idx] = 0.1
+            qCloseHandsBefore[leftHandFinger3Idx] = 0.1
+            
             qCloseHandsBefore[rightHandFinger1Idx] = 0.1
             qCloseHandsBefore[rightHandFinger2Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger3Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger4Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger5Idx] = 0.1
+            qCloseHandsBefore[rightHandFinger6Idx] = 0.1
+            
             for i in range(howManyTimes):
                 myPathElementQs.append(qCloseHandsBefore)
 
@@ -125,6 +156,16 @@ class ConstrainedPathElement():
         for i in range(trajLength):
              wp = traj.GetWaypoint(i)
              q = wp[robotJointValsGroup.offset:(robotJointValsGroup.offset+robotJointValsGroup.dof)]
+             q[leftHandFinger1Idx] = 0.0
+             q[leftHandFinger2Idx] = 0.0
+             q[leftHandFinger3Idx] = 0.0
+            
+             q[rightHandFinger1Idx] = 0.0
+             q[rightHandFinger2Idx] = 0.0
+             q[rightHandFinger3Idx] = 0.0
+             q[rightHandFinger4Idx] = 0.0
+             q[rightHandFinger5Idx] = 0.0
+             q[rightHandFinger6Idx] = 0.0
              myPathElementQs.append(q)
 
              
@@ -132,16 +173,34 @@ class ConstrainedPathElement():
         if( self.openHandsAfter ):
             qOpenHandsAfter = deepcopy(qLast)
             qOpenHandsAfter[leftHandFinger1Idx] = -1.45
+            qOpenHandsAfter[leftHandFinger2Idx] = -1.45
+            qOpenHandsAfter[leftHandFinger3Idx] = -1.45
+            
+            
             qOpenHandsAfter[rightHandFinger1Idx] = -1.45
             qOpenHandsAfter[rightHandFinger2Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger3Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger4Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger5Idx] = -1.45
+            qOpenHandsAfter[rightHandFinger6Idx] = -1.45
+            
             for i in range(howManyTimes):
                 myPathElementQs.append(qOpenHandsAfter)
 
         if( self.closeHandsAfter ):
             qCloseHandsAfter = deepcopy(qLast)
             qCloseHandsAfter[leftHandFinger1Idx] = 0.1
+            qCloseHandsAfter[leftHandFinger2Idx] = 0.1
+            qCloseHandsAfter[leftHandFinger3Idx] = 0.1
+
             qCloseHandsAfter[rightHandFinger1Idx] = 0.1
             qCloseHandsAfter[rightHandFinger2Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger3Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger4Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger5Idx] = 0.1
+            qCloseHandsAfter[rightHandFinger6Idx] = 0.1
+
+
             for i in range(howManyTimes):
                 myPathElementQs.append(qCloseHandsAfter)
 
@@ -178,13 +237,13 @@ class ConstrainedPathElement():
 class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
     def __init__(self,
-                 HuboModelPath = roslib.packages.get_pkg_dir("drchubo_v2")+'/robots/drchubo-v2.robot.xml',
+                 HuboModelPath = roslib.packages.get_pkg_dir("drchubo_v2")+'/robots/drchubo_v2.robot.xml',
                  WheelModelPath = roslib.packages.get_pkg_dir("wpi_drc_sim")+'/../models/driving_wheel_tiny.robot.xml' ):
 
         BaseWheelTurning.__init__( self, HuboModelPath, WheelModelPath )        
         
         # 0: Not initialized
-        # 1: Initialized
+        # 1: GetReady() successful
         # 2: At init
         # 3: Ready to turn
         # 4: Started turning
@@ -297,19 +356,22 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         else:
             return ikmodel.manip.FindIKSolution(array(T),IkFilterOptions.CheckEnvCollisions)
 
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Plans a trajectory using a CBiRRT problem and goaljoints (active dofs)
-    def PlanTrajectory(self, q_start, q_target, TSRChainString, smoothingitrs, error_code_str, mimicdof=None,psample=None):
+    def PlanTrajectory(self, q_init, q_goal, TSRChainString, smoothingitrs, error_code_str, mimicdof=None,psample=None):
         
-        if(type(q_start) == type("")):
-            q_start = str2num(q_start)
+        if(type(q_init) == type("")):
+            q_init = str2num(q_init)
 
         # First convert q_target to numbers
-        if(type(q_target) == type("")):
-            goaljoints = deepcopy(str2num(q_target))
+        if(type(q_goal) == type("")):
+            goaljoints = deepcopy(str2num(q_goal))
         else:
-            goaljoints = deepcopy(q_target)
+            goaljoints = deepcopy(q_goal)
 
-        self.robotid.SetActiveDOFValues(q_start)
+        self.robotid.SetActiveDOFValues(q_init)
         self.robotid.GetController().Reset(0)
         time.sleep(2)
 
@@ -338,6 +400,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         return [True, ""]
 
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def ExportTraj2RealHubo(self,trajfilename):
         traj = RaveCreateTrajectory(self.env,'').deserialize(open(trajfilename+'.txt','r').read())
         cs = traj.GetConfigurationSpecification()
@@ -346,6 +411,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         deltatimeGroup = cs.GetGroupFromName("deltatime")
         rave2realhubo.traj2ach(self.env,self.robotid,traj,trajfilename,drchuboJointValsGroup.offset,drchuboJointVelocitiesGroup.offset,deltatimeGroup.offset)
     
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def RenameTrajectory(self,src,dst):
         try:
             os.rename(src,dst)
@@ -355,7 +423,71 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
             return [False, "OS exception in RenameTrajectory."]
 
         return [True, ""]
+
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    def PlanPath(self, path):
+
+        if( self.StopAtKeyStrokes ):
+            print "Press Enter to plan "+path.name
+            sys.stdin.readline()
+
+        for pe in path.elements:
+
+            if( pe.openHandsBefore ):
+                # Open the hand we will use to avoid collision:
+                if( pe.hands == "BH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "LH" ):
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "RH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+
+                self.OpenHands(pe.hands,self.default_trajectory_dir+"openhands_before_"+pe.filename)
+            if( pe.closeHandsBefore ):
+                self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_before_"+pe.filename,True)
+
+            [success, why] = self.PlanTrajectory(pe.startik, pe.goalik, pe.TSR, pe.smoothing, pe.errorCode, pe.mimicdof, pe.psample)
+            if(not success):
+                return [False, why]
+
+            [success, why] = self.RenameTrajectory("cmovetraj.txt",self.default_trajectory_dir+pe.filename+".txt")
+            if(not success):
+                return [False, why]
+
+            self.ExportTraj2RealHubo(self.default_trajectory_dir+pe.filename)
+            
+            [success, why] = pe.PlayInOpenRAVE()
+            if(not success):
+                return [False, why]
+
+            if( pe.openHandsAfter ):
+                # Open the hand we will use to avoid collision:
+                if( pe.hands == "BH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "LH" ):
+                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
+                if( pe.hands == "RH" ):
+                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
+            
+                self.OpenHands(pe.hands,self.default_trajectory_dir+"openhands_after_"+pe.filename)
+            if( pe.closeHandsAfter ):
+                # super hacky way to keep the robot from being in self collision when going home
+                if(pe.name == "current2init"):
+                    self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_after_"+pe.filename,False)
+                else:
+                    self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_after_"+pe.filename,True)
+
+        self.trajectory = path
+
+        return [True, ""]
     
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def EndTask(self, hands, valveType):
         # Wherever you are,
         currentik = self.robotid.GetActiveDOFValues()
@@ -456,8 +588,13 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         else:
             return 0
 
-    def FindStartIK(self, hands, valveType):
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    def FindStartIK(self, hands, valveType, adjust=False):
         handles = []
+
+        print hands
 
         # Now try to find an IK to get ready to turn the valve
         #
@@ -467,11 +604,17 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         # Left Hand Transform in World Coordinates
         self.T0_LH1 = self.GetT0_LH1(hands, graspIndex ,valveType)
 
-        # Uncomment if you want to see where T0_LH1 is 
-        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
-
         # Right Hand Pose in World Coordinates
         self.T0_RH1 = self.GetT0_RH1(hands, graspIndex, valveType)
+
+        if( adjust ):
+            if( hands == "BH" or hands == "LH" ):
+                self.T0_LH1[2,3] += self.crouch
+            if( hands == "BH" or hands == "RH" ):
+                self.T0_RH1[2,3] += self.crouch
+
+        # Uncomment if you want to see where T0_LH1 is 
+        handles.append(misc.DrawAxes(self.env,matrix(self.T0_LH1),1))
 
         # Uncomment if you want to see where T0_RH1 is 
         handles.append(misc.DrawAxes(self.env,matrix(self.T0_RH1),1))
@@ -538,6 +681,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         return [True, "", startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh]
 
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def GetReady(self, hands, valveType):
         
         self.AvoidSingularity(self.robotid)
@@ -570,7 +716,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         self.robotid.SetActiveDOFValues(str2num(self.initik))
 
-        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK(hands, valveType)
+        [success, why, startik, TSRChainStringFeetandHead_init2start_bh, TSRChainStringFeetandHead_init2start_lh, TSRChainStringFeetandHead_init2start_rh] = self.FindStartIK(hands, valveType, True)
         
         if(not success):
             return why
@@ -634,144 +780,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         else:
             return 0
 
-
-    def PlanPath(self, path):
-
-        if( self.StopAtKeyStrokes ):
-            print "Press Enter to plan "+path.name
-            sys.stdin.readline()
-
-        for pe in path.elements:
-
-            if( pe.openHandsBefore ):
-                # Open the hand we will use to avoid collision:
-                if( pe.hands == "BH" ):
-                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-                if( pe.hands == "LH" ):
-                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-                if( pe.hands == "RH" ):
-                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-
-                self.OpenHands(pe.hands,self.default_trajectory_dir+"openhands_before_"+pe.filename)
-            if( pe.closeHandsBefore ):
-                self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_before_"+pe.filename,True)
-
-            [success, why] = self.PlanTrajectory(pe.startik, pe.goalik, pe.TSR, pe.smoothing, pe.errorCode, pe.mimicdof, pe.psample)
-            if(not success):
-                return [False, why]
-
-            [success, why] = self.RenameTrajectory("cmovetraj.txt",self.default_trajectory_dir+pe.filename+".txt")
-            if(not success):
-                return [False, why]
-
-            self.ExportTraj2RealHubo(self.default_trajectory_dir+pe.filename)
-            
-            [success, why] = pe.PlayInOpenRAVE()
-            if(not success):
-                return [False, why]
-
-            if( pe.openHandsAfter ):
-                # Open the hand we will use to avoid collision:
-                if( pe.hands == "BH" ):
-                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-                if( pe.hands == "LH" ):
-                    self.robotid.SetDOFValues(self.lhandopenvals,self.lhanddofs)
-                if( pe.hands == "RH" ):
-                    self.robotid.SetDOFValues(self.rhandopenvals,self.rhanddofs)
-            
-                self.OpenHands(pe.hands,self.default_trajectory_dir+"openhands_after_"+pe.filename)
-            if( pe.closeHandsAfter ):
-                # super hacky way to keep the robot from being in self collision when going home
-                if(pe.name == "current2init"):
-                    self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_after_"+pe.filename,False)
-                else:
-                    self.CloseHands(pe.hands,self.default_trajectory_dir+"closehands_after_"+pe.filename,True)
-
-        self.trajectory = path
-
-        return [True, ""]
-
-    def GetT0_LH1(self, hands, whichGrasp, valveType):
-
-        if( hands == "BH" ):
-            # Figure out where to put the left hand on the valve
-            if(valveType == "W"):
-                if(whichGrasp == 0):
-                    temp = dot(self.valveTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-                    temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
-                    return dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
-                
-        if( hands == "LH" ):
-            # Figure out where to put the left hand on the wheel
-            temp = dot(self.valveTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
-            temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-
-            # Left Hand Pose in World Coordinates
-            if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
-                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
-            if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
-                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,(self.r_Wheel-0.005)]))))
-
-            if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
-                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
-
-        if( hands == "RH" ):
-            return self.robotManips[0].GetEndEffectorTransform()
-
-        return None
-
-
-    def GetT0_RH1(self, hands, whichGrasp, valveType):
-        if( hands == "BH" ):
-            # Figure out where to put the right hand on the valve
-            if(valveType == "W"):
-                if(whichGrasp == 0):
-                    temp = dot(self.valveTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-                    temp = dot(temp, MakeTransform(rodrigues([0,pi,0]),transpose(matrix([0,0,0]))))
-                    temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
-                    return dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))      
-
-        if( hands == "LH" ):
-            return self.robotManips[1].GetEndEffectorTransform()
-
-        if( hands == "RH" ):
-            temp = dot(self.valveTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
-            temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
-
-            # Right Hand Pose in World Coordinates
-            if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
-                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
-            if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
-                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
-            if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
-                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
-
-        return None
-
-    def CheckHands(self, radius, valveType, direction):
-        # Check if, because of compliance, or some other reason (active balancing / sensor error etc.)
-        # the end effectors of the robot matches to {R,L}H1 for the most recent valve pose.
-        # 
-        # If the end effector's are not where they should be, then plan a trajectory in between
-        # and go to start configuration.
-        T0_CurrentLH = self.robotManips[0].GetEndEffectorTransform()
-        T0_CurrentRH = self.robotManips[1].GetEndEffectorTransform()
-
-        # set the result to false first
-        goToStartIK = False
-
-        if(not allclose(self.T0_LH1, T0_CurrentLH) ):
-            print "Warning: leftArm end effector has moved."
-            goToStartIK = True
-
-        if(not allclose(self.T0_RH1, T0_CurrentRH) ):
-            print "Warning: rightArm end effector has moved."
-            goToStartIK = True
-
-        return goToStartIK
-
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def BothHands(self, radius, valveType, direction):
 
         handles = []
@@ -1027,7 +1038,7 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         cpe2.cbirrtTrajectories = [self.default_trajectory_dir+cpe2.filename]
 
         # Define exit1 to exit2
-        cpe3 = ConstrainedPathElement("goal2exit1")
+        cpe3 = ConstrainedPathElement("exit12exit2")
         cpe3.startik = exitik1
         cpe3.goalik = exitik2
         cpe3.TSR = TSRChainStringFeetandHead_goal2start
@@ -1066,37 +1077,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
 
         return 0
 
-    def FindActiveQ(self, manipIndices, manipTransforms):
-        # Try to find a GeneralIK solution for the manipulators
-        # if it fails, try finding an IKFast solution
-        cmdStr = 'DoGeneralIK exec supportlinks 2'+self.footlinknames+' movecog '+self.cogTargStr+' nummanips '+str(len(manipIndices))+' maniptm'
-        for i, manipIdx in enumerate(manipIndices):
-            cmdStr += ' '+str(manipIdx)+' '+trans_to_str(manipTransforms[i])
-        
-        # command string is ready. Solve GeneralIK
-        generalik = self.probs_cbirrt.SendCommand(cmdStr)
-
-        # check if generalik succeeded without any collision
-        if( generalik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
-            print "Error: generalik failed, or the solution found is in collision"
-
-            if( self.useIKFast ):
-                for i, manipIdx in enumerate(manipIndices):
-                    print "Info: using IKFast."
-                    sol = self.IKFast(self.robotManips[manipIdx], array(manipTransforms[i]), False)
-                    if( sol is not None):
-                        self.robotid.SetDOFValues(sol, self.robotManips[manipIdx].GetArmIndices())
-                    else:
-                        print "Error: IKFast could not find a solution."
-                        return None
-        else:
-            return generalik
-
-        # if we are here, it means generalik failed, or there was a collision
-        # so, we tried IKFast, and it succeeded, let's return active dof configuration
-        return self.robotid.GetActiveDOFValues()
-            
-
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def LeftHand(self, radius, valveType, direction):
 
         currentik = self.robotid.GetActiveDOFValues()
@@ -1251,7 +1234,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         else:
             return 0 # no error
 
-    
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def RightHand(self, radius, valveType, direction):
 
         currentik = self.robotid.GetActiveDOFValues()
@@ -1397,6 +1382,123 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
         else:
             return 0
 
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    def GetT0_LH1(self, hands, whichGrasp, valveType):
+
+        if( hands == "BH" ):
+            # Figure out where to put the left hand on the valve
+            if(valveType == "W"):
+                if(whichGrasp == 0):
+                    temp = dot(self.valveTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+                    temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
+                    return dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))
+                
+        if( hands == "LH" ):
+            # Figure out where to put the left hand on the wheel
+            temp = dot(self.valveTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
+            temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+
+            # Left Hand Pose in World Coordinates
+            if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
+            if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,(self.r_Wheel-0.005)]))))
+
+            if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
+
+        if( hands == "RH" ):
+            return self.robotManips[0].GetEndEffectorTransform()
+
+        print "Error : valve type and hand choice incompatible"
+        return None
+
+
+    def GetT0_RH1(self, hands, whichGrasp, valveType):
+        if( hands == "BH" ):
+            # Figure out where to put the right hand on the valve
+            if(valveType == "W"):
+                if(whichGrasp == 0):
+                    temp = dot(self.valveTee, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+                    temp = dot(temp, MakeTransform(rodrigues([0,pi,0]),transpose(matrix([0,0,0]))))
+                    temp = dot(temp, MakeTransform(rodrigues([0,0,-pi/2]),transpose(matrix([0,0,0]))))
+                    return dot(temp, MakeTransform(rodrigues([0,0,pi/4]),transpose(matrix([-0.02,self.r_Wheel+0.005,0]))))      
+
+        if( hands == "LH" ):
+            return self.robotManips[1].GetEndEffectorTransform()
+
+        if( hands == "RH" ):
+            temp = dot(self.valveTee, MakeTransform(rodrigues([0,0,pi/2]),transpose(matrix([0,0,0]))))
+            temp = dot(temp, MakeTransform(rodrigues([-pi/2,0,0]),transpose(matrix([0,0,0]))))
+
+            # Right Hand Pose in World Coordinates
+            if(valveType == "RL"): # if lever (right end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,-1*(self.r_Wheel-0.005)]))))
+            if(valveType == "LL"): # if lever (left end at the origin of rotation), hold it from the tip of the handle
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.01,self.r_Wheel-0.005]))))
+            if(valveType == "W"): # if it's a small wheel, hold it from the center but back off a little
+                return dot(temp, MakeTransform(rodrigues([0,0,0]),transpose(matrix([0,0.02,0]))))
+
+        print "Error : valve type and hand choice incompatible"
+        return None
+
+
+    def CheckHands(self, radius, valveType, direction):
+        # Check if, because of compliance, or some other reason (active balancing / sensor error etc.)
+        # the end effectors of the robot matches to {R,L}H1 for the most recent valve pose.
+        # 
+        # If the end effector's are not where they should be, then plan a trajectory in between
+        # and go to start configuration.
+        T0_CurrentLH = self.robotManips[0].GetEndEffectorTransform()
+        T0_CurrentRH = self.robotManips[1].GetEndEffectorTransform()
+
+        # set the result to false first
+        goToStartIK = False
+
+        if(not allclose(self.T0_LH1, T0_CurrentLH) ):
+            print "Warning: leftArm end effector has moved."
+            goToStartIK = True
+
+        if(not allclose(self.T0_RH1, T0_CurrentRH) ):
+            print "Warning: rightArm end effector has moved."
+            goToStartIK = True
+
+        return goToStartIK
+
+
+    def FindActiveQ(self, manipIndices, manipTransforms):
+        # Try to find a GeneralIK solution for the manipulators
+        # if it fails, try finding an IKFast solution
+        cmdStr = 'DoGeneralIK exec supportlinks 2'+self.footlinknames+' movecog '+self.cogTargStr+' nummanips '+str(len(manipIndices))+' maniptm'
+        for i, manipIdx in enumerate(manipIndices):
+            cmdStr += ' '+str(manipIdx)+' '+trans_to_str(manipTransforms[i])
+        
+        # command string is ready. Solve GeneralIK
+        generalik = self.probs_cbirrt.SendCommand(cmdStr)
+
+        # check if generalik succeeded without any collision
+        if( generalik == '' or (self.env.CheckCollision(self.robotid) or self.robotid.CheckSelfCollision()) ):
+            print "Error: generalik failed, or the solution found is in collision"
+
+            if( self.useIKFast ):
+                for i, manipIdx in enumerate(manipIndices):
+                    print "Info: using IKFast."
+                    sol = self.IKFast(self.robotManips[manipIdx], array(manipTransforms[i]), False)
+                    if( sol is not None):
+                        self.robotid.SetDOFValues(sol, self.robotManips[manipIdx].GetArmIndices())
+                    else:
+                        print "Error: IKFast could not find a solution."
+                        return None
+        else:
+            return generalik
+
+        # if we are here, it means generalik failed, or there was a collision
+        # so, we tried IKFast, and it succeeded, let's return active dof configuration
+        return self.robotid.GetActiveDOFValues()
+
+
     def SetRobotConfiguration(self,q):
         # q is a dictionary
         #
@@ -1413,8 +1515,17 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
             else:
                 print "Info: set robot config is skipping :"+jName
 
+
     def GetFeetTargets(self):
-        T0_TSY = self.robotid.GetLinks()[12].GetTransform()
+        
+        T0_TSY = None
+        for l in self.robotid.GetLinks():
+            if l.GetName() == "Body_TSY":
+                T0_TSY = l.GetTransform()
+
+        if T0_TSY == None:
+            print "Body_TSY does not exist"
+            return None
         
         # Left Foot Target in World Coords.
         T0_LF = deepcopy(T0_TSY)
@@ -1448,7 +1559,9 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
             # LAP: 15, RAP: 40
             self.robotid.SetDOFValues([-howMuch,-howMuch],[15,40])
             
-
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     def Plan(self, handles=[], radius=None, manipulator=None, direction="CW", valveType=None, taskStage=None):
 
         if(radius != None):
@@ -1493,24 +1606,44 @@ class DrcHuboV2WheelTurning( BaseWheelTurning ):
              
         # Sort Active Joint Indices
         self.activedofs.sort()
-        print "activedofs:"
-        print self.activedofs
+        # print "activedofs:"
+        # print self.activedofs
+
+        error_code = -1
 
         if( taskStage == 'GETREADY' ):
-            error_code = self.GetReady(manipulator, valveType)
+            if (self.state == 0):
+                error_code = self.GetReady(manipulator, valveType)
+                if( error_code == 0):
+                    self.state = 1 # GetReady() Done.
+            else:
+                print "Warning: You can not plan for GetReady in this state. Please plan for Finish Task first."
+
         elif( taskStage == 'TURNVALVE' ):
-            if( manipulator == "LH" ):
-                error_code = self.LeftHand(radius, valveType, direction)
-            elif( manipulator == "RH" ):
-                error_code = self.RightHand(radius, valveType, direction)
-            elif( manipulator == "BH" ):
-                error_code = self.BothHands(radius, valveType, direction)
+            if (self.state > 0):
+                if( manipulator == "LH" ):
+                    error_code = self.LeftHand(radius, valveType, direction)
+                elif( manipulator == "RH" ):
+                    error_code = self.RightHand(radius, valveType, direction)
+                elif( manipulator == "BH" ):
+                    error_code = self.BothHands(radius, valveType, direction)
+
+                if( error_code == 0 ):
+                    self.state = 2
+            else:
+                print "Warning: You can not plan for Turn Valve in this state. Please plan for getting ready first."
+
         elif( taskStage == 'END' ):
-            error_code = self.EndTask(manipulator, valveType)
+            if (self.state > 0):
+                error_code = self.EndTask(manipulator, valveType)
+                if( error_code == 0):
+                    self.state = 0
+            else:
+                print "Warning: You can not plan for End Task in this state. Please plan for getting ready first."
 
-        print "Planning, done."
+        print "Info: planner is waiting for the next call..."
 
-        return error_code    
+        return error_code 
 
 if __name__ == "__main__":
     # One can run this script from terminal passing a radius value in
